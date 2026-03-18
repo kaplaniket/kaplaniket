@@ -1,0 +1,24 @@
+# SteuerApp – Abhängigkeiten
+# Installation: pip3 install -r requirements.txt
+
+# ── PDF-Verarbeitung ──────────────────────────────────────────────
+PyMuPDF>=1.23.0
+
+# ── Bildverarbeitung ──────────────────────────────────────────────
+Pillow>=10.0.0
+
+# ── OCR (Texterkennung) ───────────────────────────────────────────
+# Hinweis: Tesseract-Binary separat installieren!
+# macOS:   brew install tesseract tesseract-lang
+# Linux:   sudo apt-get install tesseract-ocr tesseract-ocr-deu
+pytesseract>=0.3.10
+
+# ── Office-Dokumente ──────────────────────────────────────────────
+python-docx>=1.0.0
+openpyxl>=3.1.0
+
+# ── PDF-Berichte generieren ───────────────────────────────────────
+reportlab>=4.0.0
+
+# ── Datumsverarbeitung ────────────────────────────────────────────
+# (Standardbibliothek reicht, kein extra Paket nötig)
