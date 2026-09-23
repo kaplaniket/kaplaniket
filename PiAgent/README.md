@@ -49,13 +49,20 @@ Einzelne Frage ohne Chat: `pi-agent -p "Wie viel Speicher ist noch frei?"`
 
 **Vom Handy / Browser (Remote Control):**
 
+Der Installer richtet den Dienst `pi-agent-remote` ein: `claude remote-control`
+startet **automatisch bei jedem Boot** (in `tmux`) und startet sich nach Fehlern neu.
+Die Sitzung erscheint in der Claude-App (Bereich *Code*) bzw. unter claude.ai/code –
+so erreichst du Dateien und Terminal des Pi von überall.
+
 ```bash
-pi-agent-remote
+pi-agent-remote          # Status
+pi-agent-remote attach   # hineinschauen (verlassen: Strg+B, dann D)
+pi-agent-remote restart  # neu starten
+pi-agent-remote stop     # stoppen und Autostart aus
+pi-agent-remote start    # starten und Autostart an
 ```
 
-Startet `claude remote-control` im Hintergrund (in `tmux`). Die Sitzung erscheint
-in der Claude-App bzw. unter claude.ai/code – so steuerst du den Pi von überall.
-Ansehen: `tmux attach -t pi-agent`, verlassen mit `Strg+B`, dann `D`.
+Hast du eine ältere Version installiert: `cd kaplaniket && git pull && bash PiAgent/install_pi.sh`.
 
 ## Was ist dabei
 
@@ -75,4 +82,6 @@ Pins oder Projekte beschreiben. Ein erneutes `install_pi.sh` überschreibt sie n
 
 - `claude: command not found` → neues Terminal öffnen oder `source ~/.bashrc`
 - Login klappt ohne Bildschirm nicht → Link aus dem Terminal am Handy/PC öffnen
-- Remote-Sitzung beenden → `tmux kill-session -t pi-agent`
+- Pi taucht nicht in der App auf → `pi-agent-remote` (Status) und `pi-agent-remote attach`
+  (evtl. wartet dort eine Rückfrage), Logs: `journalctl -u pi-agent-remote`
+- Remote Control dauerhaft aus → `pi-agent-remote stop`
