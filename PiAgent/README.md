@@ -1,24 +1,16 @@
-# PiAgent – lokaler KI-Agent für den Raspberry Pi
+# PiAgent – Claude Code als Agent auf dem Raspberry Pi
 
-Ein KI-Assistent, der **komplett lokal** auf deinem Raspberry Pi läuft – ohne Cloud,
-ohne API-Schlüssel. Das Sprachmodell läuft über [Ollama](https://ollama.com),
-der Agent selbst ist ein einzelnes Python-Skript ohne Abhängigkeiten.
+Macht deinen Raspberry Pi zu einem Claude-Code-Agenten: Claude läuft direkt auf dem Pi,
+kann dort Befehle ausführen, Dateien bearbeiten, Dienste prüfen und Projekte programmieren –
+im Terminal oder ferngesteuert über die Claude-App auf dem Handy (Remote Control).
 
-Der Agent kann Werkzeuge benutzen:
-
-| Werkzeug      | Was es tut                                                  | Rückfrage |
-|---------------|-------------------------------------------------------------|-----------|
-| `system_info` | CPU-Temperatur, RAM, Speicher, Last, Uptime, Throttling     | nein      |
-| `list_dir`    | Verzeichnis auflisten                                       | nein      |
-| `read_file`   | Datei lesen                                                 | nein      |
-| `write_file`  | Datei schreiben                                             | **ja**    |
-| `run_shell`   | Shell-Befehl ausführen                                      | **ja**    |
+Das Sprachmodell läuft in der Cloud von Anthropic, alle Befehle und Dateien bleiben auf dem Pi.
 
 ## Voraussetzungen
 
-- Raspberry Pi 4 oder 5 (empfohlen: 8 GB RAM)
-- **Raspberry Pi OS 64-bit**
-- Internet nur für die Installation (Ollama + Modell herunterladen)
+- Raspberry Pi 4 oder 5 (auch Pi 3/Zero 2 W mit 64-bit-OS möglich)
+- **Raspberry Pi OS 64-bit**, Internetverbindung
+- Claude-Konto (Pro/Max) oder ein Anthropic-API-Schlüssel
 
 ## Installation
 
@@ -29,71 +21,58 @@ cd PiAgent
 bash install_pi.sh
 ```
 
-Das Skript installiert Ollama, wählt ein Modell passend zum RAM, lädt es herunter
-und richtet den Befehl `pi-agent` sowie die Web-Oberfläche als Dienst ein.
+Das Skript installiert Claude Code mit dem offiziellen Installer, legt das
+Arbeitsverzeichnis `~/pi-agent` an und richtet die Befehle `pi-agent` und
+`pi-agent-remote` ein.
 
-| RAM   | Modell          |
-|-------|-----------------|
-| 8 GB  | `qwen2.5:3b`    |
-| 4 GB  | `qwen2.5:1.5b`  |
-| 2 GB  | `qwen2.5:0.5b`  |
-
-Anderes Modell: `bash install_pi.sh llama3.2:3b` (das Modell muss Tool-Calling unterstützen).
-
-## Benutzung
-
-**Terminal:**
+Danach einmal anmelden:
 
 ```bash
 pi-agent
-Du: Wie warm ist mein Pi und wie viel Speicher ist noch frei?
-Du: Zeig mir die letzten Fehler im Systemlog
-⚠ run_shell: journalctl -p err -n 20 – ausführen? [j/N] j
 ```
 
-Einzelne Frage: `pi-agent -p "Wie lange läuft der Pi schon?"`
-Befehle: `/neu` = neuer Chat, `/ende` = beenden.
+Beim ersten Start erscheint ein Login-Link. Alternativ mit API-Schlüssel:
+`export ANTHROPIC_API_KEY=sk-ant-...` in `~/.bashrc` eintragen.
 
-**Browser / Handy:** `http://<IP-des-Pi>:8765`
+## Benutzung
 
-Im Browser gibt es keine Rückfrage, deshalb sind `run_shell` und `write_file` dort
-standardmäßig **gesperrt**. Freischalten in `~/pi-agent/pi-agent.env`:
+**Im Terminal (z. B. per SSH):**
 
+```bash
+pi-agent
+> Wie warm ist mein Pi und wird er gedrosselt?
+> Zeig mir die Fehler im Systemlog seit heute früh
+> Schreib mir ein Python-Skript, das die LED an GPIO 17 blinken lässt
 ```
-PI_AGENT_ALLOW_SHELL=1
+
+Einzelne Frage ohne Chat: `pi-agent -p "Wie viel Speicher ist noch frei?"`
+
+**Vom Handy / Browser (Remote Control):**
+
+```bash
+pi-agent-remote
 ```
 
-danach `sudo systemctl restart pi-agent`. ⚠️ Dann kann jeder im Netzwerk, der die
-Seite erreicht, Befehle auf dem Pi ausführen – nur im vertrauenswürdigen Heimnetz nutzen.
-Soll die Seite nur lokal erreichbar sein: `PI_AGENT_HOST=127.0.0.1`.
+Startet `claude remote-control` im Hintergrund (in `tmux`). Die Sitzung erscheint
+in der Claude-App bzw. unter claude.ai/code – so steuerst du den Pi von überall.
+Ansehen: `tmux attach -t pi-agent`, verlassen mit `Strg+B`, dann `D`.
 
-## Einstellungen (`~/pi-agent/pi-agent.env`)
+## Was ist dabei
 
-| Variable               | Standard                 | Bedeutung                              |
-|------------------------|--------------------------|----------------------------------------|
-| `PI_AGENT_MODEL`       | je nach RAM              | Ollama-Modell                          |
-| `PI_AGENT_HOST`        | `0.0.0.0`                | Adresse der Web-Oberfläche             |
-| `PI_AGENT_PORT`        | `8765`                   | Port der Web-Oberfläche                |
-| `PI_AGENT_ALLOW_SHELL` | `0`                      | Shell/Schreiben im Web erlauben        |
-| `PI_AGENT_WORKDIR`     | Home-Verzeichnis         | Arbeitsverzeichnis für relative Pfade  |
-| `PI_AGENT_MAX_STEPS`   | `8`                      | Max. Werkzeug-Schritte pro Frage       |
+| Datei                                 | Zweck                                                      |
+|---------------------------------------|------------------------------------------------------------|
+| `~/pi-agent/CLAUDE.md`                | Kontext: Claude weiß, dass es auf einem Pi läuft, kennt `vcgencmd`, `pinctrl`, Regeln |
+| `~/pi-agent/.claude/settings.json`    | Berechtigungen: harmlose Statusbefehle ohne Rückfrage, gefährliche (`dd`, `mkfs` …) gesperrt |
+| `~/pi-agent/projekte/`                | Ablage für deine Skripte und Projekte                      |
 
-## Eigene Werkzeuge hinzufügen
+Alles andere (z. B. `sudo`, `apt install`, Dateien schreiben) fragt Claude Code
+vorher nach – du bestätigst jeden Schritt.
 
-In `agent.py` eine Funktion schreiben und in `TOOLS` eintragen, z. B. für GPIO:
-
-```python
-def tool_led(on: bool) -> str:
-    subprocess.run(["pinctrl", "set", "17", "op", "dh" if on else "dl"])
-    return "LED an" if on else "LED aus"
-
-TOOLS["led"] = (tool_led, "Schaltet die LED an GPIO 17.",
-                {"on": {"type": "boolean", "description": "true = an"}})
-```
+`CLAUDE.md` und `settings.json` darfst du frei anpassen, z. B. eigene Sensoren,
+Pins oder Projekte beschreiben. Ein erneutes `install_pi.sh` überschreibt sie nicht.
 
 ## Probleme
 
-- `Ollama ist nicht erreichbar` → `sudo systemctl start ollama`
-- `Modell fehlt` → `ollama pull <modell>`
-- Antworten sehr langsam → kleineres Modell wählen, Pi gut kühlen
-- Logs der Web-Oberfläche → `journalctl -u pi-agent -f`
+- `claude: command not found` → neues Terminal öffnen oder `source ~/.bashrc`
+- Login klappt ohne Bildschirm nicht → Link aus dem Terminal am Handy/PC öffnen
+- Remote-Sitzung beenden → `tmux kill-session -t pi-agent`

@@ -1,91 +1,62 @@
 #!/usr/bin/env bash
-# PiAgent – Installation auf dem Raspberry Pi (Raspberry Pi OS 64-bit)
+# PiAgent – Claude Code auf dem Raspberry Pi installieren (Raspberry Pi OS 64-bit)
 #
-#   bash install_pi.sh            # Installation, Modell je nach RAM
-#   bash install_pi.sh qwen2.5:7b # bestimmtes Modell erzwingen
+#   bash install_pi.sh
 set -euo pipefail
 
 INSTALL_DIR="$HOME/pi-agent"
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-echo "==> PiAgent-Installation"
+echo "==> PiAgent (Claude Code) – Installation"
 
 if [ "$(uname -m)" != "aarch64" ] && [ "$(uname -m)" != "x86_64" ]; then
-  echo "Ollama benötigt ein 64-bit-Betriebssystem (aktuell: $(uname -m))."
+  echo "Claude Code benötigt ein 64-bit-Betriebssystem (aktuell: $(uname -m))."
   echo "Bitte Raspberry Pi OS (64-bit) installieren."
   exit 1
 fi
 
-# Modell passend zum Arbeitsspeicher wählen
-RAM_MB=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
-if [ -n "${1:-}" ]; then
-  MODEL="$1"
-elif [ "$RAM_MB" -ge 7000 ]; then
-  MODEL="qwen2.5:3b"      # Pi 5 / Pi 4 mit 8 GB
-elif [ "$RAM_MB" -ge 3500 ]; then
-  MODEL="qwen2.5:1.5b"    # 4 GB
-else
-  MODEL="qwen2.5:0.5b"    # 2 GB – sehr einfach, aber lauffähig
+# 1. Hilfsprogramme (git für Projekte, tmux für den Hintergrundbetrieb)
+echo "==> Installiere git, tmux, curl …"
+sudo apt-get update -qq
+sudo apt-get install -y -qq git tmux curl ripgrep >/dev/null
+
+# 2. Claude Code (offizieller nativer Installer)
+if ! command -v claude >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/claude" ]; then
+  echo "==> Installiere Claude Code …"
+  curl -fsSL https://claude.ai/install.sh | bash
 fi
-echo "==> RAM: ${RAM_MB} MB → Modell: $MODEL"
-
-# 1. Ollama
-if ! command -v ollama >/dev/null 2>&1; then
-  echo "==> Installiere Ollama …"
-  curl -fsSL https://ollama.com/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+if ! grep -q '.local/bin' "$HOME/.bashrc" 2>/dev/null; then
+  echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
 fi
-sudo systemctl enable --now ollama >/dev/null 2>&1 || true
-for _ in $(seq 1 30); do
-  curl -fs http://127.0.0.1:11434/api/tags >/dev/null && break
-  sleep 1
-done
 
-# 2. Modell laden
-echo "==> Lade Modell $MODEL (kann einige Minuten dauern) …"
-ollama pull "$MODEL"
+# 3. Arbeitsverzeichnis mit Pi-Kontext (CLAUDE.md) und Berechtigungen
+mkdir -p "$INSTALL_DIR/.claude" "$INSTALL_DIR/projekte"
+# vorhandene (evtl. angepasste) Dateien nicht überschreiben
+[ -e "$INSTALL_DIR/CLAUDE.md" ] || cp "$SRC_DIR/workspace/CLAUDE.md" "$INSTALL_DIR/"
+[ -e "$INSTALL_DIR/.claude/settings.json" ] || cp "$SRC_DIR/workspace/.claude/settings.json" "$INSTALL_DIR/.claude/"
 
-# 3. Agent kopieren
-mkdir -p "$INSTALL_DIR"
-cp "$SRC_DIR/agent.py" "$SRC_DIR/web.html" "$INSTALL_DIR/"
-chmod +x "$INSTALL_DIR/agent.py"
-cat > "$INSTALL_DIR/pi-agent.env" <<EOF
-PI_AGENT_MODEL=$MODEL
-PI_AGENT_HOST=0.0.0.0
-PI_AGENT_PORT=8765
-# 1 = Web-Oberfläche darf Shell-Befehle ausführen und Dateien schreiben
-PI_AGENT_ALLOW_SHELL=0
-EOF
-
-# 4. Befehl "pi-agent" für das Terminal
+# 4. Befehle
+#    pi-agent          → Claude Code im Terminal (im Pi-Arbeitsverzeichnis)
+#    pi-agent-remote   → Remote Control im Hintergrund (tmux), steuerbar über die Claude-App
 sudo tee /usr/local/bin/pi-agent >/dev/null <<EOF
 #!/usr/bin/env bash
-set -a; . "$INSTALL_DIR/pi-agent.env"; set +a
-exec python3 "$INSTALL_DIR/agent.py" "\$@"
+cd "$INSTALL_DIR" && exec "$HOME/.local/bin/claude" "\$@"
 EOF
-sudo chmod +x /usr/local/bin/pi-agent
-
-# 5. Web-Oberfläche als Dienst
-sudo tee /etc/systemd/system/pi-agent.service >/dev/null <<EOF
-[Unit]
-Description=PiAgent – lokaler KI-Agent (Web)
-After=network-online.target ollama.service
-Wants=ollama.service
-
-[Service]
-User=$USER
-EnvironmentFile=$INSTALL_DIR/pi-agent.env
-ExecStart=/usr/bin/python3 $INSTALL_DIR/agent.py --web
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
+sudo tee /usr/local/bin/pi-agent-remote >/dev/null <<EOF
+#!/usr/bin/env bash
+if tmux has-session -t pi-agent 2>/dev/null; then
+  echo "Läuft bereits. Anzeigen mit: tmux attach -t pi-agent"
+else
+  tmux new-session -d -s pi-agent -c "$INSTALL_DIR" "$HOME/.local/bin/claude remote-control"
+  echo "Remote Control gestartet. Anzeigen mit: tmux attach -t pi-agent (verlassen: Strg+B, D)"
+fi
 EOF
-sudo systemctl daemon-reload
-sudo systemctl enable --now pi-agent
+sudo chmod +x /usr/local/bin/pi-agent /usr/local/bin/pi-agent-remote
 
-IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 echo
 echo "✅ Fertig!"
-echo "   Terminal:  pi-agent"
-echo "   Browser:   http://${IP:-<pi-ip>}:8765"
-echo "   Einstellungen: $INSTALL_DIR/pi-agent.env (danach: sudo systemctl restart pi-agent)"
+echo "   1. Einmal anmelden:   pi-agent   (Login mit deinem Claude-Konto öffnet einen Link)"
+echo "   2. Im Terminal nutzen: pi-agent"
+echo "   3. Vom Handy steuern: pi-agent-remote  → Sitzung erscheint in der Claude-App"
+echo "   Kontext anpassen: $INSTALL_DIR/CLAUDE.md"
