@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(vcgencmd:*)",
+      "Bash(pinctrl get:*)",
+      "Bash(uptime)",
+      "Bash(free:*)",
+      "Bash(df:*)",
+      "Bash(lsblk:*)",
+      "Bash(lsusb:*)",
+      "Bash(ip addr:*)",
+      "Bash(hostname:*)",
+      "Bash(journalctl:*)",
+      "Bash(systemctl status:*)",
+      "Bash(systemctl list-units:*)",
+      "Read(/proc/**)",
+      "Read(/sys/class/**)"
+    ],
+    "deny": [
+      "Bash(rm -rf /:*)",
+      "Bash(sudo rm -rf:*)",
+      "Bash(dd:*)",
+      "Bash(mkfs:*)"
+    ]
+  }
+}
