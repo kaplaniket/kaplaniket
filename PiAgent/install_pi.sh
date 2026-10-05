@@ -50,11 +50,23 @@ case "${1:-status}" in
   stop)    sudo systemctl disable --now pi-agent-remote ;;
   restart) sudo systemctl restart pi-agent-remote ;;
   attach)  exec tmux attach -t pi-agent ;;
+  log)     tail -n 40 "$HOME/pi-agent/remote.log" ;;
   status)  systemctl --no-pager status pi-agent-remote | head -5 ;;
-  *) echo "Nutzung: pi-agent-remote [status|start|stop|restart|attach]"; exit 1 ;;
+  *) echo "Nutzung: pi-agent-remote [status|start|stop|restart|attach|log]"; exit 1 ;;
 esac
 EOF
-sudo chmod +x /usr/local/bin/pi-agent /usr/local/bin/pi-agent-remote
+# Startskript für den Dienst: schreibt Claudes Ausgabe (inkl. Fehlermeldungen)
+# nach remote.log und hält die Sitzung nach einem Absturz kurz offen,
+# damit man sie mit "pi-agent-remote attach" noch lesen kann
+sudo tee /usr/local/bin/pi-agent-remote-run >/dev/null <<EOF
+#!/usr/bin/env bash
+cd "$INSTALL_DIR"
+echo "=== \$(date '+%F %T') Start claude remote-control ===" >> remote.log
+script -qfae -c "$HOME/.local/bin/claude remote-control" remote.log
+echo "=== \$(date '+%F %T') beendet (Code \$?) – Neustart folgt ===" | tee -a remote.log
+sleep 20
+EOF
+sudo chmod +x /usr/local/bin/pi-agent /usr/local/bin/pi-agent-remote /usr/local/bin/pi-agent-remote-run
 
 # 5. Autostart: Remote Control startet bei jedem Boot in einer tmux-Sitzung
 #    (tmux, damit man mit "pi-agent-remote attach" hineinschauen kann)
@@ -71,8 +83,9 @@ User=$USER
 Environment=HOME=$HOME
 Environment=PATH=$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin
 WorkingDirectory=$INSTALL_DIR
-ExecStart=/usr/bin/tmux new-session -d -s pi-agent -c $INSTALL_DIR $HOME/.local/bin/claude remote-control
-ExecStop=/usr/bin/tmux kill-session -t pi-agent
+ExecStartPre=-/usr/bin/tmux kill-session -t pi-agent
+ExecStart=/usr/bin/tmux new-session -d -s pi-agent -c $INSTALL_DIR /usr/local/bin/pi-agent-remote-run
+ExecStop=-/usr/bin/tmux kill-session -t pi-agent
 Restart=always
 RestartSec=30
 
@@ -90,5 +103,5 @@ echo "✅ Fertig!"
 echo "   1. Einmal anmelden:    pi-agent   (Login mit deinem Claude-Konto öffnet einen Link)"
 echo "   2. Im Terminal nutzen: pi-agent"
 echo "   3. Vom Handy steuern:  startet automatisch bei jedem Boot → Sitzung in der Claude-App"
-echo "      Status: pi-agent-remote   Hineinschauen: pi-agent-remote attach (verlassen: Strg+B, D)"
+echo "      Status: pi-agent-remote   Log: pi-agent-remote log   Hineinschauen: pi-agent-remote attach (Strg+B, D)"
 echo "   Kontext anpassen: $INSTALL_DIR/CLAUDE.md"

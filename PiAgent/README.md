@@ -57,6 +57,7 @@ so erreichst du Dateien und Terminal des Pi von überall.
 ```bash
 pi-agent-remote          # Status
 pi-agent-remote attach   # hineinschauen (verlassen: Strg+B, dann D)
+pi-agent-remote log      # letzte Ausgaben von Claude (auch Fehlermeldungen)
 pi-agent-remote restart  # neu starten
 pi-agent-remote stop     # stoppen und Autostart aus
 pi-agent-remote start    # starten und Autostart an
