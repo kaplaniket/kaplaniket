@@ -20,12 +20,25 @@ echo "==> Installiere git, tmux, curl …"
 sudo apt-get update -qq
 sudo apt-get install -y -qq git tmux curl ripgrep >/dev/null
 
-# 2. Claude Code (offizieller nativer Installer)
-if ! command -v claude >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/claude" ]; then
+# 2. Claude Code (offizieller nativer Installer, falls noch nicht vorhanden)
+export PATH="$HOME/.local/bin:$PATH"
+if ! command -v claude >/dev/null 2>&1; then
   echo "==> Installiere Claude Code …"
   curl -fsSL https://claude.ai/install.sh | bash
 fi
-export PATH="$HOME/.local/bin:$PATH"
+# Tatsächlichen Pfad merken (kann z. B. auch eine npm-Installation sein)
+CLAUDE_BIN="$(command -v claude || true)"
+if [ -z "$CLAUDE_BIN" ]; then
+  echo "Claude Code wurde nicht gefunden. Bitte installieren: curl -fsSL https://claude.ai/install.sh | bash"
+  exit 1
+fi
+# bewusst nicht readlink: ~/.local/bin/claude zeigt auf eine Version, die Auto-Updates austauschen
+# PATH für den Dienst: Ordner von claude (+ node, falls npm-Installation)
+SERVICE_PATH="$(dirname "$CLAUDE_BIN"):$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
+if command -v node >/dev/null 2>&1; then
+  SERVICE_PATH="$(dirname "$(readlink -f "$(command -v node)")"):$SERVICE_PATH"
+fi
+echo "==> Claude Code: $CLAUDE_BIN"
 if ! grep -q '.local/bin' "$HOME/.bashrc" 2>/dev/null; then
   echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
 fi
@@ -41,7 +54,7 @@ mkdir -p "$INSTALL_DIR/.claude" "$INSTALL_DIR/projekte"
 #    pi-agent-remote   → Status/Start/Stopp der Remote-Control-Sitzung
 sudo tee /usr/local/bin/pi-agent >/dev/null <<EOF
 #!/usr/bin/env bash
-cd "$INSTALL_DIR" && exec "$HOME/.local/bin/claude" "\$@"
+cd "$INSTALL_DIR" && exec "$CLAUDE_BIN" "\$@"
 EOF
 sudo tee /usr/local/bin/pi-agent-remote >/dev/null <<'EOF'
 #!/usr/bin/env bash
@@ -62,8 +75,10 @@ sudo tee /usr/local/bin/pi-agent-remote-run >/dev/null <<EOF
 #!/usr/bin/env bash
 cd "$INSTALL_DIR"
 echo "=== \$(date '+%F %T') Start claude remote-control ===" >> remote.log
-script -qfae -c "$HOME/.local/bin/claude remote-control" remote.log
-echo "=== \$(date '+%F %T') beendet (Code \$?) – Neustart folgt ===" | tee -a remote.log
+export PATH="$SERVICE_PATH:\$PATH"
+script -qfae -c "$CLAUDE_BIN remote-control" remote.log
+rc=\$?
+echo "=== \$(date '+%F %T') beendet (Code \$rc) – Neustart folgt ===" | tee -a remote.log
 sleep 20
 EOF
 sudo chmod +x /usr/local/bin/pi-agent /usr/local/bin/pi-agent-remote /usr/local/bin/pi-agent-remote-run
@@ -81,7 +96,7 @@ StartLimitIntervalSec=0
 Type=forking
 User=$USER
 Environment=HOME=$HOME
-Environment=PATH=$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=$SERVICE_PATH
 WorkingDirectory=$INSTALL_DIR
 ExecStartPre=-/usr/bin/tmux kill-session -t pi-agent
 ExecStart=/usr/bin/tmux new-session -d -s pi-agent -c $INSTALL_DIR /usr/local/bin/pi-agent-remote-run
