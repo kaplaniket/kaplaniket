@@ -1,0 +1,7 @@
+# Persönliche Daten bleiben auf dem HP
+server/privat/
+server/lernfragen.jsonl
+__pycache__/
+*.pyc
+*.bak*
+mac/fertig/
