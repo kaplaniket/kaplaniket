@@ -1,0 +1,19 @@
+#!/bin/bash
+# TK Eisvogel (früher TK KI) im Terminal: tk-ki "Frage"   ·   auch als: eisvogel "Frage"
+curl -sN -m 700 -X POST 127.0.0.1:8811/api/frage -H 'Content-Type: application/json' \
+ -d "$(python3 -c 'import json,sys;print(json.dumps({"frage":" ".join(sys.argv[1:])}))' "$@")" \
+ | python3 -c 'import sys,json
+q=[]; da=""
+for l in sys.stdin:
+  try: j=json.loads(l)
+  except Exception: continue
+  if j.get("status") and not da: print("… "+j["status"],file=sys.stderr)
+  if j.get("reset"):
+    neu=j.get("t") or ""
+    if neu.startswith(da): print(neu[len(da):],end="",flush=True)
+    elif neu.strip()!=da.strip(): print("\n[endgültige Fassung]\n"+neu,end="",flush=True)
+    da=neu; continue
+  if j.get("t"): da+=j["t"]; print(j["t"],end="",flush=True)
+  if "quellen" in j: q=j["quellen"] or []
+  if j.get("fehler"): print("\nFehler: "+j["fehler"])
+print("\n\n"+("Quellen: "+" · ".join(dict.fromkeys(x["seite"] for x in q if x.get("seite"))) if q else "(aus eigenem Wissen)"))'

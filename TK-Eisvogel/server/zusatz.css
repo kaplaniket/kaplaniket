@@ -1,0 +1,83 @@
+/* TK Eisvogel – Ergänzungen zum Eisvogel-Stil (Grundlage: CSS aus ~/bin/vogel-web.py). Claude 17.11.2026 */
+
+/* Aussehen fest wählen (Einstellungen › Aussehen); ohne Wahl gilt die Systemeinstellung */
+:root[data-thema=hell]{color-scheme:light;--grund:#edf2f3;--flaeche:#fff;--tinte:#0f2730;--leise:#566b73;--linie:#d6e0e3;
+--blau:#0a6c87;--blau-tief:#07485a;--hauch:#dcedf1;--auf-blau:#fff;--brust:#e2660f;--brust-hauch:#fde9d9;--brust-text:#9a4107;--rot:#b3261e;--kopf:#07485a;--kopf-text:#f2fafc}
+:root[data-thema=dunkel]{color-scheme:dark;--grund:#08161b;--flaeche:#10242b;--tinte:#e4eef1;--leise:#8ca2a9;--linie:#1f363e;
+--blau:#45bcd9;--blau-tief:#8fdcee;--hauch:#143640;--auf-blau:#04222b;--brust:#ff9248;--brust-hauch:#3b2412;--brust-text:#ffb783;--rot:#ff8a80;--kopf:#0b2a33;--kopf-text:#e4eef1}
+
+/* Reiterleiste mit sechs Reitern */
+.tabs-in{max-width:760px}
+.tabs a{min-width:0}
+.tabs a i{width:46px}
+@media (max-width:430px){.tabs a{font-size:10px;letter-spacing:-.02em}.tabs a i{width:40px}}
+
+/* Kopf: Zustand und Knöpfe */
+.kopf-in>div:nth-child(2){flex:1;min-width:0}
+.kopf-knopf{flex:none;background:rgba(255,255,255,.13);color:var(--kopf-text);height:36px;padding:0 12px;border-radius:10px;font:600 13px/1 var(--titel)}
+.kopf-knopf.rund{width:36px;padding:0;border-radius:50%}
+.kopf-knopf .ik{width:19px;height:19px}
+.kopf-knopf[hidden]{display:none}
+.lampe{display:inline-block;width:8px;height:8px;border-radius:50%;background:#8ca2a9;margin-right:6px;vertical-align:1px}
+.lampe.gut{background:#3ccf7a}.lampe.arbeit{background:#f2c14e}.lampe.schlecht{background:#ff6b6b}
+
+/* Antworten */
+.er .text h3{font:700 17px/1.3 var(--titel);margin:12px 0 6px}
+.er .text hr{border:0;border-top:1px solid var(--linie);margin:12px 0}
+.er .text a{word-break:break-all}
+.seite{color:var(--blau-tief);font-weight:600}
+.er .fuss{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid var(--linie);font-size:12px;color:var(--leise)}
+.er .fuss .dauer{margin-left:auto;font-variant-numeric:tabular-nums}
+.er .werkzeug{display:flex;gap:2px;margin:2px 0 0 -8px}
+.er .werkzeug button{height:32px;padding:0 8px;background:transparent;color:var(--leise);font:500 13px/1 var(--text)}
+.er .werkzeug .ik{width:17px;height:17px}
+.er.warte .sek{margin-left:auto;font-variant-numeric:tabular-nums;font-size:13px}
+.er .lauf{display:flex;align-items:center;gap:10px;color:var(--leise);font-size:14px;margin-top:6px}
+.er .lauf .sek{margin-left:auto;font-variant-numeric:tabular-nums;font-size:13px}
+.er.fehler{border:1px solid var(--rot)}
+.stopp{background:var(--rot)!important;color:#fff!important}
+.recht{font-size:12px;color:var(--leise);text-align:center;margin-top:8px}
+.recht a{color:inherit}
+body.tippt .recht{display:none}
+
+/* Karteikarten */
+.kraster{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:14px}
+.kraster .karte{margin:0;cursor:pointer;display:flex;flex-direction:column;gap:6px;min-height:118px;border:1px solid transparent}
+.kraster .karte:hover,.kraster .karte:focus-visible{border-color:var(--blau)}
+.kraster .kf{font-weight:600}
+.kraster .ka{font-size:13px;color:var(--leise);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+
+/* Einstellungen */
+.wahl{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.wahl button{height:auto;min-height:72px;padding:13px 15px;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:5px;text-align:left;background:var(--flaeche);color:var(--tinte);border:2px solid transparent;font:600 15px/1.25 var(--titel)}
+.wahl button small{font:400 13px/1.4 var(--text);color:var(--leise)}
+.wahl button.an{border-color:var(--blau)}
+.dreier{display:flex;background:var(--flaeche);border-radius:14px;padding:4px;gap:4px}
+.dreier button{flex:1;height:38px;background:transparent;color:var(--leise)}
+.dreier button.an{background:var(--hauch);color:var(--blau-tief)}
+.zeile .wert{margin-left:auto;text-align:right;color:var(--leise);font-size:14px;flex:0 1 62%;min-width:0}
+.liste a.zeile{color:inherit;text-decoration:none;align-items:center}
+.liste a.zeile>.ik:last-child{color:var(--leise);transform:rotate(-90deg);margin:0}
+
+/* Rechtstexte */
+.recht-text{font-size:15px;line-height:1.55}
+.recht-text h2{font:700 19px/1.25 var(--titel);margin:22px 0 8px}
+.recht-text h2:first-child{margin-top:0}
+.recht-text p,.recht-text ul{margin:0 0 10px}
+.recht-text ul{padding-left:20px}
+.recht-text li{margin:4px 0}
+.recht-text address{font-style:normal;margin-bottom:10px}
+.recht-text table{width:100%;border-collapse:collapse;font-size:14px}
+.recht-text td,.recht-text th{text-align:left;padding:7px 10px 7px 0;border-top:1px solid var(--linie);vertical-align:top}
+.recht-text th{font-weight:600}
+.stand-hinweis{font-size:13px;color:var(--leise);margin-top:14px}
+.ueber{text-align:center;padding:10px 8px 4px}
+.ueber .gross{width:92px;height:92px;color:var(--tinte)}
+.ueber h2{font:700 27px/1.15 var(--titel);letter-spacing:-.015em;margin:8px 0 4px}
+.ueber p{color:var(--leise)}
+
+/* Nachträge aus der Sichtprüfung 17.11.2026 */
+[hidden]{display:none!important}                       /* „main.mit-dock{display:flex}“ hob das Verstecken auf → Karteikarten lagen unter dem Gespräch */
+.er .fuss .pille{max-width:100%;overflow:hidden;text-overflow:ellipsis}   /* lange Dateinamen ragten aus der Antwort */
+.er .text{overflow-wrap:anywhere}
+@media (max-width:430px){.tabs-in{padding:0 3px}.tabs a{letter-spacing:-.03em}}
