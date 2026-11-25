@@ -1,0 +1,425 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Salzkrone</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<style>
+/* Layout: Seekarten-Tisch. Links die Karte als einziges Bild, rechts das Kontorbuch (Markt, Kaserne, Rathaus); oben eine Zeile Kennzahlen. */
+:root{
+  --bg:#e6ecee; --surface:#f6f9f9; --ink:#14313a; --muted:#567079; --line:#bccbd0;
+  --accent:#b9770a; --accent-ink:#ffffff; --danger:#a5322c; --good:#2f7a52;
+  --m-water:#8fb7c4; --m-water2:#7aa6b5; --m-grass:#cfd9b0; --m-grass2:#b9c797; --m-forest:#5f8a62;
+  --m-hill:#a99f7c; --m-rock:#8a8f94; --m-snow:#f4f7f7; --m-ink:#14313a; --m-band:#a5322c; --m-label:#f6f9f9;
+  --display:"Grenze Gotisch","Alegreya Sans",Georgia,serif;
+  --body:"Alegreya Sans","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0e1c21; --surface:#15282f; --ink:#dfe9ea; --muted:#8fa6ad; --line:#2c444c;
+  --accent:#e0a02e; --accent-ink:#1a1304; --danger:#e0736b; --good:#6fc396;
+  --m-water:#1f4553; --m-water2:#27525f; --m-grass:#3d4f3a; --m-grass2:#465a41; --m-forest:#24402c;
+  --m-hill:#5c5741; --m-rock:#59626a; --m-snow:#c9d3d6; --m-ink:#e8f0f0; --m-band:#e0736b; --m-label:#0e1c21;
+  color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0e1c21; --surface:#15282f; --ink:#dfe9ea; --muted:#8fa6ad; --line:#2c444c;
+  --accent:#e0a02e; --accent-ink:#1a1304; --danger:#e0736b; --good:#6fc396;
+  --m-water:#1f4553; --m-water2:#27525f; --m-grass:#3d4f3a; --m-grass2:#465a41; --m-forest:#24402c;
+  --m-hill:#5c5741; --m-rock:#59626a; --m-snow:#c9d3d6; --m-ink:#e8f0f0; --m-band:#e0736b; --m-label:#0e1c21;
+  color-scheme:dark }
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 var(--body);
+  padding-block:12px 24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.app{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 22px}
+h1{font:700 2rem/1 var(--display);margin:0;letter-spacing:.01em}
+.stats{display:flex;flex-wrap:wrap;gap:4px 18px;font-variant-numeric:tabular-nums}
+.stats span{white-space:nowrap}.stats b{font-weight:700}
+.stats small{color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-size:.72rem;margin-right:5px}
+main{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:820px){main{grid-template-columns:minmax(0,1fr)}}
+.mapwrap{display:flex;flex-direction:column;gap:8px;min-width:0}
+canvas{width:100%;aspect-ratio:7/5;display:block;border:2px solid var(--ink);background:var(--m-water);cursor:pointer;touch-action:manipulation}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tools .hint{color:var(--muted);font-size:.9rem;flex:1;min-width:12ch}
+#log{margin:0;padding:0;list-style:none;font-size:.92rem;color:var(--muted);display:flex;flex-direction:column;gap:2px;min-height:6.6em}
+#log li:first-child{color:var(--ink)}
+aside{background:var(--surface);border:1px solid var(--line);padding:14px;min-width:0;display:flex;flex-direction:column;gap:12px}
+h2{font:700 1.5rem/1.1 var(--display);margin:0;text-wrap:balance}
+p{margin:0}.muted{color:var(--muted)}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tabs button{border:0;border-bottom:3px solid transparent;background:none;color:var(--muted);padding:6px 12px;font:500 1rem var(--body);cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+button{font:500 .95rem var(--body);color:var(--ink);background:transparent;border:1px solid var(--ink);padding:4px 10px;cursor:pointer;border-radius:2px}
+button:hover:not(:disabled){background:var(--ink);color:var(--surface)}
+button:disabled{opacity:.35;cursor:default}
+button.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+button.pri:hover:not(:disabled){background:var(--ink);border-color:var(--ink);color:var(--surface)}
+button:focus-visible,canvas:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.rows{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:8px 0;border-top:1px solid var(--line);align-items:center}
+.row:first-child{border-top:0}
+.row .name{font-weight:700}
+.row .sub{color:var(--muted);font-size:.9rem;font-variant-numeric:tabular-nums;grid-column:1/-1}
+.row .btns{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.num{font-variant-numeric:tabular-nums}
+.tag{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;margin-left:8px;font-weight:700}
+.tag.lo{color:var(--good)}.tag.hi{color:var(--danger)}
+.bs{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+.bs .grp{display:flex;gap:4px;align-items:center;flex-wrap:nowrap}
+.bs span.l{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+#modal{position:fixed;inset:0;background:color-mix(in srgb,var(--bg) 78%,transparent);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+#modal .box{background:var(--surface);border:2px solid var(--ink);max-width:520px;width:100%;max-height:90%;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
+#modal .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+#modal ol{margin:0;padding-left:1.3em;color:var(--muted);font-size:.92rem;font-variant-numeric:tabular-nums}
+</style>
+<div class="app">
+  <header>
+    <h1>Salzkrone</h1>
+    <div class="stats" id="stats"></div>
+  </header>
+  <main>
+    <section class="mapwrap">
+      <canvas id="map" tabindex="0" aria-label="Landkarte von Tarvien. Tippe auf ein Feld, um dorthin zu reisen."></canvas>
+      <div class="tools">
+        <button id="btnView">Ganze Karte</button>
+        <span class="hint">Feld antippen, um dorthin zu reisen. Pfeiltasten gehen einen Schritt.</span>
+        <button id="btnNew">Neues Spiel</button>
+      </div>
+      <ul id="log"></ul>
+    </section>
+    <aside id="panel"></aside>
+  </main>
+</div>
+<div id="modal" hidden><div class="box" id="mbox"></div></div>
+<script>
+"use strict";
+const W=42,H=30,VW=21,VH=15,CAP=20,NEED=5,FORT=280;
+const WATER=0,GRASS=1,FOREST=2,HILL=3,MOUNT=4;
+const COST=[0,1,2,3,0], TNAME=['Wasser','Wiese','Wald','Hügelland','Gebirge'];
+const GOODS=[{n:'Salz',p:12},{n:'Korn',p:8},{n:'Tuch',p:25},{n:'Eisen',p:40},{n:'Wein',p:30},{n:'Gewürze',p:70}];
+const UNITS=[{n:'Miliz',c:20,w:1,s:1},{n:'Bogenschützen',c:45,w:2,s:2.2},{n:'Reiter',c:110,w:5,s:5}];
+const NAMES=['Halvenau','Brackstedt','Olmgrund','Tessenfurt','Wyk am Stein','Kardelow','Sunnmoor','Eschwarden'];
+const $=id=>document.getElementById(id);
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+function rng(seed){let a=seed>>>0;return()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function lattice(r){const a=new Float32Array(64*64);for(let i=0;i<a.length;i++)a[i]=r();return a}
+function noise(l,x,y){const xi=Math.floor(x),yi=Math.floor(y),fx=x-xi,fy=y-yi,sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy);
+  const g=(i,j)=>l[((j&63)<<6)|(i&63)];
+  const a=g(xi,yi)+(g(xi+1,yi)-g(xi,yi))*sx,b=g(xi,yi+1)+(g(xi+1,yi+1)-g(xi,yi+1))*sx;return a+(b-a)*sy}
+
+/* Die Welt entsteht vollständig aus dem Startwert und wird nicht gespeichert. */
+function genWorld(seed){
+  for(let tries=0;tries<40;tries++){
+    const r=rng(seed+tries*7919),l1=lattice(r),l2=lattice(r),g=new Uint8Array(W*H);
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+      let h=noise(l1,x/7,y/7)*.65+noise(l1,x/3+20,y/3+20)*.35;
+      const d=Math.max(Math.abs(x-W/2+.5)/(W/2),Math.abs(y-H/2+.5)/(H/2));
+      h-=Math.max(0,d-.72)*1.3;
+      const f=noise(l2,x/4,y/4);
+      g[y*W+x]=h<.4?WATER:h>.68?MOUNT:h>.6?HILL:f>.56?FOREST:GRASS;
+    }
+    // größtes zusammenhängendes Land
+    const comp=new Int16Array(W*H).fill(-1);let best=-1,bestN=0,c=0;
+    for(let i=0;i<W*H;i++){ if(comp[i]>=0||!COST[g[i]])continue;
+      let n=0;const q=[i];comp[i]=c;
+      while(q.length){const k=q.pop();n++;const x=k%W,y=(k/W)|0;
+        for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=W||ny>=H)continue;const j=ny*W+nx;if(comp[j]<0&&COST[g[j]]){comp[j]=c;q.push(j)}}}
+      if(n>bestN){bestN=n;best=c} c++; }
+    if(bestN<420)continue;
+    const land=[];for(let i=0;i<W*H;i++)if(comp[i]===best)land.push(i);
+    const cities=[];let minD=9,guard=0;
+    while(cities.length<8&&guard++<6000){
+      const k=land[(r()*land.length)|0],x=k%W,y=(k/W)|0;
+      if(g[k]!==GRASS||x<1||y<1||x>W-2||y>H-3)continue;
+      if(cities.every(c=>Math.abs(c.x-x)+Math.abs(c.y-y)>=minD))cities.push({x,y,name:NAMES[cities.length]});
+      if(guard%600===0&&minD>5)minD--;
+    }
+    if(cities.length<8)continue;
+    let fort=null,fd=-1;
+    for(const k of land){const x=k%W,y=(k/W)|0;
+      const dc=Math.min(...cities.map(c=>Math.abs(c.x-x)+Math.abs(c.y-y)));if(dc<5)continue;
+      const d=Math.abs(cities[0].x-x)+Math.abs(cities[0].y-y);if(d>fd){fd=d;fort={x,y}}}
+    if(!fort)continue;
+    // Preisgefüge: je Ware zwei Erzeuger- und zwei Mangelstädte
+    const mods=cities.map(()=>GOODS.map(()=>.9+r()*.25));
+    GOODS.forEach((_,gi)=>{const o=[0,1,2,3,4,5,6,7].sort(()=>r()-.5);
+      mods[o[0]][gi]=.55+r()*.15;mods[o[1]][gi]=.62+r()*.15;mods[o[2]][gi]=1.4+r()*.25;mods[o[3]][gi]=1.3+r()*.2;});
+    const cinit=cities.map((c,i)=>({mods:mods[i],garr:Math.round(45+r()*70),cprice:Math.round((1300+r()*1200)/50)*50}));
+    return{g,cities,fort,land,cinit};
+  }
+  throw new Error('Kartenbau fehlgeschlagen');
+}
+
+let World,S,view=false,busy=false,tab='markt',pathPrev=null;
+
+function newGame(){
+  const seed=(Math.random()*1e9)|0;World=genWorld(seed);
+  S={v:1,seed,x:World.cities[0].x,y:World.cities[0].y,gold:600,wagons:2,cargo:[0,0,0,0,0,0],troops:[12,0,0],day:1,hours:6,won:false,
+    cities:World.cinit.map(c=>({mods:c.mods.slice(),press:[0,0,0,0,0,0],rep:0,charter:false,kontor:false,garr:c.garr,cprice:c.cprice})),
+    bands:[],log:[]};
+  for(let i=0;i<6;i++)S.bands.push(spawnBand());
+  tab='markt';say('Du brichst in '+World.cities[0].name+' auf. 600 Gulden, zwei Wagen, zwölf Mann Miliz.');
+  save();render();
+  modal('Die Salzstraßen von Tarvien',
+    '<p>Der Zöllner von Schwarzwacht hat die Pässe gesperrt und presst den Städten das Salz ab. Du bist Fernhändler und willst ihn stürzen.</p>'+
+    '<p><b>Dein Weg:</b> Handle zwischen den acht Städten, wirb ein Heer an und gewinne '+NEED+' Stadtbriefe (kaufen oder erstürmen). Erst dann öffnet sich die Straße zur Festung.</p>'+
+    '<p class="muted">Jeder Tag kostet Sold. Räuberbanden lauern außerhalb der Mauern, in Städten bist du sicher.</p>',
+    [{t:'Aufbrechen',pri:1}]);
+}
+function save(){try{localStorage.setItem('salzkrone',JSON.stringify(S))}catch(e){}}
+function load(){try{const s=JSON.parse(localStorage.getItem('salzkrone'));if(s&&s.v===1){S=s;World=genWorld(S.seed);return true}}catch(e){}return false}
+function say(t){S.log.unshift('Tag '+S.day+': '+t);S.log.length=Math.min(S.log.length,5)}
+
+const power=()=>S.troops.reduce((a,n,i)=>a+n*UNITS[i].s,0);
+const wage=()=>S.troops.reduce((a,n,i)=>a+n*UNITS[i].w,0);
+const loadN=()=>S.cargo.reduce((a,b)=>a+b,0);
+const cap=()=>S.wagons*CAP;
+const charters=()=>S.cities.filter(c=>c.charter).length;
+const cityAt=(x,y)=>World.cities.findIndex(c=>c.x===x&&c.y===y);
+const atFort=(x,y)=>World.fort.x===x&&World.fort.y===y;
+const pass=(x,y)=>x>=0&&y>=0&&x<W&&y<H&&COST[World.g[y*W+x]]>0;
+const price=(ci,gi)=>GOODS[gi].p*S.cities[ci].mods[gi]*(1+S.cities[ci].press[gi]);
+const buyP=(ci,gi)=>Math.ceil(price(ci,gi)*1.05);
+const sellP=(ci,gi)=>Math.max(1,Math.floor(price(ci,gi)*.95));
+const charterP=ci=>{const c=S.cities[ci];return Math.round(c.cprice*(1-Math.min(.5,c.rep/6000))/10)*10};
+const fmt=n=>Math.round(n).toLocaleString('de-DE');
+
+function spawnBand(){
+  for(let i=0;i<300;i++){const k=World.land[(Math.random()*World.land.length)|0],x=k%W,y=(k/W)|0;
+    if(Math.abs(x-S.x)+Math.abs(y-S.y)<9||cityAt(x,y)>=0||atFort(x,y))continue;
+    return{x,y,s:Math.round(8+rnd(0,12)+S.day*.5)}}
+  return{x:World.fort.x,y:World.fort.y+1,s:15};
+}
+
+/* ---------- Zeit ---------- */
+function addHours(h){S.hours+=h;while(S.hours>=24){S.hours-=24;newDay()}}
+function newDay(){
+  S.day++;
+  const inc=S.cities.reduce((a,c)=>a+(c.kontor?25:0)+(c.charter?10:0),0),w=wage();
+  S.gold+=inc-w;
+  if(S.gold<0){S.gold=0;let gone=0;S.troops=S.troops.map(n=>{const d=Math.ceil(n*.25);gone+=d;return n-d});
+    if(gone)say('Kein Geld für den Sold. '+gone+' Mann laufen davon.');}
+  for(const c of S.cities)for(let g=0;g<6;g++){c.press[g]*=.85;c.mods[g]=clamp(c.mods[g]*rnd(.98,1.02),.5,1.75)}
+  save();
+}
+
+/* ---------- Reisen ---------- */
+function findPath(tx,ty){
+  if(!pass(tx,ty))return null;
+  const dist=new Float32Array(W*H).fill(1e9),prev=new Int32Array(W*H).fill(-1),s=S.y*W+S.x,t=ty*W+tx;dist[s]=0;
+  const open=[s];
+  while(open.length){let bi=0;for(let i=1;i<open.length;i++)if(dist[open[i]]<dist[open[bi]])bi=i;
+    const k=open.splice(bi,1)[0];if(k===t)break;const x=k%W,y=(k/W)|0;
+    for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(!pass(nx,ny))continue;const j=ny*W+nx,d=dist[k]+COST[World.g[j]];
+      if(d<dist[j]){if(dist[j]===1e9)open.push(j);dist[j]=d;prev[j]=k}}}
+  if(prev[t]<0)return null;const p=[];for(let k=t;k!==s;k=prev[k])p.unshift(k);return p;
+}
+function travelTo(tx,ty){
+  if(busy||S.won||(tx===S.x&&ty===S.y))return;
+  const p=findPath(tx,ty);if(!p){say('Dorthin führt kein Weg.');render();return}
+  busy=true;pathPrev=p;stepPath(p);
+}
+function stepPath(p){
+  if(!p.length){busy=false;pathPrev=null;arrive();return}
+  const k=p.shift();if(moveTo(k%W,(k/W)|0)){busy=false;pathPrev=null;return}
+  render();setTimeout(()=>stepPath(p),70);
+}
+/* true, wenn die Reise unterbrochen wurde */
+function moveTo(x,y){
+  S.x=x;S.y=y;addHours(COST[World.g[y*W+x]]*2);
+  const safe=cityAt(x,y)>=0;
+  for(const b of S.bands){ if(Math.random()<.5)continue;
+    const d=Math.abs(b.x-x)+Math.abs(b.y-y);let dx=0,dy=0;
+    if(d<=5&&!safe&&b.s>power()*.7){if(Math.abs(b.x-x)>Math.abs(b.y-y))dx=Math.sign(x-b.x);else dy=Math.sign(y-b.y)}
+    else{const r=(Math.random()*4)|0;dx=[1,-1,0,0][r];dy=[0,0,1,-1][r]}
+    const nx=b.x+dx,ny=b.y+dy;if(pass(nx,ny)&&cityAt(nx,ny)<0&&!atFort(nx,ny)){b.x=nx;b.y=ny}}
+  if(!safe&&!atFort(x,y)){const b=S.bands.find(b=>Math.abs(b.x-x)+Math.abs(b.y-y)<=1);if(b){encounter(b);return true}}
+  return false;
+}
+function arrive(){
+  const ci=cityAt(S.x,S.y);
+  if(ci>=0){tab='markt';say('Ankunft in '+World.cities[ci].name+'.')}
+  save();render();
+  if(atFort(S.x,S.y))fortress();
+}
+
+/* ---------- Kampf ---------- */
+function lose(dmg){let lost=0;
+  while(dmg>0&&power()>0){const tot=S.troops[0]+S.troops[1]+S.troops[2];let r=Math.random()*tot,i=0;
+    while(r>=S.troops[i]){r-=S.troops[i];i++}
+    const s=UNITS[i].s;if(dmg>=s||Math.random()<dmg/s){S.troops[i]--;lost++}dmg-=s}
+  return lost}
+function battle(enemy,atk,def){
+  const p0=power(),e0=enemy;let e=enemy;const rounds=[];
+  if(p0<=0)return{win:false,rounds:['Du hast keine Truppen.'],left:e};
+  for(let i=1;i<=8;i++){const p=power()*atk;if(p<=0)break;
+    const de=p*rnd(.22,.42),dp=e*def*rnd(.22,.42);e=Math.max(0,e-de);const l=lose(dp);
+    rounds.push('Feind verliert '+fmt(de)+' Stärke, du verlierst '+l+' Mann.');
+    if(e<=e0*.2||power()<=p0*.2)break}
+  return{win:e<=e0*.2||(power()>p0*.2&&e/e0<power()/p0),rounds,left:Math.round(e)};
+}
+const roundsHtml=r=>'<ol>'+r.rounds.map(t=>'<li>'+t+'</li>').join('')+'</ol>';
+
+function encounter(b){
+  render();const toll=Math.max(50,Math.round(S.gold*.25));
+  modal('Räuberbande',
+    '<p>Eine Bande versperrt den Weg. Ihre Stärke: <b>'+b.s+'</b>. Deine Kampfkraft: <b>'+fmt(power())+'</b>.</p>',
+    [{t:'Kämpfen',pri:1,f:()=>fightBand(b)},
+     {t:'Freikaufen ('+toll+' Gulden)',dis:S.gold<toll,f:()=>{S.gold-=toll;say('Du zahlst '+toll+' Gulden Wegezoll an die Bande.');relocate(b);save();render()}},
+     {t:'Fliehen',f:()=>{if(Math.random()<.5){say('Die Flucht gelingt.');relocate(b);save();render()}else{say('Die Flucht misslingt.');fightBand(b)}}}]);
+}
+function relocate(b){Object.assign(b,spawnBand(),{s:b.s})}
+function fightBand(b){
+  const r=battle(b.s,1,1);let txt;
+  if(r.win){const loot=Math.round(b.s*rnd(4,8));S.gold+=loot;txt='<p><b>Sieg.</b> Du erbeutest '+loot+' Gulden.</p>';say('Bande geschlagen, '+loot+' Gulden Beute.');Object.assign(b,spawnBand())}
+  else{const g=Math.round(S.gold*.3);S.gold-=g;S.cargo=S.cargo.map(n=>Math.floor(n/2));b.s=Math.max(5,r.left);
+    txt='<p><b>Niederlage.</b> Die Bande nimmt '+g+' Gulden und die halbe Ladung.</p>';say('Von Räubern geschlagen.');relocate(b)}
+  save();render();modal('Gefecht',txt+roundsHtml(r),[{t:'Weiter',pri:1}]);
+}
+function siege(ci){
+  const c=S.cities[ci],n=World.cities[ci].name;
+  modal('Sturm auf '+n,'<p>Die Garnison hat Stärke <b>'+c.garr+'</b> und kämpft hinter Mauern (Vorteil für die Verteidiger). Deine Kampfkraft: <b>'+fmt(power())+'</b>.</p><p class="muted">Ein Fehlschlag kostet Truppen und deinen guten Ruf in der Stadt.</p>',
+    [{t:'Angreifen',pri:1,dis:power()<=0,f:()=>{const r=battle(c.garr,1,1.3);addHours(12);let txt;
+       if(r.win){c.charter=true;c.garr=Math.round(c.garr/2);txt='<p><b>'+n+' ergibt sich.</b> Der Stadtbrief gehört dir.</p>';say(n+' erstürmt.')}
+       else{c.rep=0;c.garr=Math.max(20,r.left);txt='<p><b>Der Sturm scheitert.</b></p>';say('Sturm auf '+n+' gescheitert.')}
+       save();render();modal('Sturm auf '+n,txt+roundsHtml(r),[{t:'Weiter',pri:1}])}},
+     {t:'Abbrechen'}]);
+}
+function fortress(){
+  const n=charters();
+  if(n<NEED){modal('Festung Schwarzwacht','<p>Die Tore bleiben verschlossen, die Passstraße ist verrammelt. Erst mit '+NEED+' Stadtbriefen stellen sich die Städte hinter dich. Du hast '+n+'.</p>',[{t:'Umkehren',pri:1}]);return}
+  const bonus=1+n*.08;
+  modal('Festung Schwarzwacht','<p>Der Zöllner hält die Burg mit Stärke <b>'+FORT+'</b>. Deine Kampfkraft: <b>'+fmt(power())+'</b>, dazu '+Math.round(n*8)+' % Verstärkung durch die Aufgebote deiner '+n+' Städte.</p>',
+    [{t:'Sturm befehlen',pri:1,dis:power()<=0,f:()=>{const r=battle(FORT,bonus,1.25);addHours(12);
+       if(r.win){S.won=true;say('Schwarzwacht ist gefallen.');save();render();
+         modal('Die Salzstraßen sind frei','<p>Am Tag '+S.day+' fällt Schwarzwacht. Der Zöllner flieht über den Pass, die Städte setzen dir die Salzkrone auf.</p>'+roundsHtml(r),[{t:'Neues Spiel',pri:1,f:newGame},{t:'Karte ansehen'}])}
+       else{say('Der Sturm auf Schwarzwacht scheitert.');save();render();modal('Festung Schwarzwacht','<p><b>Der Sturm scheitert.</b> Sammle ein größeres Heer.</p>'+roundsHtml(r),[{t:'Rückzug',pri:1}])}}},
+     {t:'Noch nicht'}]);
+}
+
+/* ---------- Handel und Stadt ---------- */
+function buy(ci,gi,n){const c=S.cities[ci];let k=0;
+  while(k<n&&loadN()<cap()){const p=buyP(ci,gi);if(S.gold<p)break;S.gold-=p;S.cargo[gi]++;c.press[gi]+=.012;c.rep+=p;k++}return k}
+function sell(ci,gi,n){const c=S.cities[ci];let k=0;
+  while(k<n&&S.cargo[gi]>0){const p=sellP(ci,gi);S.gold+=p;S.cargo[gi]--;c.press[gi]=Math.max(-.6,c.press[gi]-.012);c.rep+=p;k++}return k}
+const ACT={
+  tab:d=>{tab=d.t},
+  buy:d=>buy(+d.c,+d.g,+d.n), sell:d=>sell(+d.c,+d.g,+d.n),
+  hire:d=>{const u=UNITS[+d.u];let n=+d.n;while(n-->0&&S.gold>=u.c){S.gold-=u.c;S.troops[+d.u]++}},
+  fire:d=>{S.troops[+d.u]=Math.max(0,S.troops[+d.u]-(+d.n))},
+  wagon:()=>{if(S.gold>=150){S.gold-=150;S.wagons++}},
+  kontor:d=>{const c=S.cities[+d.c];if(S.gold>=400&&!c.kontor){S.gold-=400;c.kontor=true;say('Kontor in '+World.cities[+d.c].name+' eröffnet.')}},
+  charter:d=>{const c=S.cities[+d.c],p=charterP(+d.c);if(S.gold>=p&&!c.charter){S.gold-=p;c.charter=true;say('Stadtbrief von '+World.cities[+d.c].name+' erworben.')}},
+  siege:d=>siege(+d.c),
+  go:d=>travelTo(+d.x,+d.y),
+  rest:()=>{addHours(24-S.hours);say('Ein Tag Rast.')}
+};
+
+/* ---------- Anzeige ---------- */
+function modal(title,html,btns){
+  const m=$('modal'),b=$('mbox');
+  b.innerHTML='<h2>'+title+'</h2>'+html+'<div class="acts"></div>';
+  const acts=b.querySelector('.acts');
+  btns.forEach(x=>{const e=document.createElement('button');e.textContent=x.t;if(x.pri)e.className='pri';if(x.dis)e.disabled=true;
+    e.onclick=()=>{m.hidden=true;if(x.f)x.f()};acts.appendChild(e)});
+  m.hidden=false;const f=acts.querySelector('button:not(:disabled)');if(f)f.focus();
+}
+function stat(l,v){return'<span><small>'+l+'</small><b>'+v+'</b></span>'}
+function render(){
+  $('stats').innerHTML=stat('Tag',S.day)+stat('Gulden',fmt(S.gold))+stat('Ladung',loadN()+'/'+cap())+stat('Kampfkraft',fmt(power()))+stat('Sold/Tag',wage())+stat('Stadtbriefe',charters()+'/'+NEED);
+  $('log').innerHTML=S.log.map(t=>'<li>'+t+'</li>').join('');
+  $('btnView').textContent=view?'Nahansicht':'Ganze Karte';
+  renderPanel();draw();
+}
+function routes(){
+  return'<div class="rows">'+World.cities.map((c,i)=>{
+    if(c.x===S.x&&c.y===S.y)return'';const sc=S.cities[i];
+    const lo=GOODS.filter((g,gi)=>sc.mods[gi]<.82).map(g=>g.n).join(', ')||'nichts',hi=GOODS.filter((g,gi)=>sc.mods[gi]>1.25).map(g=>g.n).join(', ')||'nichts';
+    const p=findPath(c.x,c.y),h=p?p.reduce((a,k)=>a+COST[World.g[k]]*2,0):0;
+    return'<div class="row"><div class="name">'+c.name+(sc.charter?'<span class="tag lo">Stadtbrief</span>':'')+'</div><div class="btns"><button data-a="go" data-x="'+c.x+'" data-y="'+c.y+'">Hinreisen</button></div>'+
+      '<div class="sub">'+(p?'etwa '+(h<24?h+' Stunden':(h/24).toFixed(1).replace('.',',')+' Tage'):'kein Weg')+' · günstig: '+lo+' · teuer: '+hi+'</div></div>'}).join('')+
+    '<div class="row"><div class="name">Festung Schwarzwacht</div><div class="btns"><button data-a="go" data-x="'+World.fort.x+'" data-y="'+World.fort.y+'">Hinreisen</button></div><div class="sub">Sitz des Zöllners. Zutritt mit '+NEED+' Stadtbriefen.</div></div></div>';
+}
+function renderPanel(){
+  const ci=cityAt(S.x,S.y),P=$('panel');let h='';
+  if(S.won)h='<h2>Die Salzstraßen sind frei</h2><p>Du hast Schwarzwacht am Tag '+S.day+' bezwungen. Mit „Neues Spiel“ entsteht ein neues Land.</p>';
+  else if(ci<0){
+    h='<h2>'+(atFort(S.x,S.y)?'Vor Schwarzwacht':'Unterwegs')+'</h2><p class="muted">'+TNAME[World.g[S.y*W+S.x]]+'. Wald und Hügel kosten mehr Zeit, Gebirge und Wasser sind unpassierbar.</p>'+
+      '<div><button data-a="rest">Einen Tag rasten</button></div>'+routes();
+  }else{
+    const c=S.cities[ci],n=World.cities[ci].name;
+    h='<h2>'+n+'</h2><div class="tabs" role="tablist">'+[['markt','Markt'],['kaserne','Kaserne'],['rathaus','Rathaus'],['reise','Reise']].map(([k,l])=>'<button role="tab" aria-selected="'+(tab===k)+'" data-a="tab" data-t="'+k+'">'+l+'</button>').join('')+'</div>';
+    if(tab==='markt'){
+      h+='<div class="rows">'+GOODS.map((g,gi)=>{const m=c.mods[gi],d='data-c="'+ci+'" data-g="'+gi+'"';
+        return'<div class="row"><div class="name">'+g.n+(m<.82?'<span class="tag lo">günstig</span>':m>1.25?'<span class="tag hi">teuer</span>':'')+'</div><div class="num">'+S.cargo[gi]+' geladen</div>'+
+        '<div class="sub bs"><span class="grp"><span class="l">Kauf '+buyP(ci,gi)+'</span><button data-a="buy" '+d+' data-n="1">1</button><button data-a="buy" '+d+' data-n="10">10</button><button data-a="buy" '+d+' data-n="999">Max</button></span>'+
+        '<span class="grp"><span class="l">Verkauf '+sellP(ci,gi)+'</span><button data-a="sell" '+d+' data-n="1"'+(S.cargo[gi]?'':' disabled')+'>1</button><button data-a="sell" '+d+' data-n="10"'+(S.cargo[gi]?'':' disabled')+'>10</button><button data-a="sell" '+d+' data-n="999"'+(S.cargo[gi]?'':' disabled')+'>Alles</button></span></div></div>'}).join('')+'</div>'+
+        '<p class="muted">Wer viel kauft, treibt den Preis; wer viel verkauft, drückt ihn. Nach einigen Tagen erholt sich der Markt.</p>';
+    }else if(tab==='kaserne'){
+      h+='<div class="rows">'+UNITS.map((u,i)=>'<div class="row"><div class="name">'+u.n+'</div><div class="num">'+S.troops[i]+' Mann</div><div class="sub bs"><span class="l">'+u.c+' Gulden · Sold '+u.w+' · Stärke '+String(u.s).replace('.',',')+'</span>'+
+        '<button data-a="hire" data-u="'+i+'" data-n="1"'+(S.gold<u.c?' disabled':'')+'>+1</button><button data-a="hire" data-u="'+i+'" data-n="10"'+(S.gold<u.c?' disabled':'')+'>+10</button><button data-a="fire" data-u="'+i+'" data-n="5"'+(S.troops[i]?'':' disabled')+'>−5</button></div></div>').join('')+
+        '<div class="row"><div class="name">Wagen</div><div class="num">'+S.wagons+' Stück</div><div class="sub bs"><span class="l">150 Gulden · '+CAP+' Lasten</span><button data-a="wagon"'+(S.gold<150?' disabled':'')+'>Wagen kaufen</button></div></div></div>';
+    }else if(tab==='rathaus'){
+      const p=charterP(ci);
+      h+='<div class="rows"><div class="row"><div class="name">Stadtbrief</div><div class="btns">'+(c.charter?'<span class="tag lo">in deinem Besitz</span>':'<button class="pri" data-a="charter" data-c="'+ci+'"'+(S.gold<p?' disabled':'')+'>Kaufen ('+fmt(p)+')</button><button data-a="siege" data-c="'+ci+'">Erstürmen</button>')+'</div>'+
+        '<div class="sub">'+(c.charter?'Bringt 10 Gulden am Tag und zählt für den Zug gegen Schwarzwacht.':'Garnison Stärke '+c.garr+'. Je mehr du hier handelst, desto billiger wird der Brief (bis zur Hälfte).')+'</div></div>'+
+        '<div class="row"><div class="name">Kontor</div><div class="btns">'+(c.kontor?'<span class="tag lo">eröffnet</span>':'<button data-a="kontor" data-c="'+ci+'"'+(S.gold<400?' disabled':'')+'>Eröffnen (400)</button>')+'</div><div class="sub">Ein Kontor wirft 25 Gulden am Tag ab.</div></div></div>'+
+        '<div><button data-a="rest">Einen Tag rasten</button></div>';
+    }else h+=routes();
+  }
+  P.innerHTML=h;
+}
+$('panel').addEventListener('click',e=>{const b=e.target.closest('button[data-a]');if(!b||busy)return;const a=b.dataset.a;
+  if(S.won&&a!=='tab')return;ACT[a](b.dataset);if(a!=='go'&&a!=='siege'){save();render()}});
+
+const cv=$('map'),cx=cv.getContext('2d');let geo={s:1,ox:0,oy:0};
+function hash(x,y){let h=(x*374761393+y*668265263)^(S.seed|0);h=(h^h>>>13)*1274126177;return((h^h>>>16)>>>0)/4294967296}
+function draw(){
+  const css=getComputedStyle(document.documentElement),C=n=>css.getPropertyValue(n).trim();
+  const dpr=window.devicePixelRatio||1,cw=cv.clientWidth||700,ch=cw*5/7;
+  if(cv.width!==Math.round(cw*dpr)){cv.width=Math.round(cw*dpr);cv.height=Math.round(ch*dpr)}
+  cx.setTransform(dpr,0,0,dpr,0,0);
+  const cols=view?W:VW,rows=view?H:VH,s=cw/cols,ox=view?0:clamp(S.x-10,0,W-VW),oy=view?0:clamp(S.y-7,0,H-VH);geo={s,ox,oy};
+  const col={w:C('--m-water'),w2:C('--m-water2'),g:C('--m-grass'),g2:C('--m-grass2'),f:C('--m-forest'),h:C('--m-hill'),r:C('--m-rock'),sn:C('--m-snow'),ink:C('--m-ink'),band:C('--m-band'),lab:C('--m-label'),acc:C('--accent')};
+  for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
+    const x=i+ox,y=j+oy,t=World.g[y*W+x],px=i*s,py=j*s,hh=hash(x,y);
+    cx.fillStyle=t===WATER?col.w:t===MOUNT?col.r:hh>.5?col.g:col.g2;cx.fillRect(px,py,s+.6,s+.6);
+    if(t===WATER&&hh>.6){cx.strokeStyle=col.w2;cx.lineWidth=Math.max(1,s/14);cx.beginPath();cx.moveTo(px+s*.2,py+s*.55);cx.quadraticCurveTo(px+s*.4,py+s*.35,px+s*.6,py+s*.55);cx.stroke()}
+    if(t===FOREST){cx.fillStyle=col.f;for(const[a,b]of[[.3,.25+hh*.1],[.68,.45]]){cx.beginPath();cx.moveTo(px+s*a,py+s*b);cx.lineTo(px+s*(a+.2),py+s*(b+.42));cx.lineTo(px+s*(a-.2),py+s*(b+.42));cx.fill()}}
+    if(t===HILL){cx.strokeStyle=col.h;cx.lineWidth=Math.max(1.2,s/9);cx.beginPath();cx.arc(px+s*.38,py+s*.75,s*.26,Math.PI,0);cx.stroke();cx.beginPath();cx.arc(px+s*.68,py+s*.62,s*.2,Math.PI,0);cx.stroke()}
+    if(t===MOUNT){cx.fillStyle=col.ink;cx.globalAlpha=.55;cx.beginPath();cx.moveTo(px+s*.5,py+s*.12);cx.lineTo(px+s*.95,py+s*.92);cx.lineTo(px+s*.05,py+s*.92);cx.fill();cx.globalAlpha=1;
+      cx.fillStyle=col.sn;cx.beginPath();cx.moveTo(px+s*.5,py+s*.12);cx.lineTo(px+s*.64,py+s*.38);cx.lineTo(px+s*.36,py+s*.38);cx.fill()}
+  }
+  const on=(x,y)=>x>=ox&&y>=oy&&x<ox+cols&&y<oy+rows;
+  if(pathPrev){cx.fillStyle=col.ink;for(const k of pathPrev){const x=k%W,y=(k/W)|0;if(on(x,y)){cx.beginPath();cx.arc((x-ox+.5)*s,(y-oy+.5)*s,Math.max(1.5,s*.08),0,7);cx.fill()}}}
+  // Festung
+  {const f=World.fort;if(on(f.x,f.y)){const px=(f.x-ox)*s,py=(f.y-oy)*s;cx.fillStyle=col.ink;cx.fillRect(px+s*.2,py+s*.3,s*.6,s*.6);for(const a of[.2,.44,.68])cx.fillRect(px+s*a,py+s*.14,s*.12,s*.2);
+    cx.fillStyle=col.band;cx.fillRect(px+s*.42,py+s*.55,s*.16,s*.35);label('Schwarzwacht',px,py)}}
+  World.cities.forEach((c,i)=>{if(!on(c.x,c.y))return;const px=(c.x-ox)*s,py=(c.y-oy)*s;
+    cx.fillStyle=col.lab;cx.strokeStyle=col.ink;cx.lineWidth=Math.max(1.2,s/12);
+    cx.beginPath();cx.rect(px+s*.2,py+s*.45,s*.6,s*.42);cx.fill();cx.stroke();
+    cx.fillStyle=S.cities[i].charter?col.acc:col.ink;cx.beginPath();cx.moveTo(px+s*.1,py+s*.47);cx.lineTo(px+s*.5,py+s*.1);cx.lineTo(px+s*.9,py+s*.47);cx.fill();
+    label(c.name,px,py)});
+  for(const b of S.bands){if(!on(b.x,b.y))continue;const px=(b.x-ox+.5)*s,py=(b.y-oy+.5)*s,r=s*.34;
+    cx.fillStyle=col.band;cx.beginPath();cx.moveTo(px,py-r);cx.lineTo(px+r,py);cx.lineTo(px,py+r);cx.lineTo(px-r,py);cx.fill();
+    if(!view){cx.fillStyle=col.lab;cx.font='700 '+Math.round(s*.3)+'px sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(b.s,px,py+1)}}
+  {const px=(S.x-ox+.5)*s,py=(S.y-oy+.5)*s;cx.fillStyle=col.acc;cx.strokeStyle=col.ink;cx.lineWidth=Math.max(1.5,s/10);cx.beginPath();cx.arc(px,py,Math.max(4,s*.3),0,7);cx.fill();cx.stroke()}
+  function label(t,px,py){const fs=view?Math.max(9,s*.75):Math.max(11,s*.36);cx.font='700 '+fs+'px "Alegreya Sans",sans-serif';cx.textAlign='center';cx.textBaseline='top';
+    const tw=cx.measureText(t).width,lx=clamp(px+s/2,tw/2+3,cw-tw/2-3),ly=Math.min(py+s*1.02,ch-fs-3);
+    cx.fillStyle=col.lab;cx.globalAlpha=.8;cx.fillRect(lx-tw/2-3,ly-1,tw+6,fs+3);cx.globalAlpha=1;cx.fillStyle=col.ink;cx.fillText(t,lx,ly)}
+}
+cv.addEventListener('click',e=>{const r=cv.getBoundingClientRect();travelTo(Math.floor((e.clientX-r.left)/geo.s)+geo.ox,Math.floor((e.clientY-r.top)/geo.s)+geo.oy)});
+document.addEventListener('keydown',e=>{const d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];
+  if(!d||!$('modal').hidden||busy||S.won)return;if(document.activeElement&&document.activeElement.tagName==='BUTTON')return;
+  e.preventDefault();const x=S.x+d[0],y=S.y+d[1];if(!pass(x,y))return;if(!moveTo(x,y))arrive()});
+$('btnView').onclick=()=>{view=!view;render()};
+$('btnNew').onclick=()=>modal('Neues Spiel','<p>Der jetzige Spielstand wird verworfen und ein neues Land entsteht.</p>',[{t:'Neu beginnen',pri:1,f:newGame},{t:'Abbrechen'}]);
+window.addEventListener('resize',()=>{if(S)draw()});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{if(S)draw()});
+
+function start(d){if(d&&d.S){S=d.S;World=genWorld(S.seed);render()}else if(load())render();else newGame()}
+if(window.claude&&window.claude.hot){window.claude.hot.snapshot(()=>({S}));
+  if(window.claude.hot.ready)window.claude.hot.ready(start);else start(window.claude.hot.data||{})}
+else start({});
+</script>
