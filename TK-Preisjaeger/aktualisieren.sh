@@ -11,6 +11,6 @@ for f in server.py kern.py quellen.py sprache.py browser.py verhandler.py verkau
 done
 (cd "$T" && python3 pruefung.py | tail -1 | grep -q "alles in Ordnung") || { echo "Prüfung FEHLGESCHLAGEN – nichts geändert"; exit 1; }
 S="$HOME/backups/spiegel/$(date +%F_%H%M%S)-claude-preisjaeger"; mkdir -p "$S"; cp -p "$Z"/*.py "$Z"/index.html "$S"/ 2>/dev/null || true
-cp "$T"/* "$Z"/; rm -rf "$T"
+cp "$T"/*.py "$T"/*.html "$T"/*.png "$Z"/; rm -rf "$T"
 systemctl --user restart tk-preisjaeger.service; sleep 3
 curl -s -m 8 http://127.0.0.1:8815/api/stand | python3 -c "import json,sys; d=json.load(sys.stdin); print('eingespielt: Fassung', d['fassung'], 'Bau', d['bau'], '| Sicherung:', '$S')"
