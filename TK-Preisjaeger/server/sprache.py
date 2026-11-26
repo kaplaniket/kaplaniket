@@ -107,30 +107,38 @@ def gegenantwort(titel, preis, mein, antwort, name=""):
 
 
 # ---------- Produktvergleich ----------
-ALTERNATIVEN = ('Nenne zu dem Produkt bis zu zwei direkt vergleichbare Konkurrenzprodukte (gleiche Gattung, ähnliche Preisklasse, in Deutschland '
-                'erhältlich, andere Hersteller oder das Nachbarmodell). Antworte NUR mit JSON: {"alternativen": ["Marke Modell", …]}. '
-                'Nur Produkte, die es sicher gibt; lieber weniger als erfundene.')
+ALTERNATIVEN = ('Du bekommst ein Produkt mit Angaben von der Angebotsseite. Bestimme zuerst genau, was für ein Gerät es ist, und nenne dann bis zu '
+                'drei direkt vergleichbare Konkurrenzprodukte: gleiche Geräteart mit denselben Kernfunktionen, ähnliche Preisklasse, in Deutschland '
+                'erhältlich, anderer Hersteller oder das Nachbarmodell. KEIN Zubehör, keine Filter, keine Ersatzteile, keine anderen Gerätearten. '
+                'Antworte NUR mit JSON: {"gattung": Geräteart in wenigen Wörtern mit den Kernfunktionen, "alternativen": ["Marke Modell", …]}. '
+                'Nur Produkte, die es sicher gibt; lieber weniger oder keine als erfundene.')
 VERGLEICH = ('Du vergleichst Produkte für einen Käufer in Deutschland. Grundlage sind zuerst die mitgelieferten „Angaben von der Angebotsseite“; '
              'dein allgemeines Wissen nur ergänzend. Erfinde keine technischen Daten: Was du nicht sicher weißt, kommt in "unsicher". '
              'Preise nennst du nur so, wie sie mitgeliefert sind. Antworte NUR mit JSON: {"produkte": [{"name": genau der mitgelieferte Name, '
              '"kurz": ein Satz, was es ist, "kann": [bis 6 Stichpunkte: was es kann/hat], "kann_nicht": [bis 5: was es nicht kann/nicht hat], '
              '"plus": [bis 4 Vorteile gegenüber den anderen], "minus": [bis 4 Nachteile gegenüber den anderen], "fuer_wen": ein Satz, '
-             '"unsicher": [Punkte, die du nicht sicher weißt, sonst leer]}], "empfehlung": {"name": einer der Namen, "grund": zwei bis drei Sätze '
+             '"unsicher": [Punkte, die du nicht sicher weißt, sonst leer], "vergleichbar": true oder false – false, wenn es eine andere Geräteart, '
+             'Zubehör, ein Filter oder ein Ersatzteil ist und deshalb nicht mit Produkt 1 verglichen werden kann}], "empfehlung": {"name": einer der Namen, "grund": zwei bis drei Sätze '
              'mit Bezug auf Preis und Wunsch des Käufers, "wann_anders": ein Satz, wann eines der anderen die bessere Wahl ist}}. '
              'Stichpunkte kurz, auf Deutsch, ohne Werbesprache.')
 
 
-def alternativen(name):
-    roh = ki(ALTERNATIVEN, name[:160], 150, 0.2, 15)
+def alternativen(name, angaben="", preis=None):
+    """Rückgabe (gattung, [Namen]). Die Angaben von der Angebotsseite sagen der KI, was für ein Gerät es wirklich ist."""
+    text = "Produkt: %s\nPreis: %s\nAngaben von der Angebotsseite: %s" % (name[:200], _eur(preis) if preis else "unbekannt", (angaben or "keine")[:3500])
+    roh = ki(ALTERNATIVEN, text, 220, 0.2, 20)
     try:
-        return [" ".join(str(x).split())[:70] for x in json.loads(re.search(r"\{.*\}", roh, re.S).group(0)).get("alternativen", []) if str(x).strip()][:2]
+        d = json.loads(re.search(r"\{.*\}", roh, re.S).group(0))
+        return str(d.get("gattung") or "")[:160], [" ".join(str(x).split())[:70] for x in d.get("alternativen", []) if str(x).strip()][:3]
     except Exception:
-        return []
+        return "", []
 
 
-def vergleich(produkte, wunsch=""):
+def vergleich(produkte, wunsch="", gattung=""):
     """produkte: [{name, preise (Text), angaben (Text von der Angebotsseite)}]. Rückgabe dict oder None, wenn die KI nicht antwortet."""
     text = ("Wunsch des Käufers: %s\n\n" % wunsch[:300]) if wunsch else ""
+    if gattung:
+        text += "Geräteart von Produkt 1: %s\n\n" % gattung
     for i, p in enumerate(produkte, 1):
         text += "Produkt %d: %s\nGefundene Preise: %s\nAngaben von der Angebotsseite: %s\n\n" % (
             i, p["name"], p.get("preise") or "keine gefunden", p.get("angaben") or "keine")
@@ -142,7 +150,7 @@ def vergleich(produkte, wunsch=""):
         for p in d.get("produkte", [])[:len(produkte)]:
             aus.append({"name": str(p.get("name", ""))[:120], "kurz": str(p.get("kurz", ""))[:240], "kann": liste(p.get("kann"), 6),
                         "kann_nicht": liste(p.get("kann_nicht"), 5), "plus": liste(p.get("plus"), 4), "minus": liste(p.get("minus"), 4),
-                        "fuer_wen": str(p.get("fuer_wen", ""))[:240], "unsicher": liste(p.get("unsicher"), 4)})
+                        "fuer_wen": str(p.get("fuer_wen", ""))[:240], "unsicher": liste(p.get("unsicher"), 4), "vergleichbar": p.get("vergleichbar") is not False})
         e = d.get("empfehlung") or {}
         return {"produkte": aus, "empfehlung": {"name": str(e.get("name", ""))[:120], "grund": str(e.get("grund", ""))[:600],
                                                 "wann_anders": str(e.get("wann_anders", ""))[:300]}} if aus else None

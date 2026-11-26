@@ -19,7 +19,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "1.4.1"
+FASSUNG = "1.4.2"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -297,46 +297,76 @@ def vergleichen(d):
     eingang = [p for p in (d.get("produkte") or []) if str(p.get("name", "")).strip()][:4]
     if not eingang:
         raise ValueError("Bitte mindestens ein Produkt angeben")
-    if len(eingang) == 1 and d.get("alternativen", True):
-        eingang += [{"name": n, "vorschlag": True} for n in sprache.alternativen(str(eingang[0]["name"]))]
-    if len(eingang) < 2:
-        raise ValueError("Zum Vergleichen braucht es mindestens zwei Produkte – bitte ein zweites eintragen")
 
     def aufbereiten(p):
-        name, url = " ".join(str(p["name"]).split())[:120], str(p.get("url") or "")
-        preise, bester, link = [], None, url
+        name, url = " ".join(str(p["name"]).split())[:140], str(p.get("url") or "")
+        preise, bester, link, angaben = [], None, url, ""
         if p.get("preis"):
             bester = float(p["preis"])
             preise.append("%s (%s, %s)" % (_eur(bester), p.get("quelle", "Angebot"), p.get("zustand", "")))
-        else:      # nur ein Name: eigene Suche -> beste Preise je Zustand und eine Händlerseite für die Angaben
+        gesucht = " ".join(str(p.get("gesucht") or "").split())[:120] or (name if not p.get("preis") else "")
+        if gesucht:      # eigene Suche: Preise je Zustand und eine Händlerseite mit den technischen Angaben
             try:
-                e = suche(name)
-                je = {}
-                for a in e["treffer"] or e.get("aehnlich", []):
-                    if a["zustand"] not in je:
-                        je[a["zustand"]] = a
-                for z, a in je.items():
-                    preise.append("%s ab %s (%s)" % ({"neu": "neu", "aufbereitet": "geprüft", "gebraucht": "gebraucht"}.get(z, z), _eur(a["preis"]), a["quelle"]))
+                e = suche(gesucht)
                 alle = e["treffer"] or e.get("aehnlich", [])
-                if alle:
-                    bester = alle[0]["preis"]
-                    haendler = [a for a in alle if a.get("art") == "händler"]
-                    link = (sorted(haendler, key=lambda a: a["quelle"] != "Amazon") or alle)[0]["url"]
+                if not p.get("preis"):
+                    je = {}
+                    for a in alle:
+                        je.setdefault(a["zustand"], a)
+                    for z, a in je.items():
+                        preise.append("%s ab %s (%s)" % ({"neu": "neu", "aufbereitet": "geprüft", "gebraucht": "gebraucht"}.get(z, z), _eur(a["preis"]), a["quelle"]))
+                    if alle:
+                        bester = alle[0]["preis"]
+                haendler = sorted([a for a in alle if a.get("art") == "händler" and a["url"] != url], key=lambda a: a["quelle"] != "Amazon")
+                if haendler:
+                    angaben = quellen.seitentext(haendler[0]["url"], 3000)
+                    link = link or haendler[0]["url"]
+                elif alle and not link:
+                    link = alle[0]["url"]
             except Exception:
                 pass
-        return {"name": name, "preise": " · ".join(preise), "bester": bester, "url": link, "vorschlag": bool(p.get("vorschlag")),
-                "angaben": quellen.seitentext(link) if link else ""}
+        if link and len(angaben) < 2500:
+            angaben = (angaben + " " + quellen.seitentext(link, 2500)).strip()
+        return {"name": name, "preise": " · ".join(preise), "bester": bester, "url": link, "vorschlag": bool(p.get("vorschlag")), "angaben": angaben}
 
     with ThreadPoolExecutor(max_workers=4) as topf:
         produkte = list(topf.map(aufbereiten, eingang))
-    v = sprache.vergleich(produkte, str(d.get("wunsch", "")))
+    gattung, verworfen = "", []
+    if len(produkte) == 1 and d.get("alternativen", True):
+        # Alternativen erst, wenn bekannt ist, was das Gerät ist (Angaben von der Angebotsseite) – nie nur aus dem Namen raten
+        erstes = produkte[0]
+        gattung, namen = sprache.alternativen(erstes["name"], erstes["angaben"], erstes["bester"])
+        with ThreadPoolExecutor(max_workers=4) as topf:
+            vorschlaege = list(topf.map(aufbereiten, [{"name": n, "vorschlag": True} for n in namen]))
+        for v in vorschlaege:
+            # ohne gefundenen Preis oder in ganz anderer Preisklasse: kein ernsthafter Vergleich (Zubehör, anderes Gerät)
+            if not v["bester"] or (erstes["bester"] and not (0.3 <= v["bester"] / erstes["bester"] <= 3.0)):
+                verworfen.append(v["name"])
+            else:
+                produkte.append(v)
+        produkte = produkte[:4]
+    if len(produkte) < 2:
+        raise ValueError("keine vergleichbare Alternative gefunden%s – bitte ein zweites Produkt selbst eintragen"
+                         % ((" (verworfen: %s)" % ", ".join(verworfen)) if verworfen else ""))
+    v = sprache.vergleich(produkte, str(d.get("wunsch", "")), gattung)
     if not v:
         raise ValueError("die KI hat nicht geantwortet – bitte noch einmal versuchen")
+    aus = []
     for i, p in enumerate(v["produkte"]):
         q = produkte[i] if i < len(produkte) else {}
+        if q.get("vorschlag") and not p.get("vergleichbar", True):
+            verworfen.append(q.get("name", p["name"]))
+            continue
         p.update(name=q.get("name", p["name"]), preise=q.get("preise", ""), bester=q.get("bester"), url=q.get("url", ""),
                  vorschlag=q.get("vorschlag", False), belegt=bool(q.get("angaben")))
-    v["zeit"] = time.strftime("%d.%m.%Y %H:%M")
+        aus.append(p)
+    if len(aus) < 2:
+        raise ValueError("keine vergleichbare Alternative gefunden (verworfen: %s) – bitte ein zweites Produkt selbst eintragen" % ", ".join(verworfen))
+    v["produkte"] = aus
+    if v["empfehlung"]["name"] not in [p["name"] for p in aus]:      # Empfehlung auf einen der gezeigten Namen abbilden
+        nah = [p["name"] for p in aus if p["name"].lower()[:12] in v["empfehlung"]["name"].lower() or v["empfehlung"]["name"].lower()[:12] in p["name"].lower()]
+        v["empfehlung"]["name"] = nah[0] if nah else aus[0]["name"]
+    v.update(zeit=time.strftime("%d.%m.%Y %H:%M"), gattung=gattung, verworfen=verworfen)
     return v
 
 

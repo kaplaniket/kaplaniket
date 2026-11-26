@@ -280,6 +280,8 @@ function korbzeigen(){
   <button class="haupt" id="vglstart" style="padding:8px 16px">${korb.length<=1?'Mit Alternativen vergleichen':'Jetzt vergleichen'}</button><button id="korbzu" title="Vergleich leeren und schließen">✕</button>
   <span class="leise klein" style="flex-basis:100%">${korb.length?'Bis zu vier Produkte. Bei nur einem sucht die App passende Alternativen dazu.':'Produkt eintippen oder in der Trefferliste „+ Vergleich“ anklicken – dann „Vergleichen“.'}</span>`;
 }
+// Führt der Händler das Produkt nur unter der Modellnummer, steht der gesuchte Name mit im Vergleich
+function korbeintrag(a){ const g=stand?(stand.produkt||stand.anfrage):''; return {name:(a.pruef_titel&&g)?g+' ('+a.titel+')':a.titel,url:a.url,preis:a.preis,quelle:a.quelle,zustand:ZU[a.zustand]||'',gesucht:(a.pruef_titel||!a.fehlt)?g:''}; }
 function korbeingabe(){ const f=$('#korbneu'); const n=f?f.value.trim():''; if(n.length>1&&korb.length<4&&!korb.some(k=>k.name.toLowerCase()===n.toLowerCase())){ korb.push({name:n}); return true; } return false; }
 async function vergleichen(){
   korbeingabe();
@@ -292,7 +294,7 @@ async function vergleichen(){
   if(d.fehler){ $('#vdl').innerHTML=`<h3>Vergleich</h3><div class="kasten warn">${esc(d.fehler)}</div><div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`; return; }
   const li=(l,k)=>l.length?`<ul class="${k}">${l.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<div class="leise klein">–</div>';
   const sieger=d.empfehlung.name;
-  $('#vdl').innerHTML=`<h3>Produktvergleich</h3><div class="leise klein">Stand ${esc(d.zeit)} · Preise aus der eigenen Suche</div>
+  $('#vdl').innerHTML=`<h3>Produktvergleich</h3><div class="leise klein">Stand ${esc(d.zeit)} · Preise aus der eigenen Suche${d.gattung?' · Geräteart: '+esc(d.gattung):''}${(d.verworfen||[]).length?' · als nicht vergleichbar verworfen: '+esc(d.verworfen.join(', ')):''}</div>
   <div class="empf"><div class="klein" style="font-weight:650;color:var(--akzent)">EMPFEHLUNG</div><div style="font-size:19px;font-weight:750;margin:2px 0 6px">${esc(sieger)}</div><div>${esc(d.empfehlung.grund)}</div>${d.empfehlung.wann_anders?`<div class="leise" style="margin-top:6px">${esc(d.empfehlung.wann_anders)}</div>`:''}</div>
   <div class="vg" style="grid-template-columns:repeat(${d.produkte.length},1fr)">${d.produkte.map(p=>`<div class="vp${p.name===sieger?' sieger':''}">
     <h4>${esc(p.name)}</h4>${p.vorschlag?'<span class="m">vorgeschlagene Alternative</span> ':''}${p.name===sieger?'<span class="m neu">Empfehlung</span>':''}
@@ -325,10 +327,10 @@ async function details(a){
 document.addEventListener('keydown',e=>{ if(e.target.id==='korbneu'&&e.key==='Enter'){ e.preventDefault(); if(korbeingabe()){ korbzeigen(); $('#korbneu').focus(); } else if(korb.length) vergleichen(); } });
 document.addEventListener('click',e=>{
   const v=e.target.closest('[data-vgl]'); if(v){ e.preventDefault(); e.stopPropagation(); const a=reg[+v.dataset.vgl], i=korb.findIndex(k=>k.url===a.url);
-    if(i>=0) korb.splice(i,1); else if(korb.length<4) korb.push({name:a.titel,url:a.url,preis:a.preis,quelle:a.quelle,zustand:ZU[a.zustand]||''}); zeigen(); korbzeigen(); return; }
+    if(i>=0) korb.splice(i,1); else if(korb.length<4) korb.push(korbeintrag(a)); zeigen(); korbzeigen(); return; }
   const de=e.target.closest('[data-det]'); if(de){ e.preventDefault(); e.stopPropagation(); details(reg[+de.dataset.det]); return; }
   if(e.target.dataset.dh){ $('#vdlg').close(); handeln(reg[+e.target.dataset.dh]); return; }
-  if(e.target.dataset.dv){ const a=reg[+e.target.dataset.dv]; if(korb.length<4&&!korb.some(k=>k.url===a.url)) korb.push({name:a.titel,url:a.url,preis:a.preis,quelle:a.quelle,zustand:ZU[a.zustand]||''}); $('#vdlg').close(); zeigen(); korbzeigen(); return; }
+  if(e.target.dataset.dv){ const a=reg[+e.target.dataset.dv]; if(korb.length<4&&!korb.some(k=>k.url===a.url)) korb.push(korbeintrag(a)); $('#vdlg').close(); zeigen(); korbzeigen(); return; }
   const kw=e.target.closest('[data-korbweg]'); if(kw){ korb.splice(+kw.dataset.korbweg,1); if(stand) zeigen(); korbzeigen(); return; }
   if(e.target.id==='vglauf'){ korbOffen=true; if(!korb.length&&stand&&(stand.produkt||stand.anfrage)) korb.push({name:stand.produkt||stand.anfrage}); korbzeigen(); $('#korbneu').focus(); return; }
   if(e.target.id==='korbdazu'){ if(korbeingabe()) korbzeigen(); $('#korbneu').focus(); return; }
