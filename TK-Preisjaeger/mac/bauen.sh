@@ -6,10 +6,16 @@ Q="$(cd "$(dirname "$0")" && pwd)"
 A="$Q/fertig/TK Preisjäger.app"
 T="$(mktemp -d)"
 rm -rf "$Q/fertig"; mkdir -p "$A/Contents/MacOS" "$A/Contents/Resources"
+TEILE=()
 for ARCH in x86_64 arm64; do
-  swiftc -O -target "$ARCH-apple-macos11.0" "$Q/main.swift" -o "$T/pj-$ARCH" -framework Cocoa -framework WebKit
+  if swiftc -O -target "$ARCH-apple-macos11.0" "$Q/main.swift" -o "$T/pj-$ARCH" -framework Cocoa -framework WebKit; then
+    TEILE+=("$T/pj-$ARCH")
+  else
+    echo "Hinweis: Bau für $ARCH nicht möglich (Entwicklerwerkzeuge zu alt?)"
+  fi
 done
-lipo -create "$T/pj-x86_64" "$T/pj-arm64" -output "$A/Contents/MacOS/TKPreisjaeger"
+[ ${#TEILE[@]} -gt 0 ] || { echo "FEHLER: Bau fehlgeschlagen"; exit 1; }
+lipo -create "${TEILE[@]}" -output "$A/Contents/MacOS/TKPreisjaeger"
 cp "$Q/Info.plist" "$A/Contents/Info.plist"
 # Symbol aus symbol.png
 I="$T/TKPreisjaeger.iconset"; mkdir -p "$I"
