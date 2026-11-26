@@ -283,6 +283,8 @@ function korbzeigen(){
 // Führt der Händler das Produkt nur unter der Modellnummer, steht der gesuchte Name mit im Vergleich
 function korbeintrag(a){ const g=stand?(stand.produkt||stand.anfrage):''; return {name:(a.pruef_titel&&g)?g+' ('+a.titel+')':a.titel,url:a.url,preis:a.preis,quelle:a.quelle,zustand:ZU[a.zustand]||'',gesucht:(a.pruef_titel||!a.fehlt)?g:''}; }
 function korbeingabe(){ const f=$('#korbneu'); const n=f?f.value.trim():''; if(n.length>1&&korb.length<4&&!korb.some(k=>k.name.toLowerCase()===n.toLowerCase())){ korb.push({name:n}); return true; } return false; }
+let vglDaten=null, vglHtml='';
+const QUELLE_VON={'amazon.':'Amazon','idealo.':'idealo','mediamarkt.':'MediaMarkt','saturn.':'Saturn','kleinanzeigen.':'Kleinanzeigen','vinted.':'Vinted','shpock.':'Shpock','hood.':'Hood','rebuy.':'rebuy'};
 async function vergleichen(){
   korbeingabe();
   if(!korb.length){ korbOffen=true; korbzeigen(); const f=$('#korbneu'); if(f){ f.focus(); f.placeholder='Bitte zuerst ein Produkt eintippen'; } return; }
@@ -293,6 +295,7 @@ async function vergleichen(){
   if(!d.fehler&&!(d.produkte&&d.empfehlung)) d={fehler:'Die Antwort war unvollständig. Bitte noch einmal versuchen.'};
   if(d.fehler){ $('#vdl').innerHTML=`<h3>Vergleich</h3><div class="kasten warn">${esc(d.fehler)}</div><div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`; return; }
   const li=(l,k)=>l.length?`<ul class="${k}">${l.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<div class="leise klein">–</div>';
+  vglDaten=d;
   const sieger=d.empfehlung.name;
   $('#vdl').innerHTML=`<h3>Produktvergleich</h3><div class="leise klein">Stand ${esc(d.zeit)} · Preise aus der eigenen Suche${d.gattung?' · Geräteart: '+esc(d.gattung):''}${(d.verworfen||[]).length?' · als nicht vergleichbar verworfen: '+esc(d.verworfen.join(', ')):''}</div>
   <div class="empf"><div class="klein" style="font-weight:650;color:var(--akzent)">EMPFEHLUNG</div>
@@ -302,39 +305,43 @@ async function vergleichen(){
     const bl=(t,l,k)=>l.length?`<div class="vp" style="background:var(--karte)"><h5 style="margin-top:0">${t}</h5>${li(l,k)}</div>`:'';
     return `<div class="vg" style="grid-template-columns:repeat(3,1fr)">${bl('Warum du dieses kaufen solltest',wk,'ja')}${bl('Vorteile',vo,'pl')}${bl('Nachteile – das solltest du wissen',na,'mi')}</div>`;})()}
   ${d.empfehlung.wann_anders?`<div style="margin-top:10px"><b>Wann lieber ein anderes:</b> ${esc(d.empfehlung.wann_anders)}</div>`:''}
-  ${(()=>{const s=d.produkte.find(p=>p.name===sieger);return s&&s.url?`<div class="reihe"><a href="${esc(s.url)}" target="_blank" rel="noopener"><button class="haupt" style="padding:9px 16px">Empfohlenes Angebot öffnen ↗</button></a></div>`:''})()}</div>
+  ${(()=>{const s=d.produkte.find(p=>p.name===sieger);return s&&s.url?`<div class="reihe"><a href="${esc(s.url)}" target="_blank" rel="noopener"><button class="haupt" style="padding:9px 16px">Empfohlenes Angebot öffnen ↗</button></a><button data-vdet="${d.produkte.findIndex(p=>p.name===sieger)}">Alle Angaben zum empfohlenen Produkt</button></div>`:''})()}</div>
   <div class="vg" style="grid-template-columns:repeat(${d.produkte.length},1fr)">${d.produkte.map(p=>`<div class="vp${p.name===sieger?' sieger':''}">
     <h4>${esc(p.name)}</h4>${p.vorschlag?'<span class="m">vorgeschlagene Alternative</span> ':''}${p.name===sieger?'<span class="m neu">Empfehlung</span>':''}
     <div style="font-size:22px;font-weight:750;margin-top:6px">${p.bester?'ab '+eur(p.bester):'kein genau passendes Angebot gefunden'}</div><div class="leise klein">${esc(p.preise||'')}</div>
     <div style="margin-top:6px">${esc(p.kurz)}</div>
     <h5>Kann / hat</h5>${li(p.kann,'ja')}<h5>Kann nicht / fehlt</h5>${li(p.kann_nicht,'nein')}<h5>Vorteile</h5>${li(p.plus,'pl')}<h5>Nachteile</h5>${li(p.minus,'mi')}
     <h5>Für wen</h5><div style="font-size:14px">${esc(p.fuer_wen)}</div>${p.unsicher.length?`<h5>Nicht sicher</h5>${li(p.unsicher,'un')}`:''}
-    <div class="reihe">${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener"><button>Angebot öffnen ↗</button></a>`:''}<button data-q="${esc(p.name)}">Preise suchen</button></div>
+    <div class="reihe"><button class="handeln" style="margin:0;padding:7px 12px;font-size:14px" data-vdet="${d.produkte.indexOf(p)}">Alle Angaben ansehen</button>${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener"><button>Angebot öffnen ↗</button></a>`:''}<button data-q="${esc(p.name)}">Preise suchen</button></div>
     <div class="leise klein" style="margin-top:8px">${p.belegt?'Grundlage: Angaben von der Angebotsseite + KI-Wissen':'Grundlage: nur KI-Wissen (keine Angebotsseite lesbar)'}</div></div>`).join('')}</div>
   <div class="kasten warn klein" style="margin-top:14px">Die Einschätzung schreibt eine KI. Technische Angaben können falsch oder veraltet sein – vor dem Kauf die Angebotsseite prüfen. Preise stammen aus der Suche zum genannten Zeitpunkt.</div>
   <div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`;
 }
-async function details(a){
+async function details(a,ausVergleich){
+  if(ausVergleich) vglHtml=$('#vdl').innerHTML;
+  const zurueck=ausVergleich?'<button data-vback="1">← Zurück zum Vergleich</button>':'';
   $('#vdl').innerHTML=`<h3>${esc(a.titel)}</h3><div class="leise">Lese die Angebotsseite und stelle Eigenschaften und Ausstattung zusammen … (etwa 10–20 Sekunden)</div><div class="skel" style="margin-top:14px"></div>`;
   $('#vdlg').showModal();
   let d; try{ d=await post('/api/details',{titel:a.titel,url:a.url,preis:a.preis,quelle:a.quelle}); }catch(e){ d={fehler:'Der Preisjäger ist gerade nicht erreichbar.'}; }
-  if(d.fehler){ $('#vdl').innerHTML=`<h3>${esc(a.titel)}</h3><div class="kasten warn">${esc(d.fehler)}</div><div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`; return; }
+  if(d.fehler){ $('#vdl').innerHTML=`<h3>${esc(a.titel)}</h3><div class="kasten warn">${esc(d.fehler)}</div><div class="reihe" style="justify-content:flex-end">${zurueck}<button data-vzu="1">Schließen</button></div>`; return; }
   const li=(l,k)=>`<ul class="${k}">${l.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
   const i=reg.indexOf(a);
   $('#vdl').innerHTML=`<div style="display:flex;gap:16px;align-items:flex-start">${a.bild?`<img src="${esc(a.bild)}" referrerpolicy="no-referrer" style="width:130px;height:130px;object-fit:cover;border-radius:12px" onerror="this.remove()">`:''}
   <div style="min-width:0;flex:1"><h3>${esc(d.produkt)}</h3><div class="leise klein">${esc(a.titel)}</div>
-  <div style="margin-top:6px"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.quelle)}</span> <span class="m ${a.zustand}">${ZU[a.zustand]||''}</span> <b style="font-size:22px;margin-left:8px">${eur(a.preis)}</b></div>
+  <div style="margin-top:6px"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.quelle)}</span> ${a.zustand?`<span class="m ${a.zustand}">${ZU[a.zustand]||''}</span>`:''} <b style="font-size:22px;margin-left:8px">${a.preis?eur(a.preis):''}</b></div>
   <div style="margin-top:8px">${esc(d.kurz)}</div></div></div>
   <div class="vg" style="grid-template-columns:1fr 1fr"><div class="vp"><h5 style="margin-top:0">Eigenschaften</h5>${d.eigenschaften.length?`<table style="border-collapse:collapse;font-size:14px;width:100%">${d.eigenschaften.map(([k,w])=>`<tr><td style="padding:3px 12px 3px 0;color:var(--leise);vertical-align:top;white-space:nowrap">${esc(k)}</td><td style="padding:3px 0">${esc(w)}</td></tr>`).join('')}</table>`:'<div class="leise klein">keine Angaben</div>'}</div>
   <div class="vp"><h5 style="margin-top:0">Ausstattung</h5>${d.ausstattung.length?li(d.ausstattung,'ja'):'<div class="leise klein">keine Angaben</div>'}${d.lieferumfang.length?`<h5>Lieferumfang</h5>${li(d.lieferumfang,'pl')}`:''}${d.zu_diesem_angebot.length?`<h5>Zu diesem Angebot</h5>${li(d.zu_diesem_angebot,'mi')}`:''}${d.unsicher.length?`<h5>Nicht sicher</h5>${li(d.unsicher,'un')}`:''}</div></div>
   ${(d.warn||[]).length?`<div class="kasten warn" style="border-color:var(--rot)"><b style="color:var(--rot)">⚠ Warnzeichen in dieser Anzeige</b><ul class="mi" style="margin:6px 0 0;padding-left:18px">${d.warn.map(w=>`<li>${esc(w)}</li>`).join('')}</ul><div class="klein leise" style="margin-top:6px">Ein Hinweis, kein Beweis. Sicher sind: Abholung mit Barzahlung nach Prüfung oder „Sicher bezahlen“ in der App.</div></div>`:''}
   <div class="leise klein" style="margin-top:10px">${d.belegt?'Grundlage: Angaben von der Angebotsseite, ergänzt durch KI-Wissen über das Modell.':'Die Angebotsseite war nicht lesbar – Angaben stammen nur aus KI-Wissen über das Modell.'} Angaben können falsch sein; vor dem Kauf die Anzeige prüfen.</div>
-  <div class="reihe" style="justify-content:flex-end"><a href="${esc(a.url)}" target="_blank" rel="noopener"><button>Angebot öffnen ↗</button></a>${a.art==='privat'&&a.zustand!=='defekt'&&i>=0?`<button data-dh="${i}">Verhandeln</button>`:''}${i>=0?`<button data-dv="${i}">+ Vergleich</button>`:''}<button data-vzu="1">Schließen</button></div>`;
+  <div class="reihe" style="justify-content:flex-end"><a href="${esc(a.url)}" target="_blank" rel="noopener"><button>Angebot öffnen ↗</button></a>${a.art==='privat'&&a.zustand!=='defekt'&&i>=0?`<button data-dh="${i}">Verhandeln</button>`:''}${i>=0?`<button data-dv="${i}">+ Vergleich</button>`:''}${zurueck}<button data-vzu="1">Schließen</button></div>`;
 }
 document.addEventListener('keydown',e=>{ if(e.target.id==='korbneu'&&e.key==='Enter'){ e.preventDefault(); if(korbeingabe()){ korbzeigen(); $('#korbneu').focus(); } else if(korb.length) vergleichen(); } });
 document.addEventListener('click',e=>{
   const v=e.target.closest('[data-vgl]'); if(v){ e.preventDefault(); e.stopPropagation(); const a=reg[+v.dataset.vgl], i=korb.findIndex(k=>k.url===a.url);
     if(i>=0) korb.splice(i,1); else if(korb.length<4) korb.push(korbeintrag(a)); zeigen(); korbzeigen(); return; }
+  const vd=e.target.closest('[data-vdet]'); if(vd&&vglDaten){ const p=vglDaten.produkte[+vd.dataset.vdet]; if(p){ const q=Object.entries(QUELLE_VON).find(([k])=>(p.url||'').includes(k)); details({titel:p.name,url:p.url||'',preis:p.bester||0,quelle:q?q[1]:'idealo',zustand:'',bild:'',art:''},true); } return; }
+  if(e.target.dataset.vback){ $('#vdl').innerHTML=vglHtml; return; }
   const de=e.target.closest('[data-det]'); if(de){ e.preventDefault(); e.stopPropagation(); details(reg[+de.dataset.det]); return; }
   if(e.target.dataset.dh){ $('#vdlg').close(); handeln(reg[+e.target.dataset.dh]); return; }
   if(e.target.dataset.dv){ const a=reg[+e.target.dataset.dv]; if(korb.length<4&&!korb.some(k=>k.url===a.url)) korb.push(korbeintrag(a)); $('#vdlg').close(); zeigen(); korbzeigen(); return; }
