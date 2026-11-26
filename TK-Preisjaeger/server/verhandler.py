@@ -33,7 +33,7 @@ const knopf = [...document.querySelectorAll('button')].find(x => /Nachricht schr
 return {titel: ((document.querySelector('#viewad-title') || {}).innerText || document.title || '').trim(),
         preis: ((document.querySelector('#viewad-price') || {}).innerText || '').trim(),
         text: ((document.querySelector('#viewad-description-text') || {}).innerText || '').trim().slice(0, 4000),
-        verk: namen.sort((x, y) => y.length - x.length)[0] || '',
+        verk: namen.filter(n => n.length > 1 && !/Anzeigen online|Folgen|Profil/i.test(n))[0] || '',
         form: !!document.querySelector('#viewad-contact-form textarea[name=message]') || !!knopf,
         url: location.href};"""
 
