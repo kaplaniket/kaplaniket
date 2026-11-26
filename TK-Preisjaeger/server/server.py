@@ -28,7 +28,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "4.0"
+FASSUNG = "4.1"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -231,15 +231,80 @@ def eigene_radar(neu=None, weg=None):
     return l
 
 
+def _umkreis_alles(job, plz, km, eins):
+    """Ohne Artikel: (A) alle Radar-Produkte im Umkreis, (B) die neuesten Anzeigen aus der Gegend – die KI sucht erkennbare
+    Markenprodukte heraus, deren Preis mit dem bundesweiten Marktpreis verglichen wird."""
+    liste = []
+    namen = list(dict.fromkeys(eigene_radar() + RADAR))
+    _sjobs[job]["schritt"] = "Prüfe %d gängige Produkte in deinem Umkreis …" % len(namen)
+    with ThreadPoolExecutor(max_workers=3) as topf:
+        for l in topf.map(lambda n: _sicher(lambda: eins(n, 1)), namen):
+            liste += l[:8]
+    kennung = quellen.ka_ort(plz)
+    if not kennung:
+        return liste
+    _sjobs[job]["schritt"] = "Lese die neuesten Anzeigen aus deiner Gegend …"
+    ort, roh, gesehen = (kennung, km), [], {a["url"] for a in liste}
+    with ThreadPoolExecutor(max_workers=4) as topf:
+        for l in topf.map(lambda x: _sicher(lambda: quellen.kleinanzeigen_umkreis(ort, x[0], x[1])), [(1, True), (2, True), (3, True), (4, True), (1, False), (2, False)]):
+            roh += l
+    kandidaten, da = [], set()
+    for a in roh:
+        if a.get("preis") and a["preis"] >= 60 and a["url"] not in da and a["url"] not in gesehen and not kern.ist_defekt(a["titel"], a.get("text", "")):
+            da.add(a["url"])
+            kandidaten.append(a)
+    if not kandidaten:
+        return liste
+    _sjobs[job]["schritt"] = "%d Anzeigen aus deiner Gegend gelesen – suche erkennbare Markenprodukte heraus …" % len(kandidaten)
+    wahl = sprache.auswahl(kandidaten[:140])
+
+    def pruefen(x):
+        nr, begriff = x
+        a = dict(kandidaten[nr])
+        s = (suche(begriff).get("schnaeppchen") or {})
+        markt = s.get("markt")
+        if not markt:
+            return None
+        gewinn = round(markt * 0.93) - a["preis"]
+        if gewinn < 25 or gewinn < a["preis"] * 0.12:
+            return None
+        warn = kern.betrug(a["titel"] + " " + a.get("text", ""))
+        m = re.match(r"(\d{5})", a.get("ort") or "")
+        hoch = a["preis"] < markt * 0.5 or bool(warn)
+        gruende = (["unter der Hälfte des Marktpreises – oft Lockpreis, Zubehör oder Betrug"] if a["preis"] < markt * 0.5 else []) + \
+                  (["Warnzeichen in der Anzeige: " + warn[0]] if warn else []) + \
+                  ["Produkt wurde von der KI aus dem Titel erkannt („%s“) – Modell, Ausstattung und Zustand selbst prüfen" % begriff]
+        a.pop("text", None)
+        return dict(a, quelle="Kleinanzeigen", art="privat", zustand="gebraucht", produkt=begriff, entdeckt=True, km=entfernung(plz, m.group(1)) if m else None,
+                    markt=round(markt), wiederverkauf=round(markt * 0.93), ersparnis=round(markt - a["preis"]), ersparnis_pct=round((1 - a["preis"] / markt) * 100),
+                    nebenkosten=0, gewinn=gewinn, rendite=round(gewinn / a["preis"] * 100), risiko="hoch" if hoch else "mittel", gruende=gruende)
+
+    _sjobs[job]["schritt"] = "Vergleiche %d Fundstücke aus deiner Gegend mit dem Marktpreis …" % len(wahl)
+    with ThreadPoolExecutor(max_workers=3) as topf:
+        for r in topf.map(lambda x: _sicher(lambda: pruefen(x), None), wahl):
+            if r:
+                liste.append(r)
+    _sjobs[job]["gelesen"] = len(kandidaten)
+    return liste
+
+
+def _sicher(fn, sonst=None):
+    try:
+        return fn()
+    except Exception:
+        return [] if sonst is None and sonst != 0 else sonst
+
+
 def schnaeppchen_start(d):
     """Eigene Schnäppchen-Suche (läuft im Hintergrund): gründlich suchen, auf Wunsch auf verwandte Produkte ausweiten und auf den Umkreis begrenzen."""
     q = " ".join(str(d.get("q", "")).split())[:120]
-    if len(q) < 2:
-        raise ValueError("Bitte ein Produkt eingeben")
     plz = str(d.get("plz") or "") if re.fullmatch(r"\d{5}", str(d.get("plz") or "")) else None
     km = int(float(d.get("km") or 30))
+    alles = len(q) < 2      # ohne Artikel: alles im Umkreis durchsuchen
+    if alles and not (plz and d.get("umkreis")):
+        raise ValueError("Bitte ein Produkt eingeben – oder „nur im Umkreis“ wählen, dann wird alles in deiner Nähe durchsucht")
     job = "%d" % (time.time() * 1000)
-    _sjobs[job] = {"laeuft": True, "schritt": "Suche „%s“ gründlich …" % q, "liste": [], "produkte": []}
+    _sjobs[job] = {"laeuft": True, "schritt": "Durchsuche deine Gegend …" if alles else "Suche „%s“ gründlich …" % q, "liste": [], "produkte": []}
     if d.get("merken"):
         eigene_radar(neu=q)
 
@@ -258,8 +323,11 @@ def schnaeppchen_start(d):
                                  "basis": s.get("anzahl_basis", 0)})
                 return l
 
-            liste += eins(q, 2)
-            if d.get("ausweiten"):
+            if alles:
+                liste += _umkreis_alles(job, plz, km, eins)
+            else:
+                liste += eins(q, 2)
+            if d.get("ausweiten") and not alles:
                 _sjobs[job]["schritt"] = "Weite die Suche auf verwandte Produkte aus …"
                 _, namen = sprache.alternativen(q, "Der Käufer sucht günstige Angebote zum Weiterverkauf. Nenne direkt verwandte Produkte: Nachbarmodelle, "
                                                     "Vorgänger/Nachfolger und andere Größen desselben Geräts.", None)

@@ -227,3 +227,26 @@ def verkaufsantwort(anzeige, verlauf, neu, name=""):
                 "warnung": str(d.get("warnung") or "")[:200], "antwort": " ".join(str(d.get("antwort") or "").split())}
     except Exception:
         return {"lage": "unklar", "gebot": None, "warnung": "", "antwort": "Danke für deine Nachricht – ich melde mich gleich bei dir. %s" % gruss}
+
+
+# ---------- Aus einer Liste beliebiger Anzeigen die heraussuchen, bei denen sich ein Marktpreis-Vergleich lohnt ----------
+AUSWAHL = ('Du bekommst eine nummerierte Liste von Kleinanzeigen (Nummer | Preis | Titel). Wähle bis zu 10 aus, bei denen ein eindeutiges '
+           'Markenprodukt mit erkennbarem Modell angeboten wird, das sich gebraucht gut weiterverkaufen lässt (Elektronik, Werkzeug, Haushaltsgeräte, '
+           'Spielkonsolen, Fahrräder bekannter Marken, Markenspielzeug-Sets, Kameras, Uhren). NICHT wählen: Autos und Autoteile, Möbel, Kleidung, '
+           'Dienstleistungen, Vermietung, Immobilien, Konvolute, Zubehör, Ersatzteile, Defektes, alles ohne klares Modell. Antworte NUR mit JSON: '
+           '{"auswahl": [{"nr": Nummer, "suchbegriff": "Marke Modell und – falls genannt – Größe/Speicher, so wie man es auf Kleinanzeigen sucht"}]}.')
+
+
+def auswahl(anzeigen):
+    """anzeigen: [{titel, preis}] -> [(Index, Suchbegriff)]"""
+    text = "\n".join("%d | %d € | %s" % (i, a["preis"], a["titel"][:90]) for i, a in enumerate(anzeigen))
+    roh = ki(AUSWAHL, text[:9000], 500, 0.1, 30)
+    try:
+        aus = []
+        for x in json.loads(re.search(r"\{.*\}", roh, re.S).group(0)).get("auswahl", [])[:10]:
+            nr, sb = int(x.get("nr")), " ".join(str(x.get("suchbegriff") or "").split())[:70]
+            if 0 <= nr < len(anzeigen) and len(sb) >= 4:
+                aus.append((nr, sb))
+        return aus
+    except Exception:
+        return []

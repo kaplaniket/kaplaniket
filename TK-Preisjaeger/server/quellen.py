@@ -532,3 +532,14 @@ def anbietertext(url):
         return re.sub(r"\n\s*\n\s*\n+", "\n\n", text)[:4000], verk
     except Exception:
         return "", ""
+
+
+# ---------- Neueste Anzeigen im Umkreis ohne Suchwort (für „alles im Umkreis nach Schnäppchen durchsuchen“) ----------
+def kleinanzeigen_umkreis(ort, seite=1, elektronik=False, ab=60):
+    """ort = (Ortskennung, km). Neueste Angebote ab einem Mindestpreis – quer durch alle Kategorien oder nur Elektronik."""
+    teile = ["anzeige:angebote", "preis:%d:" % ab] + (["seite:%d" % seite] if seite > 1 else [])
+    if elektronik:
+        url = "https://www.kleinanzeigen.de/s-elektronik/%s/c161l%sr%d" % ("/".join(teile), ort[0], ort[1])
+    else:
+        url = "https://www.kleinanzeigen.de/s-%s/k0l%sr%d" % ("/".join(teile), ort[0], ort[1])
+    return _ka_seite(holen(url))

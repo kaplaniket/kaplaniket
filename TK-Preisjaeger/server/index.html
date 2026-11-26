@@ -311,15 +311,15 @@ let snapListe=[], snapLetzte='', snapUhr=null;
 async function snapEigen(job){
   clearTimeout(snapUhr); let d; try{ d=await (await fetch('/api/schnaeppchen?job='+job)).json(); }catch(e){ d={fehler:String(e)}; }
   if(d.fehler){ snapZeigen(`<div class="kasten warn">${esc(d.fehler)}</div>`,[]); return; }
-  if(d.laeuft){ snapZeigen(`<div class="kasten"><span style="display:inline-block;width:14px;height:14px;border:2.5px solid var(--linie);border-top-color:var(--akzent);border-radius:50%;animation:d .8s linear infinite;vertical-align:-2px;margin-right:8px"></span>${esc(d.schritt||'Suche …')} Das dauert bis zu zwei Minuten.</div>`,[]); snapUhr=setTimeout(()=>{ if($('#vdlg').open) snapEigen(job); },4000); return; }
-  snapZeigen(`<div class="leise" style="margin-bottom:10px">Eigene Suche „${esc(snapLetzte)}“ · Stand ${esc(d.zeit||'')}${d.umkreis?' · nur im Umkreis von '+d.umkreis.km+' km um '+esc(d.umkreis.plz):''}</div>
+  if(d.laeuft){ snapZeigen(`<div class="kasten"><span style="display:inline-block;width:14px;height:14px;border:2.5px solid var(--linie);border-top-color:var(--akzent);border-radius:50%;animation:d .8s linear infinite;vertical-align:-2px;margin-right:8px"></span>${esc(d.schritt||'Suche …')} Das dauert bis zu ${snapLetzte?'zwei':'vier'} Minuten.</div>`,[]); snapUhr=setTimeout(()=>{ if($('#vdlg').open) snapEigen(job); },4000); return; }
+  snapZeigen(`<div class="leise" style="margin-bottom:10px">${snapLetzte?'Eigene Suche „'+esc(snapLetzte)+'“':'Alles im Umkreis'+(d.gelesen?' – zusätzlich '+d.gelesen+' neue Anzeigen aus deiner Gegend geprüft':'')} · Stand ${esc(d.zeit||'')}${d.umkreis?' · nur im Umkreis von '+d.umkreis.km+' km um '+esc(d.umkreis.plz):''}</div>
    <div class="chips" style="margin-bottom:12px">${d.produkte.map(p=>`<button class="chip" data-q="${esc(p.name)}" title="${p.angebote} Angebote${p.markt?', Marktpreis '+eur(p.markt):', zu wenige Privatangebote für einen Marktpreis ('+p.basis+')'}">${esc(p.name)}${p.schnaeppchen?` <b style="color:var(--akzent)">+${eur(p.bester_gewinn)}</b>`:' <span class="x">–</span>'}</button>`).join('')}</div>`,d.liste);
 }
 const RISIKO={niedrig:['neu','geringes Risiko'],mittel:['fehlt','mittleres Risiko'],hoch:['defekt','hohes Risiko']};
 function snapKarte(a,i){
   return `<div class="vp" style="margin-bottom:10px"><div style="display:grid;grid-template-columns:${a.bild?'84px ':''}1fr auto;gap:14px;align-items:start">${a.bild?`<img src="${esc(a.bild)}" referrerpolicy="no-referrer" style="width:84px;height:84px;object-fit:cover;border-radius:10px" onerror="this.remove()">`:''}
    <div style="min-width:0"><b>${esc(a.titel)}</b>${a.produkt?` <span class="m">${esc(a.produkt)}</span>`:''}
-    <div class="z" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.shop||a.quelle)}</span><span class="m ${a.zustand}">${ZU[a.zustand]||''}</span><span class="m ${RISIKO[a.risiko][0]}">${RISIKO[a.risiko][1]}</span>${a.km!=null?`<span class="m">${a.km} km</span>`:''}</div>
+    <div class="z" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.shop||a.quelle)}</span><span class="m ${a.zustand}">${ZU[a.zustand]||''}</span><span class="m ${RISIKO[a.risiko][0]}">${RISIKO[a.risiko][1]}</span>${a.entdeckt?'<span class="m">Fund aus deiner Gegend</span>':''}${a.km!=null?`<span class="m">${a.km} km</span>`:''}</div>
     <div class="klein leise" style="margin-top:6px">${esc([a.ort,a.hinweis].filter(Boolean).join(' · '))}</div>
     <ul class="${a.risiko==='niedrig'?'pl':'mi'}" style="margin-top:6px">${a.gruende.map(g=>`<li>${esc(g)}</li>`).join('')}</ul></div>
    <div style="text-align:right;white-space:nowrap"><div style="font-size:24px;font-weight:750">${eur(a.preis)}</div><div class="klein leise">üblich ${eur(a.markt)} · <b style="color:var(--akzent)">−${a.ersparnis_pct} %</b></div>
@@ -330,7 +330,7 @@ function snapZeigen(kopf,liste,fuss){
   snapListe=liste; const gut=liste.filter(a=>a.risiko!=='hoch'), heikel=liste.filter(a=>a.risiko==='hoch');
   const ort=/^\d{5}$/.test(abhol.plz);
   const eigen=`<div class="kasten" style="margin-bottom:12px"><b>Eigene Schnäppchen-Suche</b>
-    <div class="reihe"><input class="vkfeld" id="snq" style="flex:1;min-width:220px;width:auto" placeholder="Produkt, z. B. Mac mini M4 oder Bosch GSR 18V" value="${esc(snapLetzte||'')}"><button class="haupt" id="snstart" style="padding:9px 16px">Schnäppchen suchen</button></div>
+    <div class="reihe"><input class="vkfeld" id="snq" style="flex:1;min-width:220px;width:auto" placeholder="Produkt, z. B. Mac mini M4 – oder leer lassen und „nur im Umkreis“ wählen: dann wird alles in deiner Nähe durchsucht" value="${esc(snapLetzte||'')}"><button class="haupt" id="snstart" style="padding:9px 16px">Schnäppchen suchen</button></div>
     <div class="reihe klein"><label><input type="checkbox" id="snweit" checked> Suche ausweiten (Nachbarmodelle, andere Größen)</label>
     <label title="${ort?'':'Oben unter „Abholung“ zuerst die Postleitzahl eintragen'}"><input type="checkbox" id="snort" ${ort&&abhol.an?'checked':''} ${ort?'':'disabled'}> nur im Umkreis${ort?' von '+abhol.km+' km um '+esc(abhol.plz):' (PLZ fehlt)'}</label>
     <label><input type="checkbox" id="snmerk"> dauerhaft in den Radar aufnehmen</label></div></div>`;
@@ -360,8 +360,9 @@ document.addEventListener('click',e=>{ const z=e.target;
   if(z.id==='snap'){ if(stand) snapSuche(); else radarLaden(false); return; }
   if(z.id==='snap2'){ snapSuche(); return; }
   if(z.id==='radarstart'){ radarLaden(false); return; }
-  if(z.id==='snstart'){ const q=$('#snq').value.trim(); if(q.length<2){ $('#snq').focus(); return; } snapLetzte=q; clearTimeout(radarUhr);
-    const ort=$('#snort').checked; post('/api/schnaeppchen/start',{q,ausweiten:$('#snweit').checked,umkreis:ort,plz:/^\d{5}$/.test(abhol.plz)?abhol.plz:'',km:abhol.km,merken:$('#snmerk').checked}).then(d=>{ if(d.fehler) snapZeigen(`<div class="kasten warn">${esc(d.fehler)}</div>`,[]); else snapEigen(d.job); }); return; }
+  if(z.id==='snstart'){ const q=$('#snq').value.trim(); const ort=$('#snort').checked;
+    if(q.length<2&&!ort){ if(/^\d{5}$/.test(abhol.plz)) $('#snort').checked=true; else { $('#snq').placeholder='Bitte ein Produkt eingeben – oder oben unter „Abholung“ deine Postleitzahl eintragen und „nur im Umkreis“ wählen'; $('#snq').focus(); return; } }
+    snapLetzte=q; clearTimeout(radarUhr); post('/api/schnaeppchen/start',{q,ausweiten:$('#snweit').checked,umkreis:$('#snort').checked,plz:/^\d{5}$/.test(abhol.plz)?abhol.plz:'',km:abhol.km,merken:$('#snmerk').checked}).then(d=>{ if(d.fehler) snapZeigen(`<div class="kasten warn">${esc(d.fehler)}</div>`,[]); else snapEigen(d.job); }); return; }
   if(z.id==='radarneu'){ radarLaden(true); return; }
   if(z.dataset.snapdet){ const a=snapListe[+z.dataset.snapdet]; reg.includes(a)||reg.push(a); details(a,false); return; }
   if(z.dataset.snaphan){ const a=snapListe[+z.dataset.snaphan]; $('#vdlg').close(); reg.includes(a)||reg.push(a); handeln(a); return; }
