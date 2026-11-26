@@ -295,7 +295,14 @@ async function vergleichen(){
   const li=(l,k)=>l.length?`<ul class="${k}">${l.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<div class="leise klein">–</div>';
   const sieger=d.empfehlung.name;
   $('#vdl').innerHTML=`<h3>Produktvergleich</h3><div class="leise klein">Stand ${esc(d.zeit)} · Preise aus der eigenen Suche${d.gattung?' · Geräteart: '+esc(d.gattung):''}${(d.verworfen||[]).length?' · als nicht vergleichbar verworfen: '+esc(d.verworfen.join(', ')):''}</div>
-  <div class="empf"><div class="klein" style="font-weight:650;color:var(--akzent)">EMPFEHLUNG</div><div style="font-size:19px;font-weight:750;margin:2px 0 6px">${esc(sieger)}</div><div>${esc(d.empfehlung.grund)}</div>${d.empfehlung.wann_anders?`<div class="leise" style="margin-top:6px">${esc(d.empfehlung.wann_anders)}</div>`:''}</div>
+  <div class="empf"><div class="klein" style="font-weight:650;color:var(--akzent)">EMPFEHLUNG</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;margin:2px 0 6px"><span style="font-size:20px;font-weight:750">${esc(sieger)}</span>${(()=>{const s=d.produkte.find(p=>p.name===sieger);return s&&s.bester?`<span style="font-size:20px;font-weight:750;color:var(--akzent)">ab ${eur(s.bester)}</span>`:''})()}</div>
+  <div>${esc(d.empfehlung.grund)}</div>
+  ${(()=>{const e=d.empfehlung, s=d.produkte.find(p=>p.name===sieger)||{}; const wk=e.warum_kaufen||[], vo=(e.vorteile&&e.vorteile.length?e.vorteile:s.plus)||[], na=(e.nachteile&&e.nachteile.length?e.nachteile:s.minus)||[];
+    const bl=(t,l,k)=>l.length?`<div class="vp" style="background:var(--karte)"><h5 style="margin-top:0">${t}</h5>${li(l,k)}</div>`:'';
+    return `<div class="vg" style="grid-template-columns:repeat(3,1fr)">${bl('Warum du dieses kaufen solltest',wk,'ja')}${bl('Vorteile',vo,'pl')}${bl('Nachteile – das solltest du wissen',na,'mi')}</div>`;})()}
+  ${d.empfehlung.wann_anders?`<div style="margin-top:10px"><b>Wann lieber ein anderes:</b> ${esc(d.empfehlung.wann_anders)}</div>`:''}
+  ${(()=>{const s=d.produkte.find(p=>p.name===sieger);return s&&s.url?`<div class="reihe"><a href="${esc(s.url)}" target="_blank" rel="noopener"><button class="haupt" style="padding:9px 16px">Empfohlenes Angebot öffnen ↗</button></a></div>`:''})()}</div>
   <div class="vg" style="grid-template-columns:repeat(${d.produkte.length},1fr)">${d.produkte.map(p=>`<div class="vp${p.name===sieger?' sieger':''}">
     <h4>${esc(p.name)}</h4>${p.vorschlag?'<span class="m">vorgeschlagene Alternative</span> ':''}${p.name===sieger?'<span class="m neu">Empfehlung</span>':''}
     <div style="font-size:22px;font-weight:750;margin-top:6px">${p.bester?'ab '+eur(p.bester):'kein genau passendes Angebot gefunden'}</div><div class="leise klein">${esc(p.preise||'')}</div>

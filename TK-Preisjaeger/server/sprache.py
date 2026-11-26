@@ -119,7 +119,10 @@ VERGLEICH = ('Du vergleichst Produkte für einen Käufer in Deutschland. Grundla
              '"plus": [bis 4 Vorteile gegenüber den anderen], "minus": [bis 4 Nachteile gegenüber den anderen], "fuer_wen": ein Satz, '
              '"unsicher": [Punkte, die du nicht sicher weißt, sonst leer], "vergleichbar": true oder false – false, wenn es eine andere Geräteart, '
              'Zubehör, ein Filter oder ein Ersatzteil ist und deshalb nicht mit Produkt 1 verglichen werden kann}], "empfehlung": {"name": einer der Namen, "grund": zwei bis drei Sätze '
-             'mit Bezug auf Preis und Wunsch des Käufers, "wann_anders": ein Satz, wann eines der anderen die bessere Wahl ist}}. '
+             'mit Bezug auf Preis und Wunsch des Käufers, "warum_kaufen": [3 bis 5 konkrete Gründe, warum der Käufer genau dieses kaufen soll – '
+             'jeweils mit Zahl oder Vergleich zu den anderen, z. B. Preisunterschied in Euro, Funktion, die nur dieses hat], '
+             '"vorteile": [3 bis 5 Vorteile des empfohlenen Produkts], "nachteile": [2 bis 4 ehrliche Nachteile oder Risiken des empfohlenen '
+             'Produkts, die der Käufer vor dem Kauf wissen muss], "wann_anders": ein Satz, wann eines der anderen die bessere Wahl ist}}. '
              'Stichpunkte kurz, auf Deutsch, ohne Werbesprache.')
 
 
@@ -142,7 +145,7 @@ def vergleich(produkte, wunsch="", gattung=""):
     for i, p in enumerate(produkte, 1):
         text += "Produkt %d: %s\nGefundene Preise: %s\nAngaben von der Angebotsseite: %s\n\n" % (
             i, p["name"], p.get("preise") or "keine gefunden", p.get("angaben") or "keine")
-    roh = ki(VERGLEICH, text[:14000], 2200, 0.2, 75)
+    roh = ki(VERGLEICH, text[:14000], 2800, 0.2, 90)
     try:
         d = json.loads(re.search(r"\{.*\}", roh, re.S).group(0))
         liste = lambda x, n: [" ".join(str(w).split())[:140] for w in (x if isinstance(x, list) else []) if str(w).strip()][:n]
@@ -153,6 +156,8 @@ def vergleich(produkte, wunsch="", gattung=""):
                         "fuer_wen": str(p.get("fuer_wen", ""))[:240], "unsicher": liste(p.get("unsicher"), 4), "vergleichbar": p.get("vergleichbar") is not False})
         e = d.get("empfehlung") or {}
         return {"produkte": aus, "empfehlung": {"name": str(e.get("name", ""))[:120], "grund": str(e.get("grund", ""))[:600],
+                                                "warum_kaufen": liste(e.get("warum_kaufen"), 5), "vorteile": liste(e.get("vorteile"), 5),
+                                                "nachteile": liste(e.get("nachteile"), 4),
                                                 "wann_anders": str(e.get("wann_anders", ""))[:300]}} if aus else None
     except Exception:
         return None
