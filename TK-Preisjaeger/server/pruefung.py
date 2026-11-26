@@ -43,6 +43,8 @@ FAELLE = [
     ("dyson v11", "Dyson Zubehör für V10 und V15 (evtl. V7, V8, V11)", "fehlt"),
     ("dyson v11", "pezzi di ricambio per dyson V11 originali", "fehlt"),
     ("dyson v11", "Dyson Staubsauger V11 Absolute", True),
+    ("aqmos drinking pro", "Aqmos DrinKing Pro / Ihr Premium-Auftisch Wasserspender / TOP!!!", True),
+    ("aqmos drinking pro osmose", "AQMOS DrinKing Pro Osmose-Wasserspender – still, sprudelnd, kalt & heiß", True),
     ("playstation 5", "Crucial P310 2TB PCIe Gen4 NVMe M.2 SSD PS5 Playstation 5", "fehlt"),
     ("playstation 5", "Verkaufe meine neuwertige Sony PlayStation 5 mit OVP", True),
     ("lego 42115", "Lego Technic Lamborghini Sian 18+ Sián Lego 42115 Auto mit OVP", True),
@@ -84,5 +86,14 @@ e = kern.bewerten("iphone 13 128gb", liste)
 gut = len(e["auffaellig"]) == 2 and e["treffer"][0]["preis"] == 250
 fehler += not gut
 print("%-6s Ausreißer: bester %s, auffällig %s" % ("ok" if gut else "FEHLER", e["treffer"][0]["preis"], [a["preis"] for a in e["auffaellig"]]))
+# fast passend: ein Beschreibungswort fehlt
+e = kern.bewerten("aqmos drinking pro osmose", [{"quelle": "T", "titel": "Aqmos DrinKing Pro / Ihr Premium-Auftisch Wasserspender", "preis": 899, "url": "a"},
+                                                {"quelle": "T", "titel": "Aqmos Wasserspender DrinKing Schwarz", "preis": 658, "url": "b"}])
+gut = len(e["aehnlich"]) == 1 and e["aehnlich"][0]["fehlt"] == "osmose" and not e["treffer"]
+fehler += not gut
+print("%-6s fast passend: %s" % ("ok" if gut else "FEHLER", [(a["preis"], a.get("fehlt")) for a in e["aehnlich"]]))
+gut = kern.kuerzungen("iphone 13 128gb") == [] and kern.kuerzungen("sony wh-1000xm5") == []
+fehler += not gut
+print("%-6s keine Kürzung bei Modellnummern" % ("ok" if gut else "FEHLER"))
 print("\nERGEBNIS: %s" % ("alles in Ordnung" if not fehler else "%d FEHLER" % fehler))
 sys.exit(1 if fehler else 0)

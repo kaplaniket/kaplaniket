@@ -55,6 +55,12 @@ def suche(anfrage, streng=True):
     # 1. Durchgang: jede Quelle mit dem Suchtext (Kleinanzeigen zwei Seiten)
     sammeln([(n, f, anfrage, None, 1) for n, f, _, _ in quellen.QUELLEN] + [("Kleinanzeigen", quellen.kleinanzeigen, anfrage, None, 2)])
     e = kern.bewerten(anfrage, [dict(a) for a in roh], streng)
+    # Kaum Treffer: Die Seiten verlangen oft alle Wörter. Dann zusätzlich mit einem Beschreibungswort weniger suchen;
+    # bewertet wird weiter gegen den vollen Suchtext (fehlt nur dieses Wort im Titel, steht es unter „fast passend“).
+    if len(e["treffer"]) < 3:
+        for kuerzer, _ in kern.kuerzungen(anfrage)[:2]:
+            sammeln([(n, f, kuerzer, None, 1) for n, f, _, _ in quellen.QUELLEN])
+        e = kern.bewerten(anfrage, [dict(a) for a in roh], streng)
     # 2. Durchgang: Der übliche Preis ist jetzt bekannt -> auf den Privatmärkten gezielt die billigsten echten Angebote holen
     # (ab der Hälfte des üblichen Preises, nach Preis sortiert; darunter liegt fast nur Zubehör)
     if e["ueblich"]:
@@ -64,7 +70,7 @@ def suche(anfrage, streng=True):
     for a in e["treffer"]:
         status[a["quelle"]]["passend"] += 1
     arten = {n: art for n, _, art, _ in quellen.QUELLEN}
-    for l in (e["treffer"], e["auffaellig"], e["defekt"]):
+    for l in (e["treffer"], e["auffaellig"], e["defekt"], e["aehnlich"]):
         for a in l:
             a["art"] = arten.get(a["quelle"], "")
             a.pop("text", None)

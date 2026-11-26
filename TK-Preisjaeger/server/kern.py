@@ -184,7 +184,7 @@ def pruefe(anfrage, titel, text="", streng=True):
         for a, b in stellen:
             belegt.update(range(a, b))
         for a, b in stellen:
-            for j in list(range(b, min(b + 2, len(tt)))) + [a - 1]:
+            for j in ([b] if b < len(tt) else []) + [a - 1]:      # nur unmittelbar davor/dahinter
                 if j < 0 or j in belegt:
                     continue
                 w = tt[j]
@@ -213,9 +213,24 @@ def ausfuehrung_name(grund):
 GRENZE = 0.5
 
 
+def kuerzungen(anfrage):
+    """Suchtext mit je einem weggelassenen Beschreibungswort: [(kürzerer Suchtext, weggelassenes Wort)].
+    Marke (erstes Wort) und alles mit Ziffern bleiben immer; erst ab drei Wörtern. Letzte Wörter zuerst."""
+    worte = anfrage.split()
+    if len(worte) < 3:
+        return []
+    aus = []
+    for n in range(len(worte) - 1, 0, -1):
+        if any(c.isdigit() for c in worte[n]) or len(worte[n]) < 3:
+            continue
+        aus.append((" ".join(w for i, w in enumerate(worte) if i != n), worte[n].lower()))
+    return aus
+
+
 def bewerten(anfrage, angebote, streng=True, ueblich=None):
     """Teilt Rohangebote ein. Rückgabe: dict mit treffer, auffaellig, defekt, aussortiert (Zähler) und hinweise."""
-    treffer, defekt, zaehler, andere = [], [], {}, {}
+    treffer, defekt, zaehler, andere, aehnlich = [], [], {}, {}, []
+    kurz = kuerzungen(anfrage)
     gesehen = set()
     for a in angebote:
         if not a.get("preis") or a["preis"] <= 0:
@@ -226,6 +241,18 @@ def bewerten(anfrage, angebote, streng=True, ueblich=None):
             continue
         gesehen.add(schluessel)
         ok, grund = pruefe(anfrage, a["titel"], a.get("text", ""), streng)
+        if not ok and grund == "fehlt":
+            # Fast passend: genau ein Beschreibungswort fehlt im Titel („Osmose“), sonst stimmt alles
+            for kuerzer, wort in kurz:
+                if pruefe(kuerzer, a["titel"], a.get("text", ""), streng)[0]:
+                    a["fehlt"] = wort
+                    a["zustand"] = "defekt" if ist_defekt(a["titel"], a.get("text", "")) else zustand(a["titel"], a.get("text", ""), a.get("zustand", "gebraucht"))
+                    if a["zustand"] != "defekt":
+                        aehnlich.append(a)
+                    break
+            if a.get("fehlt"):
+                zaehler["fast passend (ein Wort fehlt)"] = zaehler.get("fast passend (ein Wort fehlt)", 0) + 1
+                continue
         if not ok:
             if grund.startswith("ausfuehrung"):
                 n = ausfuehrung_name(grund)
@@ -250,9 +277,9 @@ def bewerten(anfrage, angebote, streng=True, ueblich=None):
         grenze = mitte * GRENZE
         auffaellig = [a for a in treffer if a["preis"] < grenze]
         treffer = [a for a in treffer if a["preis"] >= grenze]
-    for l in (treffer, auffaellig, defekt):
+    for l in (treffer, auffaellig, defekt, aehnlich):
         l.sort(key=lambda a: (a["preis"] + (a.get("versand") or 0), a["preis"]))
-    return {"treffer": treffer, "auffaellig": auffaellig, "defekt": defekt, "aussortiert": zaehler,
+    return {"treffer": treffer, "auffaellig": auffaellig, "defekt": defekt, "aehnlich": aehnlich[:60], "aussortiert": zaehler,
             "andere_ausfuehrungen": dict(sorted(((k, v) for k, v in andere.items() if len(k) > 1 and v >= 3), key=lambda x: -x[1])[:6]), "ueblich": mitte}
 
 

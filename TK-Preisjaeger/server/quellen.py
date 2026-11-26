@@ -5,6 +5,7 @@
 import gzip
 import json
 import re
+import time
 import urllib.parse
 import urllib.request
 import zlib
@@ -177,9 +178,13 @@ def hood(anfrage, ab=None, seite=1):
 
 # ---------- Amazon ----------
 def amazon(anfrage, ab=None, seite=1):
-    b = BeautifulSoup(holen("https://www.amazon.de/s?k=" + q(anfrage)), "lxml")
-    if not b.select_one('div[data-component-type="s-search-result"]') and b.select_one('form[action*="validateCaptcha"], input#captchacharacters'):
-        raise RuntimeError("Amazon verlangt gerade eine Sicherheitsabfrage")
+    for versuch in (1, 2):      # Amazon antwortet nicht jedes Mal: ein zweiter Versuch
+        b = BeautifulSoup(holen("https://www.amazon.de/s?k=" + q(anfrage)), "lxml")
+        if b.select_one('div[data-component-type="s-search-result"]'):
+            break
+        if versuch == 2:
+            raise RuntimeError("Amazon hat nicht geantwortet")
+        time.sleep(1.5)
     aus = []
     for a in b.select('div[data-component-type="s-search-result"]'):
         text = a.get_text(" | ", strip=True)
