@@ -28,7 +28,34 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "4.1"
+FASSUNG = "4.2"
+NEUES = "Update-Hinweis in der App, iPhone-Fassung (Home-Bildschirm), Schnäppchen im Umkreis ohne Artikel"      # kurzer Text zum letzten Stand
+
+
+def _bau():
+    """Baunummer zählt bei jeder Änderung an den Programmdateien von selbst hoch (beim Start des Dienstes) –
+    so meldet die App jedes Einspielen als „Update verfügbar“, auch wenn die Fassungsnummer gleich blieb."""
+    import hashlib
+    h = hashlib.sha1()
+    for n in sorted(os.listdir(ORT)):
+        if n.endswith((".py", ".html")):
+            with open(os.path.join(ORT, n), "rb") as f:
+                h.update(f.read())
+    pfad, jetzt = os.path.join(DATEN, "bau.json"), h.hexdigest()
+    try:
+        with open(pfad, encoding="utf-8") as f:
+            d = json.load(f)
+    except Exception:
+        d = {"nr": 0, "hash": ""}
+    if d.get("hash") != jetzt:
+        d = {"nr": d.get("nr", 0) + 1, "hash": jetzt, "zeit": time.strftime("%d.%m.%Y %H:%M")}
+        os.makedirs(DATEN, exist_ok=True)
+        with open(pfad, "w", encoding="utf-8") as f:
+            json.dump(d, f)
+    return d
+
+
+BAU = {"nr": 0, "zeit": ""}
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -645,7 +672,7 @@ class Antwort(BaseHTTPRequestHandler):
         p = urllib.parse.parse_qs(u.query)
         if u.path == "/":
             with open(os.path.join(ORT, "index.html"), "rb") as f:
-                b = f.read().replace(b"{{FASSUNG}}", FASSUNG.encode())
+                b = f.read().replace(b"{{FASSUNG}}", FASSUNG.encode()).replace(b"{{BAU}}", str(BAU["nr"]).encode())
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(b)))
@@ -661,6 +688,19 @@ class Antwort(BaseHTTPRequestHandler):
                                  (p.get("plz") or [""])[0].strip() or None, (p.get("km") or ["30"])[0], (p.get("abholung") or ["0"])[0] == "1"))
             except Exception as e:
                 self._json({"fehler": "Suche fehlgeschlagen: %s" % e}, 500)
+        elif u.path in ("/symbol-180.png", "/symbol-512.png", "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png"):
+            with open(os.path.join(ORT, "symbol-512.png" if "512" in u.path else "symbol-180.png"), "rb") as f:
+                b = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(b)))
+            self.send_header("Cache-Control", "max-age=86400")
+            self.end_headers()
+            self.wfile.write(b)
+        elif u.path == "/manifest.json":
+            self._json({"name": "TK Preisjäger", "short_name": "Preisjäger", "start_url": "/", "display": "standalone", "background_color": "#0d1216",
+                        "theme_color": "#0a7d55", "lang": "de", "icons": [{"src": "/symbol-180.png", "sizes": "180x180", "type": "image/png"},
+                                                                          {"src": "/symbol-512.png", "sizes": "512x512", "type": "image/png"}]})
         elif u.path == "/api/merkliste":
             self._json(_merk_lesen())
         elif u.path == "/api/konto":
@@ -693,7 +733,7 @@ class Antwort(BaseHTTPRequestHandler):
         elif u.path == "/api/verhandlungen":
             self._json(_lesen(HANDEL))
         elif u.path == "/api/stand":
-            self._json({"name": "TK Preisjäger", "fassung": FASSUNG, "quellen": [n for n, _, _, _ in quellen.QUELLEN]})
+            self._json({"name": "TK Preisjäger", "fassung": FASSUNG, "bau": BAU["nr"], "bau_zeit": BAU.get("zeit", ""), "neues": NEUES, "quellen": [n for n, _, _, _ in quellen.QUELLEN]})
         else:
             self.send_error(404)
 
@@ -925,6 +965,8 @@ Antwort._handel = _handel
 
 if __name__ == "__main__":
     print("TK Preisjäger %s auf Port %d" % (FASSUNG, PORT), flush=True)
+    BAU.update(_bau())
+    print("Bau", BAU["nr"], flush=True)
     threading.Thread(target=waechter, daemon=True).start()
     verhandler.melden = melden
     anfragen.melden = melden
