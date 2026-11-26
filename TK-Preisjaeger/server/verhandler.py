@@ -28,30 +28,47 @@ ENDE = {"einig": "✅ Einig – ab hier du (Abholung/Bezahlung)", "abgelehnt": "
         "gestoppt": "Von dir gestoppt", "weg": "Anzeige nicht mehr verfügbar"}
 
 JS_ANZEIGE = """
-const v = document.querySelector('#viewad-contact');
-const n = (v && v.querySelector('a[href*="s-bestandsliste"]')) || document.querySelector('a[href*="s-bestandsliste"]');
+const namen = [...document.querySelectorAll('#viewad-contact a[href*="s-bestandsliste"], a[href*="s-bestandsliste"]')].map(a => a.innerText.trim()).filter(Boolean);
+const knopf = [...document.querySelectorAll('button')].find(x => /Nachricht schreiben/.test(x.innerText || '') && x.offsetParent);
 return {titel: ((document.querySelector('#viewad-title') || {}).innerText || document.title || '').trim(),
         preis: ((document.querySelector('#viewad-price') || {}).innerText || '').trim(),
         text: ((document.querySelector('#viewad-description-text') || {}).innerText || '').trim().slice(0, 4000),
-        verk: n ? n.innerText.trim() : '',
-        form: !!document.querySelector('#viewad-contact-form textarea[name=message]'),
+        verk: namen.sort((x, y) => y.length - x.length)[0] || '',
+        form: !!document.querySelector('#viewad-contact-form textarea[name=message]') || !!knopf,
         url: location.href};"""
 
+# Kleinanzeigen hat zwei Bauarten der Anzeigenseite: altes Formular auf der Seite oder ein Fenster hinter „Nachricht schreiben“.
 JS_ERSTE = """
-const f = document.querySelector('#viewad-contact-form');
-if (!f) return {fehler: 'kein Kontaktformular'};
-const t = f.querySelector('textarea[name=message]');
-Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(t, arguments[0]);
-t.dispatchEvent(new Event('input', {bubbles: true})); t.dispatchEvent(new Event('change', {bubbles: true}));
-const k = f.querySelector('button.viewad-contact-submit, button[type=submit]');
-if (!k) return {fehler: 'kein Senden-Knopf'};
-if (arguments[1]) k.click();
-return {gefuellt: t.value.length};"""
+const setze = (t, w) => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(t, w);
+                         t.dispatchEvent(new Event('input', {bubbles: true})); t.dispatchEvent(new Event('change', {bubbles: true})); };
+const alt = document.querySelector('#viewad-contact-form');
+if (alt && alt.querySelector('textarea[name=message]')) {
+  const t = alt.querySelector('textarea[name=message]'); setze(t, arguments[0]);
+  const k = alt.querySelector('button.viewad-contact-submit, button[type=submit]');
+  if (!k) return {fehler: 'kein Senden-Knopf'};
+  if (arguments[1]) k.click();
+  return {gefuellt: t.value.length, bauart: 'formular'};
+}
+const auf = [...document.querySelectorAll('button')].find(x => /Nachricht schreiben/.test(x.innerText || '') && x.offsetParent);
+if (!auf) return {fehler: 'kein Kontaktformular'};
+auf.click();
+await new Promise(r => setTimeout(r, 2500));
+const d = [...document.querySelectorAll('[role=dialog],dialog,[aria-modal=true]')].find(x => x.offsetParent || x.open);
+const t = d && d.querySelector('textarea');
+const k = d && [...d.querySelectorAll('button')].find(x => /Nachricht senden/.test(x.innerText || ''));
+if (!t || !k) return {fehler: 'Nachrichtenfenster nicht gefunden'};
+setze(t, arguments[0]);
+await new Promise(r => setTimeout(r, 600));
+if (arguments[1]) { if (k.disabled) return {fehler: 'Senden-Knopf nicht bereit'}; k.click(); return {gefuellt: t.value.length, bauart: 'fenster'}; }
+const zu = [...d.querySelectorAll('button')].find(x => !x.innerText.trim() || /schlie|abbrechen/i.test((x.getAttribute('aria-label') || '') + x.innerText));
+const r = {gefuellt: t.value.length, bauart: 'fenster', knopf_bereit: !k.disabled};
+setze(t, ''); if (zu) zu.click();
+return r;"""
 
 JS_NACH_SENDEN = """
 const t = document.body.innerText;
-return {ok: /Nachricht (wurde )?(erfolgreich )?(gesendet|verschickt|versendet)|Deine Nachricht wurde|Zu meinen Nachrichten/i.test(t) &&
-            !!([...document.querySelectorAll('a')].find(a => /Zu meinen Nachrichten/.test(a.innerText || '') && a.offsetParent)),
+const offen = [...document.querySelectorAll('[role=dialog],dialog,[aria-modal=true]')].find(x => (x.offsetParent || x.open) && x.querySelector('textarea'));
+return {ok: /Nachricht (wurde )?(erfolgreich )?(gesendet|verschickt|versendet)|Deine Nachricht wurde|Zu meinen Nachrichten/i.test(t) && !offen,
         fehler: (t.match(/[^.\\n]*(konnte nicht gesendet|Fehler beim Senden|zu viele Nachrichten|Bitte bestätige|verifizier)[^.\\n]*/i) || [''])[0].slice(0, 160)};"""
 
 JS_OEFFNE = """
@@ -65,8 +82,9 @@ return true;"""
 JS_VERLAUF = """
 const W = document.querySelector('[data-testid=conversation-wrapper]');
 if (!W) return null;
-const a = W.querySelector('a[href*="zur-anzeige"], a[href*="s-anzeige"]');
-return {anzeige: a ? a.getAttribute('href') : '', titel: a ? a.innerText.trim() : '',
+const ls = [...W.querySelectorAll('a[href*="zur-anzeige"], a[href*="s-anzeige"]')];
+const a = ls[0];
+return {anzeige: a ? a.getAttribute('href') : '', titel: ls.map(x => x.innerText.trim()).sort((x, y) => y.length - x.length)[0] || '',
         nachrichten: [...W.querySelectorAll('[data-testid=INBOUND],[data-testid=OUTBOUND]')]
           .map(x => ({von: x.dataset.testid === 'INBOUND' ? 'verk' : 'ich', text: x.innerText.trim()})).filter(m => m.text)};"""
 
