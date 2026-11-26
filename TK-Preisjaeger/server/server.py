@@ -27,7 +27,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "3.1"
+FASSUNG = "3.2"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -511,6 +511,8 @@ class Antwort(BaseHTTPRequestHandler):
                     return self._json(verkauf.neu(d))
                 if u.path == "/api/verkauf/erkennen":
                     return self._json(verkauf.erkennen(k, suche))
+                if u.path == "/api/verkauf/preis":
+                    return self._json(verkauf.preis_neu(k, d.get("suchbegriff", ""), suche))
                 if u.path == "/api/verkauf/speichern":
                     return self._json(verkauf.speichern(k, d))
                 if u.path == "/api/verkauf/einstellen":

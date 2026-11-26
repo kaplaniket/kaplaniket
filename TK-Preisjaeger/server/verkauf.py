@@ -121,27 +121,40 @@ def erkennen(kennung, suche):
     neu_ = {"produkt": str(d.get("produkt", ""))[:120], "sicher": bool(d.get("sicher")), "suchbegriff": " ".join(str(d.get("suchbegriff", "")).split())[:80],
             "titel": str(d.get("titel", ""))[:65], "zustand": str(d.get("zustand", ""))[:20], "beschreibung": str(d.get("beschreibung", ""))[:3000],
             "maengel": liste_(d.get("maengel")), "fragen": liste_(d.get("fragen")), "stand": "entwurf"}
-    markt = None
-    if neu_["suchbegriff"]:
-        try:      # was verlangen andere gerade? nur Privatangebote in gebrauchtem Zustand zählen für den Preisvorschlag
-            e = suche(neu_["suchbegriff"])
-            privat = sorted(x["preis"] for x in e["treffer"] if x.get("art") == "privat" and x.get("zustand") == "gebraucht")
-            neuware = sorted(x["preis"] for x in e["treffer"] if x.get("zustand") == "neu" and x.get("art") == "händler")
-            if len(privat) >= 3:
-                mitte = statistics.median(privat)
-                faktor = {"neu": 1.15, "sehr gut": 1.05, "gut": 0.95, "in Ordnung": 0.8, "defekt": 0.35}.get(neu_["zustand"], 0.95)
-                markt = {"angebote": len(privat), "guenstigstes": privat[0], "ueblich": round(mitte), "teuerstes": privat[-1],
-                         "neu_ab": neuware[0] if neuware else None, "schnell": round(mitte * faktor * 0.88), "empfohlen": round(mitte * faktor),
-                         "hoch": round(mitte * faktor * 1.1), "suche": neu_["suchbegriff"]}
-            elif neuware:
-                markt = {"angebote": len(privat), "neu_ab": neuware[0], "empfohlen": round(neuware[0] * 0.6), "schnell": round(neuware[0] * 0.5),
-                         "hoch": round(neuware[0] * 0.7), "suche": neu_["suchbegriff"], "grob": True}
-        except Exception:
-            pass
-    neu_["markt"] = markt
-    if markt and not a.get("preis"):
-        neu_["preis"] = markt["empfohlen"]
+    # Preisvorschlag nur, wenn Marke und Modell sicher erkannt sind – sonst würde nach dem Falschen gesucht
+    neu_["markt"] = marktpreis(neu_["suchbegriff"], neu_["zustand"], suche) if neu_["sicher"] and neu_["suchbegriff"] else None
+    if neu_["markt"] and not a.get("preis"):
+        neu_["preis"] = neu_["markt"]["empfohlen"]
     return _merk(kennung, **neu_)
+
+
+def marktpreis(suchbegriff, zustand, suche):
+    """Was verlangen andere gerade? Für den Vorschlag zählen nur gebrauchte Privatangebote (mindestens 5), sonst grob vom Neupreis."""
+    try:
+        e = suche(suchbegriff)
+    except Exception:
+        return None
+    privat = sorted(x["preis"] for x in e["treffer"] if x.get("art") == "privat" and x.get("zustand") == "gebraucht")
+    neuware = sorted(x["preis"] for x in e["treffer"] if x.get("zustand") == "neu" and x.get("art") == "händler")
+    faktor = {"neu": 1.15, "sehr gut": 1.05, "gut": 0.95, "in Ordnung": 0.8, "defekt": 0.35}.get(zustand, 0.95)
+    if len(privat) >= 5:
+        mitte = statistics.median(privat)
+        return {"angebote": len(privat), "guenstigstes": privat[0], "ueblich": round(mitte), "teuerstes": privat[-1], "neu_ab": neuware[0] if neuware else None,
+                "schnell": round(mitte * faktor * 0.88), "empfohlen": round(mitte * faktor), "hoch": round(mitte * faktor * 1.1), "suche": suchbegriff}
+    if neuware:
+        return {"angebote": len(privat), "neu_ab": neuware[0], "empfohlen": round(neuware[0] * 0.6), "schnell": round(neuware[0] * 0.5),
+                "hoch": round(neuware[0] * 0.7), "suche": suchbegriff, "grob": True}
+    return None
+
+
+def preis_neu(kennung, suchbegriff, suche):
+    """Preisvorschlag mit einem von Tekin berichtigten Suchbegriff (z. B. dem genauen Modell) neu bestimmen."""
+    a = _eins(kennung)
+    suchbegriff = " ".join(str(suchbegriff).split())[:80]
+    if len(suchbegriff) < 2:
+        raise ValueError("Bitte Marke und Modell eintragen")
+    m = marktpreis(suchbegriff, a.get("zustand", ""), suche)
+    return _merk(kennung, suchbegriff=suchbegriff, markt=m, sicher=True, **({"preis": m["empfohlen"]} if m else {}))
 
 
 def speichern(kennung, d):
