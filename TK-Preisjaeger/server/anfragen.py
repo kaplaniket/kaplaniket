@@ -45,9 +45,10 @@ return [...document.querySelectorAll('li[data-testid=ad-card][data-adid]')].map(
 }).filter(x => x.titel);"""
 
 JS_LISTE = """
-return [...document.querySelectorAll('.ConversationByDateList article')].slice(0, 14).map(a => {
-  const s = [...a.querySelectorAll('span')].map(y => y.innerText.trim()).filter(Boolean);
-  return [s[0] || '', s[1] || '', s.slice(2).join(' ').slice(0, 80)].join(' | ');
+return [...document.querySelectorAll('.ConversationByDateList article')].slice(0, 20).map(a => {
+  const s = [...a.querySelectorAll('*')].filter(x => x.children.length === 0 && x.innerText && x.innerText.trim()).map(x => x.innerText.trim());
+  const datum = s.find(t => /^(Heute|Gestern)\\b|^\\d\\d\\.\\d\\d\\.\\d{4}/.test(t)) || '';
+  return {name: s[0] || '', datum, sig: s.join(' | ').slice(0, 200)};
 });"""
 
 JS_KLICK = """
@@ -66,7 +67,9 @@ def _lesen():
     d.setdefault("aktiv", True)
     d.setdefault("anzeigen", {})
     d.setdefault("gespraeche", {})
-    d.setdefault("liste", None)
+    d.setdefault("liste", [])
+    d.setdefault("aktiv_seit", 0)      # Zeitpunkt des Einschaltens: nur was danach hereinkommt, wird angefasst
+    d.setdefault("tag", {"datum": "", "antworten": 0})
     d.setdefault("anzeigen_zeit", 0)
     return d
 
@@ -97,6 +100,8 @@ def einstellen(e):
     with _sperre:
         d = _lesen()
         if "aktiv" in e:
+            if bool(e["aktiv"]) and not d["aktiv"]:
+                d["aktiv_seit"] = time.time()      # „ab jetzt“ zählt ab dem Einschalten
             d["aktiv"] = bool(e["aktiv"])
         a = d["anzeigen"].get(str(e.get("adid", "")))
         if a:
@@ -158,7 +163,10 @@ def _antwort_sicher(text, a):
     return text
 
 
-def _behandeln(b, d, a, v, partner):
+TAGESGRENZE = 25      # Sicherung: mehr automatische Antworten gibt es an einem Tag nicht
+
+
+def _behandeln(b, d, a, v, partner, probe=False):
     schluessel = a["adid"] + "|" + partner
     g = d["gespraeche"].setdefault(schluessel, {"schluessel": schluessel, "adid": a["adid"], "titel": a["titel"], "partner": partner, "gesehen": 0,
                                                  "antworten": 0, "stand": "neu", "verlauf": [], "hinweis": ""})
@@ -167,14 +175,23 @@ def _behandeln(b, d, a, v, partner):
     if g.get("zu_senden"):
         if verhandler._antworten(b, {}, g["zu_senden"]):
             g["verlauf"].append({"von": "ich", "text": g["zu_senden"], "zeit": _jetzt()})
-            g.update(zu_senden="", gesehen=len(vom_kaeufer), geaendert=_jetzt(), geaendert_s=time.time())
+            g.update(zu_senden="", geaendert=_jetzt(), geaendert_s=time.time())
         return
-    if len(vom_kaeufer) <= g["gesehen"]:
+    # Neu ist nur, was NACH meiner letzten Nachricht hereingekommen ist. Habe ich (oder Tekin) zuletzt geschrieben, ist nichts offen.
+    schwanz = []
+    for m in reversed(n):
+        if m["von"] != "verk":
+            break
+        schwanz.insert(0, m["text"])
+    neu = " ".join(schwanz)[:1500]
+    if not neu or neu == g.get("letzte_neu"):
         return
-    neu = " ".join(vom_kaeufer[g["gesehen"]:])[:1500]
-    erstkontakt = g["gesehen"] == 0
+    if probe:
+        return "würde antworten auf: " + neu[:80]
+    g["letzte_neu"] = neu
+    erstkontakt = not any(m["von"] != "verk" for m in n)
     g["verlauf"].append({"von": "kaeufer", "text": neu, "zeit": _jetzt()})
-    g.update(gesehen=len(vom_kaeufer), geaendert=_jetzt(), geaendert_s=time.time())
+    g.update(geaendert=_jetzt(), geaendert_s=time.time())
     warn = kern.betrug(neu) + [h for m, h in _KAEUFER_MASCHEN if re.search(m, neu.lower())]
     if warn:
         g.update(stand="betrug", hinweis=" · ".join(warn))
@@ -182,6 +199,12 @@ def _behandeln(b, d, a, v, partner):
     if not a.get("auto", True) or a.get("pausiert"):
         g.update(stand="wartet auf dich", hinweis="Automatik für diese Anzeige ist aus.")
         return melden("💬 Preisjäger: Anfrage von %s zu „%s“ (Automatik aus):\n%s" % (partner, a["titel"][:50], neu[:400]))
+    heute = time.strftime("%d.%m.%Y")
+    if d["tag"].get("datum") != heute:
+        d["tag"] = {"datum": heute, "antworten": 0}
+    if d["tag"]["antworten"] >= TAGESGRENZE:
+        g.update(stand="wartet auf dich", hinweis="Tagesgrenze von %d automatischen Antworten erreicht." % TAGESGRENZE)
+        return melden("💬 Preisjäger: Tagesgrenze erreicht – Anfrage von %s zu „%s“ bitte selbst beantworten:\n%s" % (partner, a["titel"][:50], neu[:400]))
     if g["antworten"] >= HOECHSTENS:
         g.update(stand="wartet auf dich", hinweis="Schon %d automatische Antworten – ab hier du." % HOECHSTENS)
         return melden("💬 Preisjäger: %s schreibt weiter zu „%s“ – bitte selbst antworten:\n%s" % (partner, a["titel"][:50], neu[:400]))
@@ -196,6 +219,7 @@ def _behandeln(b, d, a, v, partner):
         return melden("💬 Preisjäger: Anfrage von %s zu „%s“ – Antwort konnte nicht gesendet werden:\n%s" % (partner, a["titel"][:50], neu[:400]))
     g["verlauf"].append({"von": "ich", "text": antwort, "zeit": _jetzt()})
     g["antworten"] += 1
+    d["tag"]["antworten"] += 1
     if lage in ("einig", "termin"):
         g.update(stand="einig – ab hier du", hinweis="Preis: " + (_eur(r["gebot"]) if r.get("gebot") else _eur(a["preis"])))
         return melden("✅ Preisjäger: %s will „%s“ für %s nehmen. Ich habe zugesagt und geschrieben, dass du dich wegen Termin und Übergabe meldest.\nLetzte Nachricht: %s" % (
@@ -208,41 +232,54 @@ def _behandeln(b, d, a, v, partner):
         melden("💬 Preisjäger: Neue Anfrage von %s zu „%s“:\n%s\nGeantwortet: %s" % (partner, a["titel"][:50], neu[:250], antwort[:250]))
 
 
-def lauf(b):
-    """Ein Durchgang: neue Nachrichten im Postfach erkennen (Vergleich der Liste mit dem letzten Stand) und Anfragen zu eigenen Anzeigen beantworten."""
+def _nach_einschalten(datum, seit):
+    """Ist die letzte Nachricht des Gesprächs (laut Postfach-Liste „Heute HH:MM“) nach dem Einschalten der Automatik gekommen?"""
+    m = re.match(r"Heute\s+(\d{1,2}):(\d\d)", datum or "")
+    if not m or not seit:
+        return False
+    jetzt = time.localtime()
+    t = time.mktime((jetzt.tm_year, jetzt.tm_mon, jetzt.tm_mday, int(m.group(1)), int(m.group(2)), 59, 0, 0, -1))
+    return t >= seit
+
+
+def lauf(b, probe=False):
+    """Ein Durchgang. Angefasst werden nur Gespräche, deren letzte Nachricht HEUTE und NACH dem Einschalten der Automatik gekommen ist –
+    und darin nur Nachrichten, die nach der letzten eigenen Antwort stehen. Alles Ältere bleibt unberührt.
+    probe=True: nichts anklicken und nichts senden, nur melden, was in Frage käme."""
     with _sperre:
         d = _lesen()
-    if not d["aktiv"]:
+    if not d["aktiv"] and not probe:
         return
-    if time.time() - d["anzeigen_zeit"] > 3600 or not d["anzeigen"]:
+    if not probe and (time.time() - d["anzeigen_zeit"] > 3600 or not d["anzeigen"]):
         anzeigen_holen(b, d)
-    b.geh("https://www.kleinanzeigen.de/m-nachrichten.html", 4)
+    b.geh("https://www.kleinanzeigen.de/m-nachrichten.html", 6)
     liste = b.js(JS_LISTE) or []
-    if d["liste"] is None:      # erster Lauf: nur merken, was schon da ist – „ab jetzt“
-        d["liste"] = liste
-        with _sperre:
-            _schreiben(d)
-        return
+    erledigt = set(d["liste"] or [])
     kaufen = {x["adid"] for x in verhandler._lesen() if x["stand"] not in ("gestoppt", "weg", "fehler")}
     warten = [g for g in d["gespraeche"].values() if g.get("zu_senden")]
-    neu = [i for i, z in enumerate(liste) if z not in d["liste"]]
+    seit = d["aktiv_seit"] if not probe else (d["aktiv_seit"] or time.time())
+    neu = [i for i, z in enumerate(liste) if z["sig"] not in erledigt and _nach_einschalten(z["datum"], seit)]
+    if probe:
+        return {"eintraege": len(liste), "kaemen_in_frage": [(liste[i]["name"], liste[i]["datum"]) for i in neu], "aktiv_seit": time.strftime("%d.%m. %H:%M", time.localtime(seit))}
     for i in neu[:6]:
         if not b.js(JS_KLICK, i):
             continue
         time.sleep(3)
         v = b.js(verhandler.JS_VERLAUF)
-        if not v:
+        if not v or not v["nachrichten"]:
             continue
-        adid, partner = verhandler._adid(v.get("anzeige")), (v.get("partner") or liste[i].split(" | ")[0])[:60]
+        adid, partner = verhandler._adid(v.get("anzeige")), (liste[i]["name"] or v.get("partner") or "Interessent")[:60]
         if adid in kaufen:
             continue      # eigene Kauf-Verhandlung: macht der Verhandler
+        if v["nachrichten"][-1]["von"] != "verk":
+            continue      # die letzte Nachricht ist von mir/Tekin: nichts offen
         a = d["anzeigen"].get(adid)
         if a:
             try:
                 _behandeln(b, d, a, v, partner)
             except Exception as x:
                 print("Anfragen:", x, flush=True)
-        elif v["nachrichten"] and v["nachrichten"][-1]["von"] == "verk":      # weder eigene Anzeige noch Kauf-Verhandlung: nur weitermelden
+        else:      # weder eigene Anzeige noch Kauf-Verhandlung: nur weitermelden
             melden("💬 Kleinanzeigen: Neue Nachricht von %s zu „%s“:\n%s" % (partner, (v.get("titel") or "")[:50], v["nachrichten"][-1]["text"][:400]))
         time.sleep(4)
     for g in warten:      # Tekins eigene Antworten aus der App
@@ -250,11 +287,11 @@ def lauf(b):
         v = verhandler._gespraech(b, {"verkaeufer": g["partner"], "adid": g["adid"], "titel": g["titel"], "id": ""})
         if a and v:
             _behandeln(b, d, a, v, g["partner"])
-    b.geh("https://www.kleinanzeigen.de/m-nachrichten.html", 3)
-    d["liste"] = b.js(JS_LISTE) or liste
+    b.geh("https://www.kleinanzeigen.de/m-nachrichten.html", 4)
+    d["liste"] = [z["sig"] for z in (b.js(JS_LISTE) or liste)]
     with _sperre:
         frisch = _lesen()      # Einstellungen, die Tekin inzwischen geändert hat, behalten
-        d["aktiv"] = frisch["aktiv"]
+        d["aktiv"], d["aktiv_seit"] = frisch["aktiv"], frisch["aktiv_seit"]
         for k, a in frisch["anzeigen"].items():
             if k in d["anzeigen"]:
                 d["anzeigen"][k].update({x: a[x] for x in ("auto", "mindest", "mindest_gesetzt") if x in a})

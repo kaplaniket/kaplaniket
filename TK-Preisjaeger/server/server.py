@@ -29,8 +29,8 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "4.6"
-NEUES = "Anzeigenpflege: eigene Kleinanzeigen prüfen lassen – bessere Titel und Texte, Preisempfehlung, Übernahme je Anzeige"      # kurzer Text zum letzten Stand
+FASSUNG = "4.7"
+NEUES = "Automatische Antworten berichtigt: nur noch auf Nachrichten, die nach dem Einschalten eingehen – ältere Gespräche bleiben unberührt"      # kurzer Text zum letzten Stand
 
 
 def _bau():
