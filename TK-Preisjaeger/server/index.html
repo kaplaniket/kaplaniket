@@ -347,8 +347,10 @@ function handeln(a,alt){
   <div class="reihe"><button id="hant">Antwort vorschlagen</button><span id="hlage"></span></div>
   <textarea id="hr" rows="4" style="margin-top:8px;display:none"></textarea>
   <div class="reihe" id="hrk" style="display:none"><button id="hrkop">Antwort kopieren und Angebot öffnen</button></div></div>
+  <div class="kasten klein" style="margin-top:14px"><b>Selbstständig verhandeln</b> <span id="hkonto" class="leise">– prüfe Konto …</span></div>
   <div class="reihe" style="justify-content:flex-end"><button id="hzu">Schließen</button></div>`;
   $('#dlg').showModal(); if(!alt&&akt.mein) entwurf();
+  fetch('/api/konto').then(r=>r.json()).then(k=>{ const el=$('#hkonto'); if(el) el.textContent='– '+k.hinweis; }).catch(()=>{});
 }
 $('#dlg').addEventListener('click',async e=>{
   if(e.target.id==='hzu'||e.target===$('#dlg')){ $('#dlg').close(); return; }

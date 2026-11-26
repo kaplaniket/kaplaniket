@@ -161,6 +161,9 @@ class Antwort(BaseHTTPRequestHandler):
                 self._json({"fehler": "Suche fehlgeschlagen: %s" % e}, 500)
         elif u.path == "/api/merkliste":
             self._json(_merk_lesen())
+        elif u.path == "/api/konto":
+            import verhandler
+            self._json(verhandler.konto())
         elif u.path == "/api/verhandlungen":
             self._json(_lesen(HANDEL))
         elif u.path == "/api/stand":
