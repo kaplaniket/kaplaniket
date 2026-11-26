@@ -60,23 +60,31 @@ def _eur(n):
     return ("%.2f" % n).replace(".", ",").replace(",00", "") + " €"
 
 
-def nachricht(titel, preis, mein, quelle="Kleinanzeigen", name=""):
-    """Erste Nachricht an den Verkäufer mit dem eigenen Preis. Erfindet nichts (keine Mängel, keine anderen Angebote)."""
+VERSAND_SATZ = ("Abholen kann ich wegen der Entfernung nicht – würdest du versenden? Ich zahle per PayPal „Waren und Dienstleistungen“ "
+                "(mit Käuferschutz) und übernehme die PayPal-Gebühr zusätzlich.")
+
+
+def nachricht(titel, preis, mein, quelle="Kleinanzeigen", name="", weg="abholung"):
+    """Erste Nachricht an den Verkäufer mit dem eigenen Preis. Erfindet nichts (keine Mängel, keine anderen Angebote).
+    weg='versand': kein Abholen, sondern Versand mit PayPal-Käuferschutz, die Gebühr trägt der Käufer – nie „Freunde und Familie“."""
     gruss = "Viele Grüße" + (", " + name if name else "")
+    abwicklung = VERSAND_SATZ if weg == "versand" else "Ich kann zeitnah abholen und bar bezahlen."
     if mein >= preis:
-        return "Hallo, ist der Artikel „%s“ noch zu haben? Ich würde ihn für %s nehmen und kann zeitnah abholen oder direkt bezahlen. %s" % (titel[:70], _eur(preis), gruss)
+        return "Hallo, ist der Artikel „%s“ noch zu haben? Ich würde ihn für %s nehmen. %s %s" % (titel[:70], _eur(preis), abwicklung, gruss)
+    regel = ("Der Käufer kann NICHT abholen: Bitte um Versand; Zahlung per PayPal „Waren und Dienstleistungen“ mit Käuferschutz, die PayPal-Gebühr "
+             "übernimmt der Käufer zusätzlich zum Preis. Nie „Freunde und Familie“ anbieten." if weg == "versand"
+             else "Biete zeitnahe Abholung mit Barzahlung an.")
     t = ki("Du schreibst für einen privaten Käufer eine kurze erste Nachricht an einen privaten Verkäufer auf %s. Ziel: den Artikel für den "
-           "genannten Wunschpreis bekommen. Freundlich, direkt, höchstens 55 Wörter, per Du, ein Absatz. Nenne den Wunschpreis genau einmal "
-           "als Zahl in Euro. Biete zeitnahe Abholung oder sofortige Bezahlung an. Erfinde nichts: keine Mängel, keine anderen Angebote, "
-           "keine Geschichten. Kein Betreff, keine Anführungszeichen. Schluss: „%s“." % (quelle, gruss),
-           "Artikel: %s\nPreis des Verkäufers: %s\nMein Wunschpreis: %s" % (titel[:120], _eur(preis), _eur(mein)), 200, 0.5)
-    if t and _eur(mein).split(" ")[0].split(",")[0] in t:
+           "genannten Wunschpreis bekommen. Freundlich, direkt, höchstens 65 Wörter, per Du, ein Absatz. Nenne den Wunschpreis genau einmal "
+           "als Zahl in Euro. %s Erfinde nichts: keine Mängel, keine anderen Angebote, keine Geschichten. Kein Betreff, keine "
+           "Anführungszeichen. Schluss: „%s“." % (quelle, regel, gruss),
+           "Artikel: %s\nPreis des Verkäufers: %s\nMein Wunschpreis: %s" % (titel[:120], _eur(preis), _eur(mein)), 220, 0.5)
+    if t and _eur(mein).split(" ")[0].split(",")[0] in t and (weg != "versand" or ("paypal" in t.lower() and "freund" not in t.lower())):
         return " ".join(t.split()).strip('"„“')
-    return ("Hallo, ich habe Interesse an „%s“. Wäre %s für dich in Ordnung? Ich kann zeitnah abholen oder sofort bezahlen. %s"
-            % (titel[:70], _eur(mein), gruss))
+    return "Hallo, ich habe Interesse an „%s“. Wäre %s für dich in Ordnung? %s %s" % (titel[:70], _eur(mein), abwicklung, gruss)
 
 
-def gegenantwort(titel, preis, mein, antwort, name=""):
+def gegenantwort(titel, preis, mein, antwort, name="", weg="abholung"):
     """Vorschlag für die Antwort auf die Rückmeldung des Verkäufers. Bleibt beim eigenen Preis; den Abschluss macht der Käufer selbst."""
     gruss = "Viele Grüße" + (", " + name if name else "")
     t = ki("Du hilfst einem privaten Käufer beim Verhandeln auf einem Kleinanzeigenmarkt. Er will höchstens seinen Wunschpreis zahlen. "
@@ -88,7 +96,10 @@ def gegenantwort(titel, preis, mein, antwort, name=""):
            "Bei \"einig\": bedanken und nach Abholung/Bezahlung und Termin fragen, nichts fest zusagen außer dem Preis. Bei \"gegenangebot\": "
            "höflich beim Wunschpreis bleiben und einmal begründen (zeitnahe Abholung, sofortige Bezahlung). Bei \"abgelehnt\": freundlich "
            "bedanken und anbieten, dass das Angebot bestehen bleibt. Erfinde nichts. Schluss: „%s“.}" % gruss,
-           "Artikel: %s\nPreis des Verkäufers laut Anzeige: %s\nMein Wunschpreis: %s\nAntwort des Verkäufers: %s" % (titel[:120], _eur(preis), _eur(mein), antwort[:800]),
+           "Artikel: %s\nPreis des Verkäufers laut Anzeige: %s\nMein Wunschpreis: %s\nAbwicklung: %s\nAntwort des Verkäufers: %s" % (
+               titel[:120], _eur(preis), _eur(mein),
+               "Versand; Zahlung nur per PayPal Waren und Dienstleistungen mit Käuferschutz, Gebühr trägt der Käufer; nie Freunde und Familie" if weg == "versand" else "Abholung mit Barzahlung",
+               antwort[:800]),
            300, 0.4, 12)
     warn = kern.betrug(antwort)
     if warn:      # Warnzeichen gehen vor: nicht weiterverhandeln, sondern auf sicherem Weg bestehen

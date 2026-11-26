@@ -242,6 +242,8 @@ function zeigen(){
     const ka=d.quellen.find(q=>q.name==='Kleinanzeigen')||{};
     h+=`<div class="kasten" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between"><span>Gelesen: <b>${(d.gelesen||0).toLocaleString('de-DE')}</b> Anzeigen${ka.gesamt?` – Kleinanzeigen hat zu dieser Suche insgesamt <b>${ka.gesamt.toLocaleString('de-DE')}</b> (darunter viele andere Ausführungen und Zubehör). Gelesen werden die neuesten und gezielt die billigsten ab der Hälfte des üblichen Preises.`:'.'}</span>${d.tiefe===2?'<span class="m neu">gründliche Suche</span>':'<button id="tiefer">Gründlicher suchen (bis zu 1 Minute)</button>'}</div>`;
   }
+  const vs=(d.versand||[]).filter(a=>wahl[a.zustand]!==false);
+  if(vs.length) h+=`<details class="kasten" ${t.length<3?'open':''}><summary>${vs.length} günstige Angebote außerhalb deines Umkreises – mit Versand${vs[0]&&best&&vs[0].preis<best.preis?' (ab '+eur(vs[0].preis)+')':''}</summary><div class="klein leise" style="margin-bottom:10px">Zu weit zum Abholen, der Verkäufer bietet aber Versand an. „Verhandeln“ schreibt hier eine Anfrage mit Versand und Zahlung per PayPal „Waren und Dienstleistungen“ (Käuferschutz) – die Gebühr übernimmst du, „Freunde und Familie“ wird nie angeboten.</div>${vs.map(a=>karte(Object.assign(a,{fern:true}),0,d.ueblich)).join('')}</details>`;
   const ub=(d.unbekannt||[]).filter(a=>!nurQuelle||a.quelle===nurQuelle);
   if(ub.length) h+=`<details class="kasten warn"><summary>${ub.length} Angebote von unbekannten Shops – nicht geprüft, nicht in der Hauptliste</summary><div class="klein" style="margin-bottom:10px">Diese Shops stehen weder auf der Liste bekannter Händler noch bei idealo. Offensichtliche Warnzeichen (kein Impressum, auffällig billig) wurden schon aussortiert – trotzdem vor dem Kauf selbst prüfen und nie per Vorkasse zahlen.</div>${ub.map(a=>karte(a,0,d.ueblich)).join('')}</details>`;
   if(!nurFast&&ae.length) h+=`<details class="kasten"><summary>${ae.length} fast passende Angebote – ein Wort oder eine gewünschte Ausstattung ist nicht genannt</summary>${ae.map(a=>karte(a,0,d.ueblich)).join('')}</details>`;
@@ -275,6 +277,7 @@ async function merkliste(daten){
 async function senden(pfad,anfrage,ziel){ const r=await fetch(pfad,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({anfrage,ziel:ziel||0})}); merkliste(await r.json()); }
 $('#f').addEventListener('submit',e=>{e.preventDefault();suchen()});
 document.addEventListener('change',e=>{
+  if(e.target.id==='hweg'){ entwurf(); return; }
   if(e.target.dataset.zu){ wahl[e.target.dataset.zu]=e.target.checked; zeigen(); }
   else if(e.target.id==='streng'){ streng=e.target.checked; if(stand) suchen(stand.anfrage); }
   else if(e.target.id==='sort'){ sortierung=e.target.value; zeigen(); }
@@ -384,12 +387,15 @@ async function handelsliste(l){
 }
 async function entwurf(){
   const m=parseFloat($('#hp').value); if(!m){ $('#hp').focus(); return; } meinPreis=m; akt.mein=m;
-  $('#ht').value='Schreibe …'; const d=await post('/api/nachricht',{titel:akt.a.titel,preis:akt.a.preis,mein:m,quelle:akt.a.quelle}); $('#ht').value=d.text||d.fehler||'';
+  const weg=$('#hweg').value; akt.weg=weg;
+  $('#hgeb').textContent=weg==='versand'?'PayPal „Waren und Dienstleistungen“: Die Gebühr liegt bei ungefähr '+eur(Math.round((m*0.0249+0.35)*100)/100)+' (rund 2,49 % + 0,35 € – den aktuellen Satz bitte bei PayPal prüfen). Dazu kommt der Versand.':'';
+  $('#ht').value='Schreibe …'; const d=await post('/api/nachricht',{titel:akt.a.titel,preis:akt.a.preis,mein:m,quelle:akt.a.quelle,weg}); $('#ht').value=d.text||d.fehler||'';
 }
 function handeln(a,alt){
   akt={a,mein:alt?alt.mein:meinPreis};
   $('#dl').innerHTML=`<h3>Verhandeln</h3><div class="leise">${esc(a.titel)}</div>
-  <div class="reihe"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.quelle)}</span><span>Verkäufer will <b>${eur(a.preis)}</b></span><label>· Mein Preis <input class="zahlfeld" id="hp" type="number" min="1" step="1" value="${akt.mein||''}" placeholder="€"></label><button id="hneu">Nachricht schreiben</button></div>
+  <div class="reihe"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.quelle)}</span><span>Verkäufer will <b>${eur(a.preis)}</b></span><label>· Mein Preis <input class="zahlfeld" id="hp" type="number" min="1" step="1" value="${akt.mein||''}" placeholder="€"></label><label>· <select id="hweg"><option value="abholung">Abholung, bar</option><option value="versand"${a.fern?' selected':''}>Versand, PayPal mit Käuferschutz (Gebühr zahle ich)</option></select></label><button id="hneu">Nachricht schreiben</button></div>
+  <div class="klein leise" id="hgeb" style="margin-top:6px"></div>
   <div style="margin-top:12px"><textarea id="ht" rows="5" placeholder="Hier erscheint die Nachricht an den Verkäufer – du kannst sie ändern.">${esc(alt?alt.text:'')}</textarea></div>
   <div class="reihe"><button class="haupt" id="hkop" style="padding:9px 16px">Kopieren und Angebot öffnen</button><span class="leise klein">Dann beim Verkäufer einfügen (⌘V) und senden – das Senden bleibt bei dir.</span></div>
   <div style="margin-top:18px;border-top:1px solid var(--linie);padding-top:14px"><b>Verkäufer hat geantwortet?</b> <span class="leise klein">Antwort hier einfügen – du bekommst einen Vorschlag.</span>
@@ -408,7 +414,7 @@ $('#dlg').addEventListener('click',async e=>{
   const merk=stand=>post('/api/verhandlung',{url:akt.a.url,titel:akt.a.titel,quelle:akt.a.quelle,preis:akt.a.preis,mein:akt.mein||parseFloat($('#hp').value)||0,stand,text:$('#ht').value}).then(handelsliste);
   if(e.target.id==='hkop'){ if(!$('#ht').value.trim()||$('#ht').value==='Schreibe …') return; kopieren($('#ht').value); merk('Nachricht kopiert – wartet auf Antwort'); window.open(akt.a.url,'_blank'); e.target.textContent='Kopiert ✓ – Angebot geöffnet'; return; }
   if(e.target.id==='hant'){ const t=$('#ha').value.trim(); if(!t) return; $('#hlage').textContent='Lese …';
-    const d=await post('/api/antwort',{titel:akt.a.titel,preis:akt.a.preis,mein:akt.mein||parseFloat($('#hp').value)||0,antwort:t});
+    const d=await post('/api/antwort',{titel:akt.a.titel,preis:akt.a.preis,mein:akt.mein||parseFloat($('#hp').value)||0,antwort:t,weg:$('#hweg').value});
     if(d.lage==='betrugsverdacht'){ $('#hlage').innerHTML=`<b style="color:var(--rot)">⚠ Betrugsverdacht – nicht bezahlen, nichts anklicken</b><div class="klein" style="color:var(--rot);flex-basis:100%">${(d.warn||[]).map(esc).join(' · ')}</div>`; $('#hr').style.display='block'; $('#hrk').style.display='flex'; $('#hr').value=d.antwort||''; merk('⚠ BETRUGSVERDACHT'); return; }
     const L={einig:'✓ Einig – Verkäufer nimmt deinen Preis an. Den Abschluss machst du.',gegenangebot:'Gegenangebot'+(d.preis_verkaeufer?' '+eur(d.preis_verkaeufer):''),abgelehnt:'Abgelehnt',rueckfrage:'Rückfrage des Verkäufers',unklar:'Nicht eindeutig'};
     $('#hlage').innerHTML=`<b>${L[d.lage]||L.unklar}</b>`; $('#hr').style.display='block'; $('#hrk').style.display='flex'; $('#hr').value=d.antwort||''; merk(d.lage==='einig'?'EINIG – Abschluss durch dich':(L[d.lage]||'Antwort erhalten')); return; }

@@ -23,7 +23,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "2.0"
+FASSUNG = "2.1"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -269,6 +269,7 @@ def suche(anfrage, streng=True, tiefe=1, plz=None, km=None, nur_abholung=False):
     if e["ueblich"]:
         ab = max(1, int(e["ueblich"] * kern.GRENZE))
         sammeln([("Kleinanzeigen", ka, anfrage, ab, s) for s in range(1, ka_billig + 1)]
+                + ([("Kleinanzeigen", quellen.kleinanzeigen, anfrage, ab, s) for s in range(1, 7)] if ort else [])
                 + [("Vinted", quellen.vinted, anfrage, ab, s) for s in range(1, vi_billig + 1)])
         e = kern.bewerten(anfrage, aktiv(), streng, e["ueblich"])
     arten = {n: art for n, _, art, _ in quellen.QUELLEN}
@@ -285,12 +286,19 @@ def suche(anfrage, streng=True, tiefe=1, plz=None, km=None, nur_abholung=False):
                 if m:
                     a["km"] = entfernung(plz, m.group(1))
             if nur_abholung:
-                bleibt = [a for a in e[k] if a["quelle"] == "Kleinanzeigen" and a.get("ort") and (a.get("km") is None or a["km"] <= (km or 30) * 1.25)]
-                weg = len(e[k]) - len(bleibt)
-                if weg and k == "treffer":
-                    e["aussortiert"]["nicht im Umkreis oder nur Versand"] = weg
+                nah = lambda a: a["quelle"] == "Kleinanzeigen" and a.get("ort") and a.get("km") is not None and a["km"] <= (km or 30) * 1.25
+                bleibt = [a for a in e[k] if nah(a)]
+                if k == "treffer":
+                    # weiter weg, aber mit Versand: getrennt anbieten (Zahlung mit PayPal-Käuferschutz statt Abholung)
+                    e["versand"] = [a for a in e[k] if a["quelle"] == "Kleinanzeigen" and not nah(a) and "Versand möglich" in (a.get("hinweis") or "")][:40]
+                    weg = len(e[k]) - len(bleibt) - len(e["versand"])
+                    if weg > 0:
+                        e["aussortiert"]["nicht im Umkreis und kein Versand angeboten / andere Seiten"] = weg
                 e[k] = bleibt
         e["unbekannt"] = [] if nur_abholung else e["unbekannt"]
+    e.setdefault("versand", [])
+    for a in e["versand"]:
+        a.pop("text", None)
     e["abholung"] = {"plz": plz, "km": km or 30, "nur": bool(nur_abholung), "ort_bekannt": bool(ort)} if plz else None
     for a in e["treffer"]:
         status[a["quelle"]]["passend"] += 1
@@ -595,9 +603,9 @@ def _handel(self, pfad, d):
     if pfad == "/api/nachricht":
         if not (titel and preis > 0 and mein > 0):
             raise ValueError("Titel, Preis und dein Preis werden gebraucht")
-        return {"text": sprache.nachricht(titel, preis, mein, str(d.get("quelle", "Kleinanzeigen"))[:20], NAME)}
+        return {"text": sprache.nachricht(titel, preis, mein, str(d.get("quelle", "Kleinanzeigen"))[:20], NAME, "versand" if d.get("weg") == "versand" else "abholung")}
     if pfad == "/api/antwort":
-        return sprache.gegenantwort(titel, preis, mein, str(d.get("antwort", ""))[:1000], NAME)
+        return sprache.gegenantwort(titel, preis, mein, str(d.get("antwort", ""))[:1000], NAME, "versand" if d.get("weg") == "versand" else "abholung")
     with _sperre:      # /api/verhandlung: anlegen, ändern oder (stand = "weg") entfernen
         liste = [x for x in _lesen(HANDEL) if x.get("url") != url]
         if url and d.get("stand") != "weg":
