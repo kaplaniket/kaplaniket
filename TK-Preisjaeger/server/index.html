@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Preisjäger">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a7d55">
+<link rel="apple-touch-icon" href="/symbol-180.png">
+<link rel="manifest" href="/manifest.json">
+<meta name="author" content="Tekin Kaplan">
+<title>TK Preisjäger</title>
+<style>
+:root{--bg:#f3f5f7;--karte:#fff;--karte2:#f8fafb;--text:#101a23;--leise:#5b6875;--linie:#e1e6eb;--akzent:#0a7d55;--akzent-t:#fff;--akzent2:#e4f5ee;--warn:#9a5a00;--warn2:#fff4e0;--rot:#b3261e;--schatten:0 1px 2px rgba(16,26,35,.06),0 4px 14px rgba(16,26,35,.05);
+--Kleinanzeigen:#2f8f2f;--Vinted:#007782;--Shpock:#2bb673;--Hood:#d2452f;--rebuy:#1d6fd8;--Amazon:#e47911;--idealo:#0a3761;--MediaMarkt:#df0000;--Saturn:#e8590c;--Web:#6b4fbb}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1216;--karte:#161d23;--karte2:#1b242b;--text:#e9eef2;--leise:#96a3af;--linie:#27323b;--akzent:#3fcf9b;--akzent-t:#04241a;--akzent2:#12302a;--warn:#ffb95c;--warn2:#2f2410;--rot:#ff8a80;--schatten:0 1px 2px rgba(0,0,0,.4);
+--Kleinanzeigen:#6fd06f;--Vinted:#35c4cf;--Shpock:#5fdc9f;--Hood:#ff8f7c;--rebuy:#7fb2ff;--Amazon:#ffa94d;--idealo:#8fb8e8;--MediaMarkt:#ff7b7b;--Saturn:#ff9a5c;--Web:#b9a4ff}}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid var(--linie)}
+.kopf{max-width:1120px;margin:0 auto;padding:12px 20px;display:flex;gap:14px;align-items:center}
+.marke{display:flex;gap:10px;align-items:center;font-weight:700;font-size:17px;letter-spacing:-.01em;white-space:nowrap}
+.zeichen{width:32px;height:32px;border-radius:9px;background:var(--akzent);color:var(--akzent-t);display:grid;place-items:center;font-weight:800;font-size:18px}
+form{flex:1;display:flex;gap:8px;min-width:0}
+.feld{flex:1;position:relative;min-width:0}
+.feld svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;stroke:var(--leise)}
+input[type=search]{width:100%;font:inherit;font-size:16px;padding:11px 14px 11px 42px;border:1.5px solid var(--linie);border-radius:12px;background:var(--karte);color:var(--text);outline:none;box-shadow:var(--schatten)}
+input[type=search]:focus{border-color:var(--akzent)}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--linie);background:var(--karte);color:var(--text);padding:7px 12px}
+button:hover{border-color:var(--akzent)}
+.haupt{background:var(--akzent);border-color:var(--akzent);color:var(--akzent-t);font-weight:650;padding:0 22px;border-radius:12px;font-size:15.5px}
+main{max-width:1120px;margin:0 auto;padding:18px 20px 70px}
+.leise{color:var(--leise)}
+.klein{font-size:13px}
+/* Quellenleiste */
+.quellen{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:2px 0 4px}
+.q{display:inline-flex;align-items:center;gap:7px;padding:6px 12px 6px 10px;border-radius:99px;background:var(--karte);border:1px solid var(--linie);font-size:13.5px;font-weight:600;box-shadow:var(--schatten)}
+.q i{width:9px;height:9px;border-radius:50%;background:var(--f);flex:none}
+.q .n{font-weight:500;color:var(--leise)}
+.q.aus{opacity:.45}
+.q.wahl{border-color:var(--f);box-shadow:0 0 0 1.5px var(--f)}
+.q.lauf i{animation:puls 1s ease-in-out infinite}
+.q.fehl .n{color:var(--rot)}
+@keyframes puls{50%{opacity:.25;transform:scale(.7)}}
+/* Start */
+.start{text-align:center;padding:56px 10px 20px}
+.start h1{font-size:34px;letter-spacing:-.02em;margin:0 0 8px}
+.start p{max-width:620px;margin:0 auto 22px;color:var(--leise);font-size:16.5px}
+.bsp{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.schritte{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:38px auto 0;max-width:900px;text-align:left}
+.schritt{background:var(--karte);border:1px solid var(--linie);border-radius:14px;padding:16px;box-shadow:var(--schatten)}
+.schritt b{display:block;margin-bottom:4px}
+/* Kennzahlen */
+.zahlen{display:grid;grid-template-columns:1.5fr repeat(4,1fr);gap:12px;margin:16px 0}
+.zahl{background:var(--karte);border:1px solid var(--linie);border-radius:14px;padding:14px 16px;box-shadow:var(--schatten);min-width:0;text-decoration:none;display:block}
+.zahl .w{font-size:24px;font-weight:750;letter-spacing:-.02em;margin-top:2px;white-space:nowrap}
+.zahl.best{background:var(--akzent2);border-color:var(--akzent)}
+.zahl.best .w{font-size:34px;color:var(--akzent)}
+.zahl .u{font-size:12.5px;color:var(--leise);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+a.zahl:hover{border-color:var(--akzent)}
+/* Leiste über der Liste */
+.leiste{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;margin:18px 0 10px}
+.leiste h2{font-size:17px;margin:0}
+.wahlen{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.seg{display:inline-flex;background:var(--karte);border:1px solid var(--linie);border-radius:10px;overflow:hidden}
+.seg label{padding:6px 11px;font-size:13.5px;cursor:pointer;border-right:1px solid var(--linie);user-select:none}
+.seg label:last-child{border-right:0}
+.seg input{display:none}
+.seg label:has(input:checked){background:var(--akzent2);color:var(--akzent);font-weight:650}
+select{font:inherit;font-size:13.5px;padding:6px 8px;border-radius:10px;border:1px solid var(--linie);background:var(--karte);color:var(--text)}
+/* Angebot */
+.a{display:grid;grid-template-columns:28px 92px 1fr auto;gap:14px;align-items:center;background:var(--karte);border:1px solid var(--linie);border-radius:14px;padding:10px 16px 10px 8px;margin-bottom:8px;text-decoration:none;box-shadow:var(--schatten);transition:border-color .12s,transform .12s}
+.a:hover{border-color:var(--akzent);transform:translateY(-1px)}
+.a .nr{text-align:center;color:var(--leise);font-size:13px;font-variant-numeric:tabular-nums}
+.a img,.a .ohne{width:92px;height:92px;object-fit:cover;border-radius:10px;background:var(--karte2);display:block}
+.a .ohne{display:grid;place-items:center;color:var(--leise);font-size:22px}
+.a .t{font-weight:600;font-size:15.5px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.a .z{margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.a .i{margin-top:5px;font-size:13px;color:var(--leise)}
+.a .p{text-align:right;white-space:nowrap}
+.a .p b{font-size:23px;letter-spacing:-.02em;display:block}
+.a .p span{font-size:12.5px;color:var(--leise)}
+.a .p .spar{color:var(--akzent);font-weight:650}
+.m{display:inline-flex;align-items:center;gap:5px;font-size:12px;border-radius:6px;padding:2px 8px;background:var(--karte2);border:1px solid var(--linie);color:var(--leise);font-weight:550}
+.m.qq{color:var(--f);border-color:color-mix(in srgb,var(--f) 45%,transparent)}
+.m.qq i{width:7px;height:7px;border-radius:50%;background:var(--f)}
+.m.neu{color:var(--akzent);border-color:var(--akzent)}
+.m.defekt,.m.fehlt{color:var(--warn);border-color:var(--warn)}
+.kasten{background:var(--karte);border:1px solid var(--linie);border-radius:14px;padding:14px 16px;margin-top:12px;box-shadow:var(--schatten)}
+.kasten.warn{background:var(--warn2);border-color:var(--warn)}
+details summary{cursor:pointer;font-weight:650}
+details[open] summary{margin-bottom:12px}
+.chip{border-radius:99px;padding:5px 12px;font-size:13.5px;background:var(--karte)}
+.chip .x{margin-left:6px;color:var(--leise)}
+.links a{display:inline-block;margin:8px 8px 0 0;padding:7px 13px;border:1px solid var(--linie);border-radius:99px;text-decoration:none;font-weight:550;font-size:13.5px;background:var(--karte2)}
+.links a:hover{border-color:var(--akzent)}
+.merk{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center}
+.mehr{display:block;margin:10px auto 0}
+footer{margin-top:40px;color:var(--leise);font-size:12.5px;text-align:center}
+.handeln{margin-top:6px;font-size:12.5px;padding:4px 10px;border-radius:8px;border-color:var(--akzent);color:var(--akzent);font-weight:650;background:transparent}
+.handeln:hover{background:var(--akzent2)}
+.ueber{color:var(--warn);font-weight:600}
+dialog{border:1px solid var(--linie);border-radius:16px;background:var(--karte);color:var(--text);padding:0;width:min(640px,94vw);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(8,12,16,.55)}
+.dl{padding:20px 22px}
+.dl h3{margin:0 0 4px;font-size:18px}
+.dl textarea{width:100%;font:inherit;border:1.5px solid var(--linie);border-radius:10px;padding:10px 12px;background:var(--karte2);color:var(--text);resize:vertical;outline:none}
+.dl textarea:focus,.zahlfeld:focus{border-color:var(--akzent)}
+.zahlfeld{font:inherit;width:110px;padding:6px 10px;border:1.5px solid var(--linie);border-radius:10px;background:var(--karte);color:var(--text);outline:none}
+.reihe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.hv{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:8px 0;border-top:1px solid var(--linie)}
+.hv:first-of-type{border-top:0}
+.vglk{margin-top:6px;margin-left:4px;font-size:12.5px;padding:4px 10px;border-radius:8px;background:transparent}
+.vglk.an{background:var(--akzent);border-color:var(--akzent);color:var(--akzent-t);font-weight:650}
+#korb{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--karte);border-top:1px solid var(--linie);box-shadow:0 -6px 24px rgba(0,0,0,.18);display:none}
+#korb .in{max-width:1120px;margin:0 auto;padding:10px 20px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#korb input{font:inherit;padding:7px 10px;border:1.5px solid var(--linie);border-radius:10px;background:var(--karte2);color:var(--text);min-width:220px;flex:1;outline:none}
+#vdlg{width:min(1180px,96vw)}
+.vg{display:grid;gap:12px;margin-top:14px}
+.vp{border:1px solid var(--linie);border-radius:14px;padding:14px;background:var(--karte2);min-width:0}
+.vp.sieger{border-color:var(--akzent);box-shadow:0 0 0 1.5px var(--akzent)}
+.vp h4{margin:0 0 2px;font-size:15.5px}
+.vp h5{margin:12px 0 4px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--leise)}
+.vp ul{margin:0;padding:0;list-style:none}
+.vp li{padding:2px 0 2px 20px;position:relative;font-size:14px}
+.vp li::before{position:absolute;left:0;font-weight:700}
+.vp .ja li::before{content:"✓";color:var(--akzent)}
+.vp .nein li::before{content:"✕";color:var(--rot)}
+.vp .pl li::before{content:"+";color:var(--akzent)}
+.vp .mi li::before{content:"–";color:var(--warn)}
+.vp .un li::before{content:"?";color:var(--leise)}
+.empf{background:var(--akzent2);border:1.5px solid var(--akzent);border-radius:14px;padding:14px 16px;margin-top:12px}
+@media (max-width:900px){.vg{grid-template-columns:1fr !important}}
+.abwurf{border:2px dashed var(--linie);border-radius:16px;padding:30px 20px;text-align:center;background:var(--karte);cursor:pointer}
+.abwurf.drueber{border-color:var(--akzent);background:var(--akzent2)}
+.fotos{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.fotos img{width:96px;height:96px;object-fit:cover;border-radius:10px;border:1px solid var(--linie)}
+.vkfeld{width:100%;font:inherit;border:1.5px solid var(--linie);border-radius:10px;padding:9px 12px;background:var(--karte2);color:var(--text);outline:none}
+.vkfeld:focus{border-color:var(--akzent)}
+#update{display:none;position:sticky;top:0;z-index:7;background:var(--akzent);color:var(--akzent-t);padding:9px 16px;text-align:center;font-weight:600}
+#update button{margin-left:10px;background:var(--akzent-t);color:var(--akzent);border:0;font-weight:700;padding:5px 12px}
+header{padding-top:env(safe-area-inset-top)}
+main{padding-bottom:calc(70px + env(safe-area-inset-bottom))}
+.knoepfe{display:flex;gap:8px}
+@media (max-width:820px){.kopf{flex-wrap:wrap;gap:8px}.kopf form{order:2;flex:1 1 100%}.knoepfe{order:3;flex:1 1 100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.knoepfe button{flex:1;white-space:nowrap;padding:9px 10px}
+  .leiste{flex-direction:column;align-items:stretch}.wahlen{gap:8px}.a .p button{display:inline-block;margin:6px 0 0 4px}
+  .zahlen{grid-template-columns:1fr 1fr !important}.vg{grid-template-columns:1fr !important}
+  dialog{width:100vw;max-width:100vw;max-height:100dvh;height:100dvh;margin:0;border-radius:0;border:0}#korb .in{padding:8px 12px}
+  input,select,textarea{font-size:16px !important}
+  .quellen{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}.quellen .q,.quellen span{flex:none;white-space:nowrap}}
+@media (max-width:560px){.a{grid-template-columns:64px 1fr !important}.a .p{grid-column:1/-1;text-align:left;display:flex;flex-wrap:wrap;gap:6px;align-items:center}.a .p b{font-size:21px;margin-right:6px}.a .p br{display:none}}
+.skel{height:112px;border-radius:14px;margin-bottom:8px;background:linear-gradient(90deg,var(--karte) 25%,var(--karte2) 50%,var(--karte) 75%);background-size:200% 100%;animation:sk 1.2s linear infinite;border:1px solid var(--linie)}
+@keyframes d{to{transform:rotate(360deg)}}
+@keyframes sk{to{background-position:-200% 0}}
+@media (max-width:820px){.zahlen{grid-template-columns:1fr 1fr}.zahl.best{grid-column:1/-1}.schritte{grid-template-columns:1fr}.marke span{display:none}}
+@media (max-width:560px){.a{grid-template-columns:64px 1fr auto;padding-left:10px}.a .nr{display:none}.a img,.a .ohne{width:64px;height:64px}.a .p b{font-size:19px}.kopf{padding:10px 12px}main{padding:14px 12px 60px}.haupt{padding:0 14px}.start h1{font-size:26px}}
+</style>
+</head>
+<body>
+<div id="update"></div>
+<header><div class="kopf">
+<div class="marke"><div class="zeichen">€</div><span>TK Preisjäger</span></div>
+<form id="f"><div class="feld"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+<input id="q" type="search" placeholder="Produkt oder Wunsch, z. B. „Wasserspender mit Sprudel bis 900 €“" autofocus autocomplete="off"></div>
+<button class="haupt">Suchen</button></form>
+<div class="knoepfe"><button id="vglauf" title="Produkte vergleichen: Vorteile, Nachteile, Empfehlung">Vergleichen</button>
+<button id="snap" title="Angebote weit unter Marktpreis – mit Gewinnrechnung für den Weiterverkauf" style="border-color:var(--akzent);color:var(--akzent);font-weight:650">Schnäppchen</button>
+<button id="vkauf" title="Eigene Artikel verkaufen: Fotos hochladen, Text und Preis vorschlagen lassen, einstellen">Verkaufen</button></div>
+</div></header>
+<main>
+<div class="quellen" id="quellen"></div>
+<div class="reihe" id="abhol" style="margin-top:6px"></div>
+<div class="merk" id="merk"></div>
+<div id="auto"></div>
+<div id="handel"></div>
+<div id="aus"></div>
+<dialog id="dlg"><div class="dl" id="dl"></div></dialog>
+<dialog id="vdlg"><div class="dl" id="vdl"></div></dialog>
+<div id="korb"><div class="in" id="korbin"></div></div>
+<footer>TK Preisjäger {{FASSUNG}} · Bau {{BAU}} · © 2026 Tekin Kaplan</footer>
+</main>
+<script>
+// Fehler in der Oberfläche an den Server melden (steht dann im Protokoll des Dienstes) – so lassen sie sich aus der Ferne finden
+window.addEventListener('error',e=>{ try{ fetch('/api/fehler',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:String(e.message)+' @'+(e.lineno||'')+':'+(e.colno||'')})}); }catch(x){} });
+window.addEventListener('unhandledrejection',e=>{ try{ fetch('/api/fehler',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:'Promise: '+String(e.reason)})}); }catch(x){} });
+// Update-Hinweis: Nach jedem Einspielen zählt die Baunummer auf dem Server hoch – die offene App merkt das und bietet das Neuladen an
+const GELADEN={fassung:'{{FASSUNG}}',bau:'{{BAU}}'};
+async function updatepruefen(){ try{ const s=await (await fetch('/api/stand',{cache:'no-store'})).json(); if(String(s.bau)!==GELADEN.bau||s.fassung!==GELADEN.fassung){ const u=document.getElementById('update');
+  u.innerHTML='Neues Update verfügbar: Fassung '+s.fassung+' (Bau '+s.bau+')'+(s.neues?' – '+s.neues.replace(/[<>&]/g,''):'')+' <button onclick="location.reload()">Jetzt aktualisieren</button>'; u.style.display='block'; } }catch(e){} }
+setInterval(updatepruefen,60000); document.addEventListener('visibilitychange',()=>{ if(!document.hidden) updatepruefen(); });
+const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const eur=n=>n.toLocaleString('de-DE',{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2})+' €';
+const QUELLEN=['Kleinanzeigen','Vinted','Shpock','Hood','rebuy','Amazon','idealo','MediaMarkt','Saturn','Web'];
+const QNAME={Web:'Weitere Händler',idealo:'idealo-Händler'};
+const VERTRAUEN={bekannt:'bekannter Händler',idealo:'bei idealo gelistet',hersteller:'Herstellershop',unbekannt:'unbekannter Shop – nicht geprüft'};
+const ZU={neu:'Neu',aufbereitet:'Geprüft',gebraucht:'Gebraucht',defekt:'Defekt'};
+const BSP=['iPhone 13 128GB','Sony WH-1000XM5','Ich brauche ein Cube Kinderfahrrad 24 Zoll mit Licht, nicht teurer als 250','Wasserspender, der sprudeln kann und heißes Wasser macht, für höchstens 900 €'];
+let stand=null, nurQuelle=null, zeigeAnzahl=40, laeuft=false;
+const wahl={neu:true,aufbereitet:true,gebraucht:true}; let streng=true, sortierung='auf', meinPreis=null, reg=[], akt=null;
+
+let abhol={an:false,plz:'',km:30}; try{ abhol=Object.assign(abhol,JSON.parse(localStorage.getItem('abhol')||'{}')); }catch(e){}
+function abholzeile(){
+  $('#abhol').innerHTML=`<label class="q" style="cursor:pointer;--f:var(--akzent)"><input type="checkbox" id="aban" ${abhol.an?'checked':''} style="margin:0 4px 0 0">Nur Abholung in meiner Nähe</label>
+  <label class="klein leise">PLZ <input class="zahlfeld" id="abplz" inputmode="numeric" maxlength="5" placeholder="z. B. 44137" value="${esc(abhol.plz)}" style="width:92px;padding:5px 8px"></label>
+  <label class="klein leise">Umkreis <select id="abkm">${[5,10,20,30,50,100,200].map(k=>`<option value="${k}"${+abhol.km===k?' selected':''}>${k} km</option>`).join('')}</select></label>
+  <span class="klein leise">${abhol.an?(/^\d{5}$/.test(abhol.plz)?'Gezeigt werden nur Kleinanzeigen-Angebote im Umkreis, mit Entfernung.':'Bitte deine Postleitzahl eintragen.'):(/^\d{5}$/.test(abhol.plz)?'Mit PLZ steht bei Kleinanzeigen die Entfernung dabei.':'')}</span>`;
+}
+function abholspeichern(){ try{ localStorage.setItem('abhol',JSON.stringify(abhol)); }catch(e){} }
+function quellenleiste(){
+  const z={}; if(stand) [...stand.treffer,...stand.aehnlich].forEach(a=>z[a.quelle]=(z[a.quelle]||0)+1);
+  const st={}; if(stand) stand.quellen.forEach(q=>st[q.name]=q);
+  $('#quellen').innerHTML=`<span class="leise klein" style="margin-right:2px">${laeuft?'Durchsuche':stand?'Durchsucht:':'Durchsucht werden:'}</span>`+QUELLEN.map(n=>{
+    const s=st[n]; let kl='q', zahl='';
+    if(laeuft) kl+=' lauf';
+    else if(s){ if(s.fehler){kl+=' fehl';zahl='keine Antwort'} else if(!z[n]){kl+=' aus';zahl=s.gefunden?'0 passend':'nichts'} else zahl=z[n]; }
+    if(nurQuelle===n) kl+=' wahl';
+    return `<button class="${kl}" style="--f:var(--${n})" data-quelle="${n}" title="${s&&!s.fehler?s.gefunden+' Angebote gelesen, '+(z[n]||0)+' passen genau':''}"><i></i>${QNAME[n]||n}${zahl!==''?` <span class="n">${zahl}</span>`:''}</button>`}).join('');
+}
+function karte(a,nr,ueblich){
+  const bild=a.bild?`<img src="${esc(a.bild)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=ohne>–</div>'">`:'<div class="ohne">–</div>';
+  const spar=ueblich&&a.preis<ueblich*0.93&&a.zustand!=='defekt'?`<span class="spar">${Math.round((1-a.preis/ueblich)*100)} % unter üblich</span>`:(a.art==='händler'?'<span>Händler</span>':'<span>Privat</span>');
+  const i=reg.push(a)-1, kannHandeln=a.art==='privat'&&a.zustand!=='defekt';
+  return `<a class="a" href="${esc(a.url)}" target="_blank" rel="noopener"><div class="nr">${nr||''}</div>${bild}<div style="min-width:0"><div class="t">${esc(a.titel)}</div>
+  <div class="z"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.shop||a.quelle)}</span><span class="m ${a.zustand}">${ZU[a.zustand]||''}</span>${a.vertrauen?`<span class="m ${a.vertrauen==='unbekannt'?'fehlt':'neu'}">${a.vertrauen==='unbekannt'?'⚠ ':'✓ '}${VERTRAUEN[a.vertrauen]||''}</span>`:''}${a.km!=null?`<span class="m">${a.km} km entfernt</span>`:''}${a.variante?`<span class="m neu">${esc(a.variante)}</span>`:''}${a.fehlt?`<span class="m fehlt">ohne „${esc(a.fehlt)}“ im Titel</span>`:''}${(a.warn||[]).length?`<span class="m" style="color:var(--rot);border-color:var(--rot)" title="${esc(a.warn.join(' · '))}">⚠ Warnzeichen: ${esc(a.warn[0].split(' – ')[0].split(' (')[0])}</span>`:''}</div>
+  ${(a.wunsch_da||[]).length||(a.wunsch_offen||[]).length?`<div class="z">${(a.wunsch_da||[]).map(w=>`<span class="m neu">✓ ${esc(w)}</span>`).join('')}${(a.wunsch_offen||[]).map(w=>`<span class="m fehlt">${esc(w)} nicht genannt</span>`).join('')}</div>`:''}<div class="i">${esc([a.ort,a.hinweis].filter(Boolean).join(' · '))}</div></div>
+  <div class="p"><b>${eur(a.preis)}</b>${a.ueber?`<span class="ueber">${eur(a.ueber)} über deinem Preis</span>`:spar}<br>${kannHandeln?`<button class="handeln" data-handeln="${i}">Verhandeln</button>`:''}<button class="vglk" data-det="${i}">Details</button><button class="vglk${korb.some(k=>k.url===a.url)?' an':''}" data-vgl="${i}">${korb.some(k=>k.url===a.url)?'✓ im Vergleich':'+ Vergleich'}</button></div></a>`;
+}
+function filtern(l){ return l.filter(a=>wahl[a.zustand]!==false&&(a.zustand==='defekt'||wahl[a.zustand])&&(!nurQuelle||a.quelle===nurQuelle)); }
+function startseite(){
+  $('#aus').innerHTML=`<div class="start"><h1>Der günstigste Preis für genau dein Produkt</h1>
+  <p>Ein Suchfeld statt vieler Seiten: Kleinanzeigen, Vinted, Shpock, Hood, rebuy, Amazon, MediaMarkt, Saturn, alle bei idealo geführten Händler und weitere geprüfte Shops aus dem Netz – neu und gebraucht. Unbekannte Shops und Betrugsmaschen werden aussortiert.</p>
+  <div class="bsp">${BSP.map(b=>`<button class="chip" data-q="${esc(b)}">${esc(b)}</button>`).join('')}</div>
+  <div class="schritte"><div class="schritt"><b>1 · Genau dieses Produkt</b><span class="leise">Andere Ausführungen (Pro, Mini, andere Größe), Zubehör, Ersatzteile, Leerkartons und Gesuche werden aussortiert.</span></div>
+  <div class="schritt"><b>2 · Üblicher Preis</b><span class="leise">Aus allen Treffern wird der Marktpreis bestimmt. Lockpreise und Defekte stehen getrennt, nicht ganz oben.</span></div>
+  <div class="schritt"><b>3 · Verhandeln</b><span class="leise">Nenne deinen Preis: Die App schreibt die Nachricht an den Verkäufer und schlägt Antworten vor. Senden und Abschluss machst du.</span></div></div></div>`;
+}
+function zeigen(){
+  quellenleiste(); reg=[]; const d=stand; if(!d) return startseite();
+  let t=filtern(d.treffer); const ae=filtern(d.aehnlich||[]);
+  const nurFast=!d.treffer.length&&(d.aehnlich||[]).length>0; if(nurFast) t=ae;
+  if(sortierung==='ab') t=[...t].reverse();
+  const alle=nurFast?d.aehnlich:d.treffer, je={}; alle.forEach(a=>{ if(!je[a.zustand]||a.preis<je[a.zustand].preis) je[a.zustand]=a; });
+  const best=alle.length?alle.reduce((x,y)=>y.preis<x.preis?y:x):null;
+  let h='';
+  const v=d.verstanden; if(v) h+=`<div class="kasten" style="margin-top:14px"><b>Verstanden:</b> <span class="m qq" style="--f:var(--akzent)">Produkt: ${esc(v.produkt)}</span> ${v.wuensche.map(w=>`<span class="m neu">mit ${esc(w)}</span>`).join(' ')} ${v.ohne.map(w=>`<span class="m fehlt">ohne ${esc(w)}</span>`).join(' ')} ${v.max?`<span class="m">bis ${eur(v.max)}</span>`:''} ${v.min?`<span class="m">ab ${eur(v.min)}</span>`:''} ${v.zustand.map(z=>`<span class="m">${ZU[z]}</span>`).join(' ')}</div>`;
+  if(best){
+    const kachel=(titel,a)=>a?`<a class="zahl" href="${esc(a.url)}" target="_blank" rel="noopener"><div class="leise klein">${titel}</div><div class="w">${eur(a.preis)}</div><div class="u">${esc(a.quelle)}</div></a>`:`<div class="zahl"><div class="leise klein">${titel}</div><div class="w leise">–</div><div class="u">kein Angebot</div></div>`;
+    h+=`<div class="zahlen"><a class="zahl best" href="${esc(best.url)}" target="_blank" rel="noopener"><div class="klein" style="font-weight:650">${nurFast?'Günstigstes fast passendes Angebot':'Bester Preis'}</div><div class="w">${eur(best.preis)}</div><div class="u">${esc(best.quelle)} · ${ZU[best.zustand]} · ${esc(best.titel)}</div></a>
+    ${kachel('Gebraucht ab',je.gebraucht)}${kachel('Geprüft ab',je.aufbereitet)}${kachel('Neu ab',je.neu)}
+    <div class="zahl"><div class="leise klein">Üblicher Preis</div><div class="w">${d.ueblich?eur(Math.round(d.ueblich)):'–'}</div><div class="u">${d.ueblich?'Mitte aller Treffer':'zu wenige Treffer'}</div></div></div>`;
+    if(nurFast) h+=`<div class="kasten warn"><b>Kein Angebot nennt alles, was du eingegeben hast.</b> Gezeigt werden die nächstliegenden – was fehlt oder nicht genannt ist, steht jeweils dabei.</div>`;
+  } else {
+    h+=`<div class="kasten warn" style="margin-top:16px"><b>Für „${esc(d.anfrage)}“ wurde auf keiner der ${d.quellen.length} Seiten ein passendes Angebot gefunden.</b><br>Tipp: Nur Marke und Modell eingeben, ohne Beschreibung – oder „Genau diese Ausführung“ ausschalten. eBay und weitere Seiten stehen unten als Direktlink.</div>`;
+  }
+  if(d.stufen) h+=`<div class="kasten"><b>„ab“ verstanden:</b> gesucht wurde jede Generation einzeln – <span style="display:inline-flex;flex-wrap:wrap;gap:6px;margin-left:4px">${d.stufen.map(x=>`<button class="chip" data-q="${esc(x.suche)}"><b>${esc(x.name)}</b> ${x.treffer?x.treffer+' Angebote ab '+eur(x.ab):'nichts gefunden'}</button>`).join('')}</span></div>`;
+  if(d.abholung&&d.abholung.nur) h+=`<div class="kasten">📍 <b>Nur Abholung</b> im Umkreis von ${d.abholung.km} km um ${esc(d.abholung.plz)}${d.abholung.ort_bekannt?'':' – Kleinanzeigen kennt diese Postleitzahl nicht, bitte prüfen'}. Händler und Versandangebote sind ausgeblendet; Haken oben entfernen, um alles zu sehen.</div>`;
+  const mk=merkDaten.find(m=>m.anfrage.toLowerCase()===d.anfrage.toLowerCase());
+  if(mk&&(mk.verlauf||[]).length>1){ const v=mk.verlauf, ps=v.map(x=>x[1]), lo=Math.min(...ps), hi=Math.max(...ps), W=260, H=44;
+    const pkt=v.map((x,i)=>`${(i/(v.length-1)*W).toFixed(1)},${(hi===lo?H/2:H-4-(x[1]-lo)/(hi-lo)*(H-8)).toFixed(1)}`).join(' ');
+    h+=`<div class="kasten" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center"><div><b>Preisverlauf</b> <span class="leise klein">bester Preis seit ${esc(v[0][0].slice(0,10))}</span><div class="klein leise">tiefster ${eur(lo)} · höchster ${eur(hi)}${mk.ziel?' · dein Alarm ab '+eur(mk.ziel):''}</div></div><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><polyline points="${pkt}" fill="none" stroke="var(--akzent)" stroke-width="2.2" stroke-linejoin="round"/></svg></div>`; }
+  const gr=Object.entries(d.groessen||{}), av=Object.entries(d.andere_ausfuehrungen||{});
+  if(gr.length||av.length) h+=`<div class="kasten"><b>Genauer suchen:</b> <span style="display:inline-flex;flex-wrap:wrap;gap:6px;margin-left:6px">`+
+    gr.map(([g,n])=>`<button class="chip" data-q="${esc((d.produkt||d.anfrage)+' '+g.replace(' ',''))}">${esc(g)} <span class="x">${n}</span></button>`).join('')+
+    av.map(([g,n])=>`<button class="chip" data-q="${esc((d.produkt||d.anfrage)+' '+g)}">${esc(d.produkt||d.anfrage)} <b>${esc(g.toUpperCase())}</b> <span class="x">${n}</span></button>`).join('')+`</span></div>`;
+  if(best){
+    h+=`<div class="leiste"><h2>${t.length} ${nurFast?'fast passende':'passende'} Angebote${nurQuelle?' bei '+esc(nurQuelle):''}</h2><div class="wahlen">
+    <div class="seg">${[['gebraucht','Gebraucht'],['aufbereitet','Geprüft'],['neu','Neu']].map(([k,n])=>`<label><input type="checkbox" data-zu="${k}" ${wahl[k]?'checked':''}>${n}</label>`).join('')}</div>
+    <div class="seg"><label title="Aus: auch Pro/Mini/Max und andere Größen zulassen"><input type="checkbox" id="streng" ${streng?'checked':''}>Genau diese Ausführung</label></div>
+    <select id="sort"><option value="auf"${sortierung==='auf'?' selected':''}>Preis aufsteigend</option><option value="ab"${sortierung==='ab'?' selected':''}>Preis absteigend</option></select>
+    <label class="klein leise">Mein Preis <input class="zahlfeld" id="meinpreis" type="number" min="1" step="1" placeholder="€" value="${meinPreis||''}" style="width:86px;padding:5px 8px"></label>
+    <button id="snap2" style="border-color:var(--akzent);color:var(--akzent);font-weight:650">💰 Schnäppchen${d.schnaeppchen&&d.schnaeppchen.liste.length?' ('+d.schnaeppchen.liste.filter(x=>x.risiko!=='hoch'||x.extrem).length+')':''}</button>
+    <button id="merken" title="Auf die Merkliste: Der Preis wird alle 3 Stunden geprüft. Mit „Mein Preis“ kommt eine Telegram-Meldung, sobald er erreicht ist.">🔔 Preisalarm</button></div></div>`;
+    h+=t.slice(0,zeigeAnzahl).map((a,i)=>karte(a,i+1,d.ueblich)).join('')||`<div class="kasten leise">Mit dieser Auswahl bleibt kein Angebot übrig.</div>`;
+    if(t.length>zeigeAnzahl) h+=`<button class="mehr" id="mehr">Weitere ${Math.min(40,t.length-zeigeAnzahl)} von ${t.length-zeigeAnzahl} zeigen</button>`;
+    const ka=d.quellen.find(q=>q.name==='Kleinanzeigen')||{};
+    h+=`<div class="kasten" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between"><span>Gelesen: <b>${(d.gelesen||0).toLocaleString('de-DE')}</b> Anzeigen${ka.gesamt?` – Kleinanzeigen hat zu dieser Suche insgesamt <b>${ka.gesamt.toLocaleString('de-DE')}</b> (darunter viele andere Ausführungen und Zubehör). Gelesen werden die neuesten und gezielt die billigsten ab der Hälfte des üblichen Preises.`:'.'}</span>${d.tiefe===2?'<span class="m neu">gründliche Suche</span>':'<button id="tiefer">Gründlicher suchen (bis zu 1 Minute)</button>'}</div>`;
+  }
+  const vs=(d.versand||[]).filter(a=>wahl[a.zustand]!==false);
+  if(vs.length) h+=`<details class="kasten" ${t.length<3?'open':''}><summary>${vs.length} günstige Angebote außerhalb deines Umkreises – mit Versand${vs[0]&&best&&vs[0].preis<best.preis?' (ab '+eur(vs[0].preis)+')':''}</summary><div class="klein leise" style="margin-bottom:10px">Zu weit zum Abholen, der Verkäufer bietet aber Versand an. „Verhandeln“ schreibt hier eine Anfrage mit Versand und Zahlung per PayPal „Waren und Dienstleistungen“ (Käuferschutz) – die Gebühr übernimmst du, „Freunde und Familie“ wird nie angeboten.</div>${vs.map(a=>karte(Object.assign(a,{fern:true}),0,d.ueblich)).join('')}</details>`;
+  const ub=(d.unbekannt||[]).filter(a=>!nurQuelle||a.quelle===nurQuelle);
+  if(ub.length) h+=`<details class="kasten warn"><summary>${ub.length} Angebote von unbekannten Shops – nicht geprüft, nicht in der Hauptliste</summary><div class="klein" style="margin-bottom:10px">Diese Shops stehen weder auf der Liste bekannter Händler noch bei idealo. Offensichtliche Warnzeichen (kein Impressum, auffällig billig) wurden schon aussortiert – trotzdem vor dem Kauf selbst prüfen und nie per Vorkasse zahlen.</div>${ub.map(a=>karte(a,0,d.ueblich)).join('')}</details>`;
+  if(!nurFast&&ae.length) h+=`<details class="kasten"><summary>${ae.length} fast passende Angebote – ein Wort oder eine gewünschte Ausstattung ist nicht genannt</summary>${ae.map(a=>karte(a,0,d.ueblich)).join('')}</details>`;
+  const au=filtern(d.auffaellig), de=d.defekt.filter(a=>!nurQuelle||a.quelle===nurQuelle);
+  if(au.length) h+=`<details class="kasten warn"><summary>${au.length} Angebote unter der Hälfte des üblichen Preises – meist Zubehör, Lockpreis oder Betrug</summary>${au.map(a=>karte(a,0,0)).join('')}</details>`;
+  if(de.length) h+=`<details class="kasten"><summary>${de.length} defekte Geräte / Bastlerware</summary>${de.map(a=>karte(a,0,0)).join('')}</details>`;
+  const so=Object.entries(d.aussortiert||{});
+  h+=`<details class="kasten"><summary>Was wurde durchsucht und aussortiert?</summary><table style="border-collapse:collapse;font-size:14px">`+
+    d.quellen.map(q=>`<tr><td style="padding:2px 18px 2px 0;font-weight:600">${esc(q.name)}</td><td>${q.fehler?`<span style="color:var(--rot)">keine Antwort</span>`:`${q.gefunden} gelesen${q.gesamt?' von '+q.gesamt.toLocaleString('de-DE'):''} · ${q.passend} genau passend`}</td></tr>`).join('')+`</table>`+
+    (so.length?`<div class="leise" style="margin-top:8px">Aussortiert: ${so.map(([k,v])=>`${v} × ${esc(k)}`).join(' · ')}</div>`:'')+`<div class="leise klein" style="margin-top:6px">Stand ${esc(d.zeit)} · ${d.dauer} s</div></details>`;
+  h+=`<div class="kasten links"><b>Zusätzlich selbst öffnen</b> <span class="leise klein">– diese Seiten erlauben keine automatische Abfrage, die Suche ist schon eingetragen</span><br>${d.links.map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.name)} ↗</a>`).join('')}</div>`;
+  $('#aus').innerHTML=h;
+}
+async function suchen(text,tief){
+  text=(text??$('#q').value).trim(); if(text.length<2||laeuft) return;
+  $('#q').value=text; laeuft=true; stand=null; nurQuelle=null; zeigeAnzahl=40; quellenleiste();
+  $('#aus').innerHTML=`<div class="leise" style="margin:18px 2px 12px">${tief?'Gründliche Suche: lese bis zu 1.200 Anzeigen bei Kleinanzeigen und Vinted – das dauert bis zu einer Minute …':'Suche „'+esc(text)+'“ auf '+QUELLEN.length+' Seiten gleichzeitig, bestimme den üblichen Preis und sortiere Zubehör aus …'}</div>`+'<div class="skel"></div>'.repeat(5);
+  try{
+    const mitOrt=/^\d{5}$/.test(abhol.plz)&&abhol.an;
+    const r=await fetch('/api/suche?q='+encodeURIComponent(text)+'&streng='+(streng?1:0)+(tief?'&tief=1':'')+(mitOrt?'&plz='+abhol.plz+'&km='+abhol.km+'&abholung=1':'')); const d=await r.json(); laeuft=false;
+    if(d.fehler){ quellenleiste(); $('#aus').innerHTML=`<div class="kasten warn">${esc(d.fehler)}</div>`; } else { d.aehnlich=d.aehnlich||[]; stand=d; if(d.verstanden&&d.verstanden.max) meinPreis=d.verstanden.max; zeigen(); merkliste(); }
+  }catch(e){ laeuft=false; quellenleiste(); $('#aus').innerHTML='<div class="kasten warn">Der Preisjäger ist gerade nicht erreichbar.</div>'; }
+}
+let merkDaten=[];
+async function merkliste(daten){
+  try{ const l=daten||await (await fetch('/api/merkliste')).json(); merkDaten=l;
+    $('#merk').innerHTML=(l.length?'<span class="leise klein">Merkliste:</span>':'')+l.map(m=>{ const pfeil=m.vorher&&m.preis<m.vorher?' ↓':m.vorher&&m.preis>m.vorher?' ↑':'';
+      return `<button class="chip" data-q="${esc(m.anfrage)}" title="${m.zeit?'Stand '+esc(m.zeit)+(m.tiefst?' · tiefster bisher '+eur(m.tiefst):''):'noch nicht gesucht'}">${esc(m.anfrage)}${m.preis?` <b>${eur(m.preis)}${pfeil}</b>`:''}${m.ziel?` <span class="leise">🔔 ≤ ${eur(m.ziel)}</span>`:''}<span class="x" data-weg="${esc(m.anfrage)}">✕</span></button>`}).join('');
+  }catch(e){}
+}
+async function senden(pfad,anfrage,ziel){ const r=await fetch(pfad,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({anfrage,ziel:ziel||0})}); merkliste(await r.json()); }
+$('#f').addEventListener('submit',e=>{e.preventDefault();suchen()});
+document.addEventListener('change',e=>{
+  if(e.target.id==='hweg'){ entwurf(); return; }
+  if(e.target.dataset.zu){ wahl[e.target.dataset.zu]=e.target.checked; zeigen(); }
+  else if(e.target.id==='streng'){ streng=e.target.checked; if(stand) suchen(stand.anfrage); }
+  else if(e.target.id==='sort'){ sortierung=e.target.value; zeigen(); }
+  else if(e.target.id==='meinpreis'){ meinPreis=parseFloat(e.target.value)||null; }
+  else if(e.target.id==='aban'||e.target.id==='abplz'||e.target.id==='abkm'){ abhol={an:$('#aban').checked,plz:$('#abplz').value.replace(/\D/g,'').slice(0,5),km:+$('#abkm').value}; abholspeichern(); abholzeile(); if(stand&&(!abhol.an||/^\d{5}$/.test(abhol.plz))) suchen(stand.anfrage); }
+});
+document.addEventListener('click',e=>{
+  const hb=e.target.closest('[data-handeln]'); if(hb){ e.preventDefault(); e.stopPropagation(); handeln(reg[+hb.dataset.handeln]); return; }
+  const hv=e.target.closest('[data-hv]'); if(hv){ const x=verhandlungen[+hv.dataset.hv]; if(e.target.dataset.fort) { post('/api/verhandlung',{url:x.url,stand:'weg'}).then(handelsliste); } else handeln({titel:x.titel,preis:x.preis,url:x.url,quelle:x.quelle},x); return; }
+  const weg=e.target.closest('[data-weg]'); if(weg){ e.stopPropagation(); senden('/api/vergessen',weg.dataset.weg); return; }
+  const c=e.target.closest('[data-q]'); if(c){ suchen(c.dataset.q); scrollTo({top:0}); return; }
+  const qu=e.target.closest('[data-quelle]'); if(qu&&stand){ nurQuelle=nurQuelle===qu.dataset.quelle?null:qu.dataset.quelle; zeigeAnzahl=40; zeigen(); return; }
+  if(e.target.id==='mehr'){ zeigeAnzahl+=40; zeigen(); return; }
+  if(e.target.id==='tiefer'&&stand){ suchen(stand.anfrage,true); scrollTo({top:0}); return; }
+  if(e.target.id==='merken'&&stand){ const z=parseFloat(($('#meinpreis')||{}).value)||meinPreis||0; senden('/api/merken',stand.anfrage,z); e.target.textContent=z?'🔔 Alarm ab '+eur(z):'★ Gemerkt – Preis wird beobachtet'; }
+});
+// ---------- Schnäppchen: weit unter Marktpreis kaufen, mit Gewinn weiterverkaufen ----------
+let snapListe=[], snapLetzte='', snapUhr=null;
+async function snapEigen(job){
+  clearTimeout(snapUhr); let d; try{ d=await (await fetch('/api/schnaeppchen?job='+job)).json(); }catch(e){ d={fehler:String(e)}; }
+  if(d.fehler){ snapZeigen(`<div class="kasten warn">${esc(d.fehler)}</div>`,[]); return; }
+  if(d.laeuft){ snapZeigen(`<div class="kasten"><span style="display:inline-block;width:14px;height:14px;border:2.5px solid var(--linie);border-top-color:var(--akzent);border-radius:50%;animation:d .8s linear infinite;vertical-align:-2px;margin-right:8px"></span>${esc(d.schritt||'Suche …')} ${snapLetzte?'Das dauert bis zu zwei Minuten.':'Ohne Artikel wird alles geprüft – das dauert 5 bis 8 Minuten. Du kannst das Fenster offen lassen oder schließen und später wieder „Schnäppchen“ öffnen.'}</div>`,[]); snapUhr=setTimeout(()=>{ if($('#vdlg').open) snapEigen(job); },4000); return; }
+  snapZeigen(`<div class="leise" style="margin-bottom:10px">${snapLetzte?'Eigene Suche „'+esc(snapLetzte)+'“':'Alles im Umkreis'+(d.gelesen?' – zusätzlich '+d.gelesen+' neue Anzeigen aus deiner Gegend geprüft':'')} · Stand ${esc(d.zeit||'')}${d.umkreis?' · nur im Umkreis von '+d.umkreis.km+' km um '+esc(d.umkreis.plz):''}</div>
+   <div class="chips" style="margin-bottom:12px">${d.produkte.map(p=>`<button class="chip" data-q="${esc(p.name)}" title="${p.angebote} Angebote${p.markt?', Marktpreis '+eur(p.markt):', zu wenige Privatangebote für einen Marktpreis ('+p.basis+')'}">${esc(p.name)}${p.schnaeppchen?` <b style="color:var(--akzent)">+${eur(p.bester_gewinn)}</b>`:' <span class="x">–</span>'}</button>`).join('')}</div>`,d.liste);
+}
+const RISIKO={niedrig:['neu','keine Auffälligkeit erkannt'],mittel:['fehlt','bitte prüfen'],hoch:['defekt','hohes Risiko']};
+function snapKarte(a,i){
+  return `<div class="vp" style="margin-bottom:10px"><div style="display:grid;grid-template-columns:${a.bild?'84px ':''}1fr auto;gap:14px;align-items:start">${a.bild?`<img src="${esc(a.bild)}" referrerpolicy="no-referrer" style="width:84px;height:84px;object-fit:cover;border-radius:10px" onerror="this.remove()">`:''}
+   <div style="min-width:0"><b>${esc(a.titel)}</b>${a.produkt?` <span class="m">${esc(a.produkt)}</span>`:''}
+    <div class="z" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.shop||a.quelle)}</span><span class="m ${a.zustand}">${ZU[a.zustand]||''}</span><span class="m ${RISIKO[a.risiko][0]}">${RISIKO[a.risiko][1]}</span>${a.entdeckt?'<span class="m">Fund aus deiner Gegend</span>':''}${a.km!=null?`<span class="m">${a.km} km</span>`:''}</div>
+    <div class="klein leise" style="margin-top:6px">${esc([a.ort,a.hinweis].filter(Boolean).join(' · '))}</div>
+    <ul class="${a.risiko==='niedrig'?'pl':'mi'}" style="margin-top:6px">${a.gruende.map(g=>`<li>${esc(g)}</li>`).join('')}</ul></div>
+   <div style="text-align:right;white-space:nowrap"><div style="font-size:24px;font-weight:750">${eur(a.preis)}</div><div class="klein leise">üblich ${eur(a.markt)} · <b style="color:var(--akzent)">−${a.ersparnis_pct} %</b></div>
+    <div style="margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--akzent2)"><div class="klein">Abstand zum vorsichtigen Verkaufserlös</div><div style="font-size:20px;font-weight:750;color:var(--akzent)">${eur(a.gewinn)}</div><div class="klein leise">${a.rendite} % · Verkauf ~${eur(a.wiederverkauf)}${a.nebenkosten?' · Versand ~'+eur(a.nebenkosten):''}</div></div></div></div>
+   <div class="reihe"><a href="${esc(a.url)}" target="_blank" rel="noopener"><button class="haupt" style="padding:7px 14px;font-size:14px">Angebot öffnen ↗</button></a><button data-snapdet="${i}">Details</button>${a.art==='privat'?`<button data-snaphan="${i}">Verhandeln</button>`:''}${a.produkt?`<button data-q="${esc(a.produkt)}">Alle Angebote dazu</button>`:''}</div></div>`;
+}
+function snapZeigen(kopf,liste,fuss){
+  snapListe=liste; const gut=liste.filter(a=>a.risiko!=='hoch'), extrem=liste.filter(a=>a.extrem), heikel=liste.filter(a=>a.risiko==='hoch'&&!a.extrem);
+  const ort=/^\d{5}$/.test(abhol.plz);
+  const eigen=`<div class="kasten" style="margin-bottom:12px"><b>Eigene Schnäppchen-Suche</b>
+    <div class="reihe"><input class="vkfeld" id="snq" style="flex:1;min-width:220px;width:auto" placeholder="Produkt, z. B. Mac mini M4 – oder leer lassen und „nur im Umkreis“ wählen: dann wird alles in deiner Nähe durchsucht" value="${esc(snapLetzte||'')}"><button class="haupt" id="snstart" style="padding:9px 16px">Schnäppchen suchen</button></div>
+    <div class="reihe klein"><label><input type="checkbox" id="snweit" checked> Suche ausweiten (Nachbarmodelle, andere Größen)</label>
+    <label title="${ort?'':'Oben unter „Abholung“ zuerst die Postleitzahl eintragen'}"><input type="checkbox" id="snort" ${ort&&abhol.an?'checked':''} ${ort?'':'disabled'}> nur im Umkreis${ort?' von '+abhol.km+' km um '+esc(abhol.plz):' (PLZ fehlt)'}</label>
+    <label><input type="checkbox" id="snmerk"> dauerhaft in den Radar aufnehmen</label></div></div>`;
+  $('#vdl').innerHTML=`<h3>💰 Schnäppchen</h3>${eigen}${kopf}
+   ${extrem.length?`<div class="kasten warn" style="margin-bottom:12px"><b>⚡ ${extrem.length} extrem abweichende Preise – mehr als die Hälfte unter Marktpreis</b><div class="klein" style="margin:4px 0 10px">Hier liegen die größten Schnäppchen, aber auch Lockangebote, Defekte, gesperrte Geräte und Betrug. Die App kann das nicht unterscheiden: Anzeige öffnen, Text und Verkäufer prüfen, nur bei Abholung nach Funktionstest oder mit Käuferschutz kaufen.</div>${extrem.sort((x,y)=>y.gewinn-x.gewinn).map(a=>snapKarte(a,liste.indexOf(a))).join('')}</div>`:''}
+   ${gut.length?`<div class="leise klein" style="margin:4px 2px 8px">Unter Marktpreis, ohne erkannte Auffälligkeit:</div>`+gut.map(a=>snapKarte(a,liste.indexOf(a))).join(''):'<div class="kasten">Gerade kein Angebot, das sich nach Abzug der Nebenkosten mit mindestens 25 € und 12 % Gewinn weiterverkaufen ließe.</div>'}
+   ${heikel.length?`<details class="kasten warn"><summary>${heikel.length} weitere sehr billige Treffer – fast immer Zubehör, Teile oder Betrugszeichen</summary><div style="margin-top:10px">${heikel.map(a=>snapKarte(a,liste.indexOf(a))).join('')}</div></details>`:''}
+   <div class="kasten klein leise">So wird gerechnet: Marktpreis = Mitte der gebrauchten Privatangebote bei Kleinanzeigen (unsortierte Stichprobe, bei mehreren Speichergrößen je Größe). Wiederverkauf vorsichtig: 90 % davon, höchstens das untere Viertel der verlangten Preise. Liegen viele Angebote in der Preislage des Fundes, steht das als Warnung dabei. Gewinn = Wiederverkauf − Kaufpreis − Versand (privat pauschal 6 €). Es ist eine Schätzung: Der tatsächliche Verkaufspreis hängt von Zustand, Zubehör und Geduld ab. Wer regelmäßig einkauft, um mit Gewinn zu verkaufen, handelt gewerblich (Gewerbeanmeldung, Steuern, Gewährleistung) – das bitte mit dem Steuerberater klären.</div>
+   ${fuss||''}<div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`;
+  if(!$('#vdlg').open) $('#vdlg').showModal();
+}
+function snapSuche(){ const d=stand, s=d&&d.schnaeppchen;
+  if(!s||!s.markt){ snapZeigen(`<div class="kasten warn">Für „${esc(d?d.anfrage:'')}“ gibt es zu wenige gebrauchte Privatangebote (${s?s.anzahl_basis:0}), um einen verlässlichen Marktpreis zu bestimmen. Genauer suchen (Marke + Modell + Größe) oder den Radar nehmen.</div>`,[],`<div class="reihe"><button id="radarstart" class="haupt" style="padding:9px 16px">Radar: beliebte Produkte durchsuchen</button></div>`); return; }
+  snapZeigen(`<div class="leise" style="margin-bottom:12px">„${esc(d.anfrage)}“ · Marktpreis gebraucht <b>${eur(s.markt)}</b> · realistischer Wiederverkauf <b>~${eur(s.wiederverkauf)}</b></div>
+   <div class="kasten klein" style="margin-bottom:12px"><b>Woher der Marktpreis kommt:</b> Mitte von ${s.anzahl_basis} gebrauchten Privatangeboten bei ${esc(s.herkunft||'den Privatmärkten')}, so wie die Seite sie zeigt (nicht nach Preis sortiert). Die mittlere Hälfte verlangt ${eur(s.von||0)} bis ${eur(s.bis||0)}. Das sind <b>verlangte</b> Preise, keine tatsächlich gezahlten – deshalb rechnet die App für deinen Verkauf vorsichtig: 90 % der Mitte, höchstens aber der Preis, mit dem du billiger wärst als drei von vier Anbietern. <button data-vzu="1" class="klein" style="margin-left:6px">Angebote in der Liste ansehen</button></div>`,s.liste,`<div class="reihe"><button id="radarstart">Radar: auch andere beliebte Produkte durchsuchen</button></div>`); }
+let radarUhr=null;
+async function radarLaden(neu){
+  clearTimeout(radarUhr);
+  if(!$('#vdlg').open){ $('#vdl').innerHTML='<h3>💰 Schnäppchen-Radar</h3><div class="skel" style="margin-top:14px"></div>'; $('#vdlg').showModal(); }
+  let d; try{ d=await (await fetch('/api/radar'+(neu?'?neu=1':''))).json(); }catch(e){ d={fehler:'Keine Antwort vom Preisjäger ('+e+').'}; }
+  if(d.fehler){ $('#vdl').innerHTML=`<h3>Schnäppchen-Radar</h3><div class="kasten warn">${esc(d.fehler)}</div><div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`; return; }
+  const lauf=d.laeuft?`<div class="kasten"><span class="kreis" style="display:inline-block;width:14px;height:14px;border:2.5px solid var(--linie);border-top-color:var(--akzent);border-radius:50%;animation:d .8s linear infinite;vertical-align:-2px;margin-right:8px"></span>Der Radar durchsucht gerade ${d.produkte.length||'rund 15'} gängige Produkte nach Angeboten weit unter Marktpreis – das dauert 2 bis 3 Minuten. Die Liste erscheint von selbst.</div>`:'';
+  if(!d.liste.length&&d.laeuft){ $('#vdl').innerHTML=`<h3>💰 Schnäppchen-Radar</h3>${lauf}<div class="skel"></div><div class="skel"></div><div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`; }
+  else snapZeigen(`${lauf}<div class="leise" style="margin-bottom:10px">Radar über ${d.produkte.length} Produkte · Stand ${esc(d.zeit||'')} · läuft alle 3 Stunden von selbst und meldet sehr gute Funde per Telegram</div>
+   <div class="chips" style="margin-bottom:12px">${d.produkte.map(p=>`<button class="chip" data-q="${esc(p.name)}" title="${p.angebote} Angebote${p.markt?', Marktpreis '+eur(p.markt):''}">${esc(p.name)}${p.schnaeppchen?` <b style="color:var(--akzent)">+${eur(p.bester_gewinn)}</b>`:' <span class="x">–</span>'}</button>`).join('')}</div>`,d.liste,`<div class="reihe"><button id="radarneu" ${d.laeuft?'disabled':''}>Radar jetzt neu durchsuchen</button></div>`);
+  if(d.laeuft) radarUhr=setTimeout(()=>{ if($('#vdlg').open&&$('#vdl h3')&&/Radar|Schnäppchen/.test($('#vdl h3').innerText)) radarLaden(false); },6000);
+}
+document.addEventListener('click',e=>{ const z=e.target;
+  if(z.id==='snap'){ if(stand) snapSuche(); else radarLaden(false); return; }
+  if(z.id==='snap2'){ snapSuche(); return; }
+  if(z.id==='radarstart'){ radarLaden(false); return; }
+  if(z.id==='snstart'){ const q=$('#snq').value.trim(); const ort=$('#snort').checked;
+    if(q.length<2&&!ort){ if(/^\d{5}$/.test(abhol.plz)) $('#snort').checked=true; else { $('#snq').placeholder='Bitte ein Produkt eingeben – oder oben unter „Abholung“ deine Postleitzahl eintragen und „nur im Umkreis“ wählen'; $('#snq').focus(); return; } }
+    snapLetzte=q; clearTimeout(radarUhr); post('/api/schnaeppchen/start',{q,ausweiten:$('#snweit').checked,umkreis:$('#snort').checked,plz:/^\d{5}$/.test(abhol.plz)?abhol.plz:'',km:abhol.km,merken:$('#snmerk').checked}).then(d=>{ if(d.fehler) snapZeigen(`<div class="kasten warn">${esc(d.fehler)}</div>`,[]); else snapEigen(d.job); }); return; }
+  if(z.id==='radarneu'){ radarLaden(true); return; }
+  if(z.dataset.snapdet){ const a=snapListe[+z.dataset.snapdet]; reg.includes(a)||reg.push(a); details(a,false); return; }
+  if(z.dataset.snaphan){ const a=snapListe[+z.dataset.snaphan]; $('#vdlg').close(); reg.includes(a)||reg.push(a); handeln(a); return; }
+});
+// ---------- Verkaufen ----------
+let vkFotos=[], vkArtikel=[], vkPortale=[], vkOffen=null;
+function verkleinern(datei){ return new Promise((fertig,fehler)=>{ const bild=new Image(); const u=URL.createObjectURL(datei);
+  bild.onload=()=>{ const m=1600, f=Math.min(1,m/Math.max(bild.width,bild.height)); const c=document.createElement('canvas'); c.width=Math.round(bild.width*f); c.height=Math.round(bild.height*f);
+    c.getContext('2d').drawImage(bild,0,0,c.width,c.height); URL.revokeObjectURL(u); fertig(c.toDataURL('image/jpeg',0.85)); };
+  bild.onerror=()=>{ URL.revokeObjectURL(u); fehler(new Error('Bild nicht lesbar: '+datei.name)); }; bild.src=u; }); }
+async function vkDazu(dateien){ for(const d of [...dateien].slice(0,10-vkFotos.length)){ if(!/^image\//.test(d.type)&&!/\.(jpe?g|png|heic|webp)$/i.test(d.name)) continue; try{ vkFotos.push(await verkleinern(d)); }catch(e){ $('#vkinfo').textContent=String(e.message||e); } } vkSeite(); }
+async function vkLaden(){ try{ const d=await (await fetch('/api/verkauf')).json(); vkArtikel=d.artikel; vkPortale=d.portale; }catch(e){} }
+function vkSeite(){
+  stand=null; quellenleiste();
+  const a=vkOffen&&vkArtikel.find(x=>x.id===vkOffen);
+  let h=`<div class="leiste"><h2>Verkaufen</h2><button data-vkzur="1">← Zurück zur Preissuche</button></div>`;
+  if(!a){
+    h+=`<div class="abwurf" id="vkab"><b style="font-size:17px">Fotos des Artikels hierher ziehen</b><div class="leise" style="margin:6px 0 12px">oder klicken und auswählen – bis zu 10 Fotos. Die App erkennt den Artikel, schreibt den Anzeigentext und schlägt einen Preis aus den aktuellen Marktangeboten vor.</div><button class="haupt" style="padding:9px 18px">Fotos auswählen</button><input type="file" id="vkdatei" accept="image/*" multiple style="display:none"></div>
+    ${vkFotos.length?`<div class="fotos">${vkFotos.map((f,i)=>`<div style="position:relative"><img src="${f}"><button data-vkfotoweg="${i}" style="position:absolute;top:2px;right:2px;padding:0 6px;border-radius:99px">✕</button></div>`).join('')}</div>
+    <div class="reihe"><input class="vkfeld" id="vkhinweis" style="flex:1;min-width:260px" placeholder="Optional: Was soll die App wissen? z. B. „2 Jahre alt, mit Rechnung, Akku neu“"><button class="haupt" id="vkstart" style="padding:10px 18px">Artikel erkennen und Anzeige erstellen</button></div>`:''}
+    <div class="klein" id="vkinfo" style="margin-top:8px;color:var(--warn)"></div>`;
+    h+=`<div id="pfl"></div><div id="anfr"></div>`;
+    if(vkArtikel.length) h+=`<div class="leiste"><h2>Meine Artikel (neu einstellen)</h2></div>`+vkArtikel.map(x=>`<div class="a" style="grid-template-columns:92px 1fr auto;cursor:pointer;padding-left:10px" data-vkauf="${x.id}"><img src="/verkauf/bild/${x.id}/0"><div style="min-width:0"><div class="t">${esc(x.titel||x.produkt||'Noch nicht ausgewertet')}</div><div class="z"><span class="m ${/veröffentlicht$/.test(x.stand)||x.stand==='veröffentlicht'?'neu':''}">${esc(x.stand)}</span>${x.zustand?`<span class="m">${esc(x.zustand)}</span>`:''}</div><div class="i">${x.bilder} Foto${x.bilder>1?'s':''} · ${esc(x.geaendert)}</div></div><div class="p"><b>${x.preis?eur(x.preis)+(x.vb?' VB':''):'–'}</b></div></div>`).join('');
+  } else {
+    const m=a.markt, ka=(a.portale||{}).kleinanzeigen;
+    h+=`<div class="reihe"><button data-vkauf="">← Alle Artikel</button><span class="m">${esc(a.stand)}</span>${a.produkt?`<span class="leise">Erkannt: <b>${esc(a.produkt)}</b>${a.sicher===false?' (nicht sicher – bitte prüfen)':''}</span>`:''}</div>
+    <div class="fotos">${Array.from({length:a.bilder},(_,i)=>`<img src="/verkauf/bild/${a.id}/${i}">`).join('')}</div>
+    ${m?`<div class="kasten"><b>Preisvorschlag aus dem Markt</b> <span class="leise klein">– ${m.grob?'kaum Privatangebote gefunden, grob vom Neupreis geschätzt':m.angebote+' passende Privatangebote für „'+esc(m.suche)+'“'}</span>
+      <div class="zahlen" style="grid-template-columns:repeat(4,1fr);margin:10px 0 4px"><button class="zahl" data-vkpreis="${m.schnell}"><div class="leise klein">Schnell verkauft</div><div class="w">${eur(m.schnell)}</div><div class="u">unter dem Üblichen</div></button><button class="zahl best" data-vkpreis="${m.empfohlen}"><div class="klein" style="font-weight:650">Empfohlen</div><div class="w" style="font-size:26px">${eur(m.empfohlen)}</div><div class="u">passend zum Zustand</div></button><button class="zahl" data-vkpreis="${m.hoch}"><div class="leise klein">Mit Verhandlungsspielraum</div><div class="w">${eur(m.hoch)}</div><div class="u">als VB ansetzen</div></button><div class="zahl"><div class="leise klein">Andere verlangen</div><div class="w" style="font-size:17px">${m.guenstigstes?eur(m.guenstigstes)+' – '+eur(m.teuerstes):'–'}</div><div class="u">${m.ueblich?'üblich '+eur(m.ueblich):''}${m.neu_ab?' · neu ab '+eur(m.neu_ab):''}</div></div></div>
+      <button data-q="${esc(m.suche)}" class="klein">Diese Angebote ansehen</button></div>`:(a.titel?`<div class="kasten warn">${a.sicher===false?'<b>Marke oder Modell sind auf den Fotos nicht sicher erkennbar</b> – deshalb noch kein Preisvorschlag. Trag das genaue Modell ein:':'Für diesen Artikel habe ich keine vergleichbaren Angebote gefunden. Mit einem anderen Suchbegriff noch einmal versuchen:'}</div>`:'')}
+    ${a.titel?`<div class="reihe"><label class="klein leise">Suchbegriff für den Marktpreis</label><input class="vkfeld" id="vksuch" style="flex:1;min-width:220px;width:auto" value="${esc(a.suchbegriff||'')}" placeholder="Marke und Modell, z. B. Dyson V11 Absolute"><button id="vkpreisneu">Preis ermitteln</button></div>`:''}
+    ${(a.maengel||[]).length?`<div class="kasten warn"><b>Auf den Fotos sichtbare Mängel</b> (stehen im Text): ${a.maengel.map(esc).join(' · ')}</div>`:''}
+    ${(a.fragen||[]).length?`<div class="kasten"><b>Bitte ergänzen</b> <span class="leise klein">– das sieht man auf Fotos nicht:</span> ${a.fragen.map(esc).join(' · ')}</div>`:''}
+    <div class="kasten"><label class="klein leise">Titel (höchstens 65 Zeichen)</label><input class="vkfeld" id="vktitel" maxlength="65" value="${esc(a.titel)}">
+      <label class="klein leise" style="display:block;margin-top:10px">Beschreibung</label><textarea class="vkfeld" id="vktext" rows="11">${esc(a.beschreibung)}</textarea>
+      <div class="reihe"><label>Preis <input class="zahlfeld" id="vkpreis" type="number" min="1" step="1" value="${a.preis||''}"> €</label><label class="q" style="cursor:pointer;--f:var(--akzent)"><input type="checkbox" id="vkvb" ${a.vb?'checked':''} style="margin:0 4px 0 0">Verhandlungsbasis (VB)</label><button id="vkneu">Fotos neu auswerten</button><button id="vkspeich">Speichern</button></div></div>
+    <div class="kasten" style="border-color:var(--akzent)"><b>Bei Kleinanzeigen einstellen</b> <span class="leise klein" id="vkkonto"></span>
+      <div class="klein leise" style="margin:6px 0">Die App füllt „Anzeige aufgeben“ in deinem Konto aus (Titel, Kategorie-Vorschlag, Text, Preis, alle Fotos). Als Entwurf findest du die Anzeige bei Kleinanzeigen unter „Meins“ und veröffentlichst sie selbst – oder du lässt direkt veröffentlichen.</div>
+      <div class="reihe"><button class="haupt" id="vkentwurf" style="padding:9px 16px">Als Entwurf bei Kleinanzeigen speichern</button><button id="vkpub">Direkt veröffentlichen</button><span id="vkstat" class="klein"></span></div>
+      ${ka?`<div class="klein" style="margin-top:8px"><b>${esc(ka.stand)}</b> · ${esc(ka.zeit)}${ka.kategorie?' · Kategorie: '+esc(ka.kategorie):''} · ${ka.fotos} Foto(s) erkannt${(ka.meldungen||[]).length?'<br><span style="color:var(--warn)">Kleinanzeigen meldet: '+ka.meldungen.map(esc).join(' · ')+'</span>':''}</div>`:''}</div>
+    <div class="kasten links"><b>Weitere Portale</b> <span class="leise klein">– dort kann die App nicht selbst einstellen: Text kopieren, Portal öffnen, einfügen</span><br>
+      <button id="vkkopt">Titel kopieren</button> <button id="vkkopb">Beschreibung kopieren</button> ${vkPortale.map(p=>`<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.name)} ↗</a>`).join('')}</div>
+    <div class="reihe" style="justify-content:flex-end"><button data-vkweg="${a.id}">Artikel aus der Liste nehmen</button></div>`;
+  }
+  $('#aus').innerHTML=h;
+  if(!a){ anfrLaden(); pflLaden(); }
+  if(a) fetch('/api/konto').then(r=>r.json()).then(k=>{ const e=$('#vkkonto'); if(e){ e.textContent='– '+(k.bereit?'Konto ist verbunden.':k.hinweis); $('#vkentwurf').disabled=$('#vkpub').disabled=!k.bereit; } }).catch(()=>{});
+}
+let pflDaten=null, pflUhr=null;
+async function pflLaden(d){
+  clearTimeout(pflUhr); try{ pflDaten=d&&d.vorschlaege?d:await (await fetch('/api/pflege')).json(); }catch(e){ return; }
+  const el=$('#pfl'); if(!el) return; const x=pflDaten, offen=x.vorschlaege.filter(v=>v.stand!=='übernommen');
+  if(document.activeElement&&el.contains(document.activeElement)&&!x.laeuft) return;      // nicht überschreiben, während du tippst
+  el.innerHTML=`<div class="leiste"><h2>Anzeigen prüfen und verbessern</h2><div class="wahlen"><button class="haupt" id="pflstart" style="padding:9px 16px" ${x.laeuft?'disabled':''}>${x.vorschlaege.length?'Alle Anzeigen neu prüfen':'Alle Anzeigen prüfen: Titel, Text, Preis'}</button></div></div>
+   ${x.laeuft?`<div class="kasten"><span style="display:inline-block;width:14px;height:14px;border:2.5px solid var(--linie);border-top-color:var(--akzent);border-radius:50%;animation:d .8s linear infinite;vertical-align:-2px;margin-right:8px"></span>${esc(x.schritt)} (${x.fertig} von ${x.gesamt}) – dauert einige Minuten, die Vorschläge erscheinen nach und nach.</div>`:''}
+   ${!x.vorschlaege.length&&!x.laeuft?`<div class="kasten klein leise">Die App geht jede laufende Anzeige durch: besserer Titel (Suchwörter nach vorn, Tippfehler raus), strukturierter Text aus deinen Angaben und dem Foto, Preisempfehlung aus dem Markt oder – wo es kein eindeutiges Modell gibt – aus Aufrufen und Merkern. Du siehst Alt und Neu nebeneinander. Bei Kleinanzeigen geändert wird erst, wenn du je Anzeige auf „So übernehmen“ klickst.</div>`:''}
+   ${x.vorschlaege.map((v,i)=>{ const ge=v.stand==='übernommen', pa=v.neu.preis!==v.alt.preis;
+     return `<div class="kasten" style="margin-top:10px${ge?';opacity:.6':''}"><div style="display:grid;grid-template-columns:${v.bild?'72px ':''}1fr;gap:12px">${v.bild?`<img src="${esc(v.bild)}" referrerpolicy="no-referrer" style="width:72px;height:72px;object-fit:cover;border-radius:10px" onerror="this.remove()">`:''}
+      <div style="min-width:0"><div class="leise klein">Bisher: ${v.alt.besucher||'?'} Besucher · ${v.alt.gemerkt||0}-mal gemerkt ${ge?'<span class="m neu">übernommen '+esc(v.zeit)+'</span>':''}</div>
+      <div style="text-decoration:line-through;color:var(--leise)">${esc(v.alt.titel)} · ${eur(v.alt.preis)}${v.alt.vb?' VB':''}</div>
+      <input class="vkfeld" id="pft${i}" maxlength="65" value="${esc(v.neu.titel)}" style="margin-top:6px;font-weight:650" ${ge?'disabled':''}></div></div>
+      ${v.schwaechen.length?`<div class="klein" style="margin-top:8px"><b>Was an der bisherigen Anzeige schwach ist:</b> ${v.schwaechen.map(esc).join(' · ')}</div>`:''}
+      <div class="vg" style="grid-template-columns:1fr 1fr"><div class="vp"><h5 style="margin-top:0">Bisheriger Text</h5><div class="klein" style="white-space:pre-wrap;max-height:220px;overflow:auto">${esc(v.alt.beschreibung||'(nicht lesbar)')}</div></div>
+       <div class="vp"><h5 style="margin-top:0">Neuer Text</h5><textarea class="vkfeld" id="pfb${i}" rows="9" ${ge?'disabled':''}>${esc(v.neu.beschreibung)}</textarea></div></div>
+      ${v.fragen.length?`<div class="kasten warn klein" style="margin-top:8px"><b>Fehlt noch – bitte im neuen Text ergänzen:</b> ${v.fragen.map(esc).join(' · ')}</div>`:''}
+      <div class="kasten" style="margin-top:8px;${pa?'border-color:var(--akzent)':''}"><b>Preis:</b> bisher ${eur(v.alt.preis)}${v.alt.vb?' VB':''} → <input class="zahlfeld" id="pfp${i}" type="number" min="1" step="1" value="${v.neu.preis}" style="width:90px;padding:5px 8px" ${ge?'disabled':''}> € ${pa?`<span class="m ${v.neu.preis<v.alt.preis?'fehlt':'neu'}">${v.neu.preis<v.alt.preis?'senken':'anheben'} um ${eur(Math.abs(v.neu.preis-v.alt.preis))}</span>`:'<span class="m">unverändert</span>'}
+       <div class="klein leise" style="margin-top:6px">${esc(v.preis_grund)}</div>${v.markt?`<button class="klein" data-q="${esc(v.markt.suche)}" style="margin-top:6px">Diese Vergleichsangebote ansehen</button>`:''}</div>
+      ${ge?'':`<div class="reihe"><button class="haupt" data-pfok="${i}" style="padding:9px 16px">So bei Kleinanzeigen übernehmen</button><a href="${esc(v.url)}" target="_blank" rel="noopener"><button>Anzeige ansehen ↗</button></a><span class="klein" id="pfs${i}"></span></div>`}</div>`}).join('')}`;
+  if(x.laeuft) pflUhr=setTimeout(()=>pflLaden(),6000);
+}
+document.addEventListener('click',async e=>{ const z=e.target;
+  if(z.id==='pflstart'){ z.disabled=true; pflLaden(await post('/api/pflege/start',{})); return; }
+  if(z.dataset.pfok){ const i=+z.dataset.pfok, v=pflDaten.vorschlaege[i], p=parseFloat($('#pfp'+i).value)||0;
+    if(!confirm('Anzeige „'+v.alt.titel+'“ bei Kleinanzeigen ändern?\n\nNeuer Titel: '+$('#pft'+i).value+'\nNeuer Preis: '+p+' €'+(v.alt.vb?' VB':'')+'\n\nDie Änderung ist sofort öffentlich.')) return;
+    z.disabled=true; $('#pfs'+i).textContent='Trage es bei Kleinanzeigen ein … (etwa 20 Sekunden)';
+    const d=await post('/api/pflege/uebernehmen',{adid:v.adid,titel:$('#pft'+i).value,beschreibung:$('#pfb'+i).value,preis:p});
+    if(d.fehler){ $('#pfs'+i).innerHTML='<span style="color:var(--rot)">'+esc(d.fehler)+'</span>'; z.disabled=false; } else { document.activeElement&&document.activeElement.blur(); pflLaden(d); } return; }
+});
+let anfrDaten=null;
+async function anfrLaden(d){
+  try{ anfrDaten=d&&d.anzeigen?d:await (await fetch('/api/anfragen')).json(); }catch(e){ return; }
+  const el=$('#anfr'); if(!el) return; const x=anfrDaten;
+  el.innerHTML=`<div class="leiste"><h2>Meine laufenden Anzeigen bei Kleinanzeigen</h2><div class="wahlen"><label class="q" style="cursor:pointer;--f:var(--akzent)"><input type="checkbox" id="anfaktiv" ${x.aktiv?'checked':''} style="margin:0 4px 0 0">Anfragen automatisch beantworten</label><button id="anfjetzt">Postfach jetzt prüfen</button></div></div>
+   <div class="kasten klein leise">Die App liest alle 4 Minuten dein Postfach. Neue Anfragen zu deinen Anzeigen beantwortet sie aus dem Anzeigentext, verhandelt nie unter deinen Mindestpreis, nennt keine Adresse und sagt keinen Termin zu. Bei Einigung, offenen Fragen oder Betrugsverdacht bekommst du eine Telegram-Meldung und übernimmst. Nachrichten, die vor dem Einschalten schon da waren, bleiben unberührt.</div>
+   ${x.anzeigen.length?x.anzeigen.map(a=>`<div class="hv"><div style="min-width:0"><b>${esc(a.titel)}</b> ${a.reserviert?'<span class="m fehlt">reserviert</span>':''}${a.pausiert?'<span class="m fehlt">nicht aktiv</span>':''}<div class="leise klein">${eur(a.preis)}${a.vb?' VB':' Festpreis'}${a.text?'':' · Anzeigentext nicht lesbar'}</div></div>
+     <div style="white-space:nowrap"><label class="klein leise">Mindestpreis <input class="zahlfeld" type="number" min="0" step="1" value="${a.mindest}" data-anfmin="${a.adid}" style="width:84px;padding:5px 8px"> €</label> <label class="klein"><input type="checkbox" data-anfauto="${a.adid}" ${a.auto?'checked':''}> automatisch</label></div></div>`).join(''):`<div class="kasten">Noch keine Anzeigen gelesen${x.anzeigen_stand?'':' – das passiert beim nächsten Postfach-Lauf (in wenigen Minuten) oder über „Postfach jetzt prüfen“'}.</div>`}
+   ${x.gespraeche.length?`<div class="leiste"><h2>Anfragen (${x.gespraeche.length})</h2></div>`+x.gespraeche.map((g,i)=>`<div class="kasten" style="margin-top:8px"><b>${esc(g.partner)}</b> zu „${esc(g.titel)}“ <span class="m ${/einig/.test(g.stand)?'neu':/betrug|wartet/.test(g.stand)?'fehlt':''}">${esc(g.stand)}</span> <span class="leise klein">${esc(g.geaendert||'')}</span>
+     ${g.hinweis?`<div class="klein" style="color:var(--warn)">${esc(g.hinweis)}</div>`:''}
+     <details style="margin-top:6px" ${i<2?'open':''}><summary class="klein">Verlauf (${g.verlauf.length})</summary>${g.verlauf.map(m=>`<div class="klein" style="margin:6px 0;padding:6px 10px;border-radius:10px;background:${m.von==='ich'?'var(--akzent2)':'var(--karte2)'}"><b>${m.von==='ich'?'Ich':esc(g.partner)}</b> · ${esc(m.zeit)}<br>${esc(m.text)}</div>`).join('')}</details>
+     <div class="reihe"><input class="zahlfeld" style="flex:1;min-width:200px;width:auto" id="anfa${i}" placeholder="Eigene Antwort an ${esc(g.partner)} …"><button data-anfantw="${i}">Senden</button></div></div>`).join(''):''}`;
+}
+document.addEventListener('change',async e=>{ const z=e.target;
+  if(z.id==='anfaktiv'){ anfrLaden(await post('/api/anfragen/einstellen',{aktiv:z.checked})); }
+  else if(z.dataset.anfauto){ anfrLaden(await post('/api/anfragen/einstellen',{adid:z.dataset.anfauto,auto:z.checked})); }
+  else if(z.dataset.anfmin){ await post('/api/anfragen/einstellen',{adid:z.dataset.anfmin,mindest:z.value}); }
+});
+document.addEventListener('click',async e=>{ const z=e.target;
+  if(z.id==='anfjetzt'){ z.textContent='Prüfe … (Liste erscheint in etwa einer Minute)'; await post('/api/anfragen/jetzt',{}); setTimeout(()=>anfrLaden(),50000); }
+  if(z.dataset.anfantw){ const i=+z.dataset.anfantw, t=($('#anfa'+i)||{}).value||''; if(t.trim().length<2) return; const d=await post('/api/anfragen/antwort',{schluessel:anfrDaten.gespraeche[i].schluessel,text:t}); if(!d.fehler){ z.textContent='Wird gesendet ✓'; } }
+});
+function vkFelder(){ return {id:vkOffen,titel:$('#vktitel').value,beschreibung:$('#vktext').value,preis:parseFloat($('#vkpreis').value)||0,vb:$('#vkvb').checked}; }
+async function vkAuswerten(id){ $('#aus').innerHTML=`<div class="leise" style="margin:18px 2px 12px">Sehe mir die Fotos an, schreibe die Anzeige und suche vergleichbare Angebote für den Preis … (etwa 20–40 Sekunden)</div><div class="skel"></div><div class="skel"></div>`;
+  const d=await post('/api/verkauf/erkennen',{id}); await vkLaden(); vkOffen=id; vkSeite(); if(d.fehler){ const e=document.createElement('div'); e.className='kasten warn'; e.textContent=d.fehler; $('#aus').prepend(e); } }
+document.addEventListener('dragover',e=>{ const z=e.target.closest&&e.target.closest('#vkab'); if(z){ e.preventDefault(); z.classList.add('drueber'); } });
+document.addEventListener('dragleave',e=>{ const z=e.target.closest&&e.target.closest('#vkab'); if(z) z.classList.remove('drueber'); });
+document.addEventListener('drop',e=>{ const z=e.target.closest&&e.target.closest('#vkab'); if(z){ e.preventDefault(); vkDazu(e.dataTransfer.files); } });
+document.addEventListener('change',e=>{ if(e.target.id==='vkdatei') vkDazu(e.target.files); });
+document.addEventListener('click',async e=>{
+  const z=e.target;
+  if(z.id==='vkauf'){ await vkLaden(); vkOffen=null; vkSeite(); return; }
+  if(z.dataset.vkzur){ vkOffen=null; stand=null; zeigen(); return; }
+  if(z.closest('#vkab')&&z.id!=='vkdatei'){ $('#vkdatei').click(); return; }
+  if(z.dataset.vkfotoweg){ vkFotos.splice(+z.dataset.vkfotoweg,1); vkSeite(); return; }
+  if(z.id==='vkstart'){ const hinweis=$('#vkhinweis').value; z.disabled=true; z.textContent='Lade Fotos hoch …'; const d=await post('/api/verkauf/neu',{bilder:vkFotos,hinweis}); if(d.fehler){ $('#vkinfo').textContent=d.fehler; z.disabled=false; return; } vkFotos=[]; vkAuswerten(d.id); return; }
+  const auf=z.closest('[data-vkauf]'); if(auf){ vkOffen=auf.dataset.vkauf||null; vkSeite(); scrollTo({top:0}); return; }
+  if(z.closest('[data-vkpreis]')){ $('#vkpreis').value=z.closest('[data-vkpreis]').dataset.vkpreis; return; }
+  if(z.id==='vkspeich'){ await post('/api/verkauf/speichern',vkFelder()); await vkLaden(); z.textContent='Gespeichert ✓'; return; }
+  if(z.id==='vkneu'){ vkAuswerten(vkOffen); return; }
+  if(z.id==='vkpreisneu'){ const sb=$('#vksuch').value.trim(); if(sb.length<2) return; z.disabled=true; z.textContent='Suche Angebote …'; await post('/api/verkauf/speichern',vkFelder()); const d=await post('/api/verkauf/preis',{id:vkOffen,suchbegriff:sb}); await vkLaden(); vkSeite(); if(d.fehler) alert(d.fehler); return; }
+  if(z.id==='vkkopt'){ kopieren($('#vktitel').value); z.textContent='Kopiert ✓'; return; }
+  if(z.id==='vkkopb'){ kopieren($('#vktext').value); z.textContent='Kopiert ✓'; return; }
+  if(z.id==='vkentwurf'||z.id==='vkpub'){ const pub=z.id==='vkpub'; if(pub&&!confirm('Die Anzeige wird sofort öffentlich bei Kleinanzeigen eingestellt. Fortfahren?')) return;
+    $('#vkentwurf').disabled=$('#vkpub').disabled=true; $('#vkstat').textContent='Fülle das Formular aus und lade die Fotos hoch … (etwa 30–60 Sekunden)';
+    const d=await post('/api/verkauf/einstellen',Object.assign(vkFelder(),{modus:pub?'veroeffentlichen':'entwurf'})); await vkLaden(); vkSeite(); if(d.fehler){ $('#vkstat').innerHTML='<span style="color:var(--rot)">'+esc(d.fehler)+'</span>'; } return; }
+  if(z.dataset.vkweg){ await post('/api/verkauf/weg',{id:z.dataset.vkweg}); await vkLaden(); vkOffen=null; vkSeite(); return; }
+});
+// ---------- Vergleichen ----------
+let korb=[], korbOffen=false;
+function korbzeigen(){
+  const k=$('#korb'); k.style.display=(korb.length||korbOffen)?'block':'none'; document.body.style.paddingBottom=(korb.length||korbOffen)?'70px':'0';
+  $('#korbin').innerHTML=`<b>Vergleich</b>${korb.map((p,i)=>`<button class="chip" data-korbweg="${i}" title="${esc(p.name)}">${esc(p.name.length>34?p.name.slice(0,33)+'…':p.name)}${p.preis?' · '+eur(p.preis):''}<span class="x">✕</span></button>`).join('')}
+  <input id="korbneu" placeholder="${korb.length?'weiteres Produkt eintippen':'Produkt eintippen, z. B. Dyson V11'}" ${korb.length>=4?'disabled':''}>
+  <button id="korbdazu" ${korb.length>=4?'disabled':''}>+ Hinzufügen</button>
+  <button class="haupt" id="vglstart" style="padding:8px 16px">${korb.length<=1?'Mit Alternativen vergleichen':'Jetzt vergleichen'}</button><button id="korbzu" title="Vergleich leeren und schließen">✕</button>
+  <span class="leise klein" style="flex-basis:100%">${korb.length?'Bis zu vier Produkte. Bei nur einem sucht die App passende Alternativen dazu.':'Produkt eintippen oder in der Trefferliste „+ Vergleich“ anklicken – dann „Vergleichen“.'}</span>`;
+}
+// Führt der Händler das Produkt nur unter der Modellnummer, steht der gesuchte Name mit im Vergleich
+function korbeintrag(a){ const g=stand?(stand.produkt||stand.anfrage):''; return {name:(a.pruef_titel&&g)?g+' ('+a.titel+')':a.titel,url:a.url,preis:a.preis,quelle:a.quelle,zustand:ZU[a.zustand]||'',gesucht:(a.pruef_titel||!a.fehlt)?g:''}; }
+function korbeingabe(){ const f=$('#korbneu'); const n=f?f.value.trim():''; if(n.length>1&&korb.length<4&&!korb.some(k=>k.name.toLowerCase()===n.toLowerCase())){ korb.push({name:n}); return true; } return false; }
+let vglDaten=null, vglHtml='';
+const QUELLE_VON={'amazon.':'Amazon','idealo.':'idealo','mediamarkt.':'MediaMarkt','saturn.':'Saturn','kleinanzeigen.':'Kleinanzeigen','vinted.':'Vinted','shpock.':'Shpock','hood.':'Hood','rebuy.':'rebuy'};
+async function vergleichen(){
+  korbeingabe();
+  if(!korb.length){ korbOffen=true; korbzeigen(); const f=$('#korbneu'); if(f){ f.focus(); f.placeholder='Bitte zuerst ein Produkt eintippen'; } return; }
+  korbzeigen();
+  $('#vdl').innerHTML=`<h3>Vergleich läuft …</h3><div class="leise">Preise suchen, Angaben von den Angebotsseiten lesen, Vor- und Nachteile zusammenstellen. Das dauert etwa 15–40 Sekunden.</div><div class="skel" style="margin-top:14px"></div><div class="skel"></div>`;
+  $('#vdlg').showModal();
+  let d; try{ d=await post('/api/vergleich',{produkte:korb,wunsch:stand?stand.anfrage:''}); }catch(e){ d={fehler:'Keine Antwort vom Preisjäger ('+e+'). Bitte noch einmal versuchen.'}; }
+  if(!d.fehler&&!(d.produkte&&d.empfehlung)) d={fehler:'Die Antwort war unvollständig. Bitte noch einmal versuchen.'};
+  if(d.fehler){ $('#vdl').innerHTML=`<h3>Vergleich</h3><div class="kasten warn">${esc(d.fehler)}</div><div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`; return; }
+  const li=(l,k)=>l.length?`<ul class="${k}">${l.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<div class="leise klein">–</div>';
+  vglDaten=d;
+  const sieger=d.empfehlung.name;
+  $('#vdl').innerHTML=`<h3>Produktvergleich</h3><div class="leise klein">Stand ${esc(d.zeit)} · Preise aus der eigenen Suche${d.gattung?' · Geräteart: '+esc(d.gattung):''}${(d.verworfen||[]).length?' · als nicht vergleichbar verworfen: '+esc(d.verworfen.join(', ')):''}</div>
+  <div class="empf"><div class="klein" style="font-weight:650;color:var(--akzent)">EMPFEHLUNG</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;margin:2px 0 6px"><span style="font-size:20px;font-weight:750">${esc(sieger)}</span>${(()=>{const s=d.produkte.find(p=>p.name===sieger);return s&&s.bester?`<span style="font-size:20px;font-weight:750;color:var(--akzent)">ab ${eur(s.bester)}</span>`:''})()}</div>
+  <div>${esc(d.empfehlung.grund)}</div>
+  ${(()=>{const e=d.empfehlung, s=d.produkte.find(p=>p.name===sieger)||{}; const wk=e.warum_kaufen||[], vo=(e.vorteile&&e.vorteile.length?e.vorteile:s.plus)||[], na=(e.nachteile&&e.nachteile.length?e.nachteile:s.minus)||[];
+    const bl=(t,l,k)=>l.length?`<div class="vp" style="background:var(--karte)"><h5 style="margin-top:0">${t}</h5>${li(l,k)}</div>`:'';
+    return `<div class="vg" style="grid-template-columns:repeat(3,1fr)">${bl('Warum du dieses kaufen solltest',wk,'ja')}${bl('Vorteile',vo,'pl')}${bl('Nachteile – das solltest du wissen',na,'mi')}</div>`;})()}
+  ${d.empfehlung.wann_anders?`<div style="margin-top:10px"><b>Wann lieber ein anderes:</b> ${esc(d.empfehlung.wann_anders)}</div>`:''}
+  ${(()=>{const s=d.produkte.find(p=>p.name===sieger);return s&&s.url?`<div class="reihe"><a href="${esc(s.url)}" target="_blank" rel="noopener"><button class="haupt" style="padding:9px 16px">Empfohlenes Angebot öffnen ↗</button></a><button data-vdet="${d.produkte.findIndex(p=>p.name===sieger)}">Alle Angaben zum empfohlenen Produkt</button></div>`:''})()}</div>
+  <div class="vg" style="grid-template-columns:repeat(${d.produkte.length},1fr)">${d.produkte.map(p=>`<div class="vp${p.name===sieger?' sieger':''}">
+    <h4>${esc(p.name)}</h4>${p.vorschlag?'<span class="m">vorgeschlagene Alternative</span> ':''}${p.name===sieger?'<span class="m neu">Empfehlung</span>':''}
+    <div style="font-size:22px;font-weight:750;margin-top:6px">${p.bester?'ab '+eur(p.bester):'kein genau passendes Angebot gefunden'}</div><div class="leise klein">${esc(p.preise||'')}</div>
+    <div style="margin-top:6px">${esc(p.kurz)}</div>
+    <h5>Kann / hat</h5>${li(p.kann,'ja')}<h5>Kann nicht / fehlt</h5>${li(p.kann_nicht,'nein')}<h5>Vorteile</h5>${li(p.plus,'pl')}<h5>Nachteile</h5>${li(p.minus,'mi')}
+    <h5>Für wen</h5><div style="font-size:14px">${esc(p.fuer_wen)}</div>${p.unsicher.length?`<h5>Nicht sicher</h5>${li(p.unsicher,'un')}`:''}
+    <div class="reihe"><button class="handeln" style="margin:0;padding:7px 12px;font-size:14px" data-vdet="${d.produkte.indexOf(p)}">Alle Angaben ansehen</button>${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener"><button>Angebot öffnen ↗</button></a>`:''}<button data-q="${esc(p.name)}">Preise suchen</button></div>
+    <div class="leise klein" style="margin-top:8px">${p.belegt?'Grundlage: Angaben von der Angebotsseite + KI-Wissen':'Grundlage: nur KI-Wissen (keine Angebotsseite lesbar)'}</div></div>`).join('')}</div>
+  <div class="kasten warn klein" style="margin-top:14px">Die Einschätzung schreibt eine KI. Technische Angaben können falsch oder veraltet sein – vor dem Kauf die Angebotsseite prüfen. Preise stammen aus der Suche zum genannten Zeitpunkt.</div>
+  <div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`;
+}
+async function details(a,ausVergleich){
+  if(ausVergleich) vglHtml=$('#vdl').innerHTML;
+  const zurueck=ausVergleich?'<button data-vback="1">← Zurück zum Vergleich</button>':'';
+  $('#vdl').innerHTML=`<h3>${esc(a.titel)}</h3><div class="leise">Lese die Angebotsseite und stelle Eigenschaften und Ausstattung zusammen … (etwa 10–20 Sekunden)</div><div class="skel" style="margin-top:14px"></div>`;
+  $('#vdlg').showModal();
+  let d; try{ d=await post('/api/details',{titel:a.titel,url:a.url,preis:a.preis,quelle:a.quelle}); }catch(e){ d={fehler:'Der Preisjäger ist gerade nicht erreichbar.'}; }
+  if(d.fehler){ $('#vdl').innerHTML=`<h3>${esc(a.titel)}</h3><div class="kasten warn">${esc(d.fehler)}</div><div class="reihe" style="justify-content:flex-end">${zurueck}<button data-vzu="1">Schließen</button></div>`; return; }
+  const li=(l,k)=>`<ul class="${k}">${l.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
+  const i=reg.indexOf(a);
+  $('#vdl').innerHTML=`<div style="display:flex;gap:16px;align-items:flex-start">${a.bild?`<img src="${esc(a.bild)}" referrerpolicy="no-referrer" style="width:130px;height:130px;object-fit:cover;border-radius:12px" onerror="this.remove()">`:''}
+  <div style="min-width:0;flex:1"><h3>${esc(d.produkt)}</h3><div class="leise klein">${esc(a.titel)}</div>
+  <div style="margin-top:6px"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.quelle)}</span> ${a.zustand?`<span class="m ${a.zustand}">${ZU[a.zustand]||''}</span>`:''} <b style="font-size:22px;margin-left:8px">${a.preis?eur(a.preis):''}</b></div>
+  <div style="margin-top:8px">${esc(d.kurz)}</div></div></div>
+  <div class="vg" style="grid-template-columns:1fr 1fr"><div class="vp"><h5 style="margin-top:0">Eigenschaften</h5>${d.eigenschaften.length?`<table style="border-collapse:collapse;font-size:14px;width:100%">${d.eigenschaften.map(([k,w])=>`<tr><td style="padding:3px 12px 3px 0;color:var(--leise);vertical-align:top;white-space:nowrap">${esc(k)}</td><td style="padding:3px 0">${esc(w)}</td></tr>`).join('')}</table>`:'<div class="leise klein">keine Angaben</div>'}</div>
+  <div class="vp"><h5 style="margin-top:0">Ausstattung</h5>${d.ausstattung.length?li(d.ausstattung,'ja'):'<div class="leise klein">keine Angaben</div>'}${d.lieferumfang.length?`<h5>Lieferumfang</h5>${li(d.lieferumfang,'pl')}`:''}${d.zu_diesem_angebot.length?`<h5>Zu diesem Angebot</h5>${li(d.zu_diesem_angebot,'mi')}`:''}${d.unsicher.length?`<h5>Nicht sicher</h5>${li(d.unsicher,'un')}`:''}</div></div>
+  ${d.anbietertext?`<div class="vp" style="margin-top:12px"><h5 style="margin-top:0">Text des Anbieters (Original)</h5>${d.verkaeufer?`<div class="klein leise" style="margin-bottom:8px">Verkäufer: ${esc(d.verkaeufer)}</div>`:''}<div style="white-space:pre-wrap;font-size:14px;max-height:320px;overflow:auto">${esc(d.anbietertext)}</div></div>`:`<div class="klein leise" style="margin-top:10px">Der Originaltext des Anbieters ließ sich von dieser Seite nicht lesen – über „Angebot öffnen“ ansehen.</div>`}
+  ${(d.warn||[]).length?`<div class="kasten warn" style="border-color:var(--rot)"><b style="color:var(--rot)">⚠ Warnzeichen in dieser Anzeige</b><ul class="mi" style="margin:6px 0 0;padding-left:18px">${d.warn.map(w=>`<li>${esc(w)}</li>`).join('')}</ul><div class="klein leise" style="margin-top:6px">Ein Hinweis, kein Beweis. Sicher sind: Abholung mit Barzahlung nach Prüfung oder „Sicher bezahlen“ in der App.</div></div>`:''}
+  <div class="leise klein" style="margin-top:10px">${d.belegt?'Grundlage: Angaben von der Angebotsseite, ergänzt durch KI-Wissen über das Modell.':'Die Angebotsseite war nicht lesbar – Angaben stammen nur aus KI-Wissen über das Modell.'} Angaben können falsch sein; vor dem Kauf die Anzeige prüfen.</div>
+  <div class="reihe" style="justify-content:flex-end"><a href="${esc(a.url)}" target="_blank" rel="noopener"><button>Angebot öffnen ↗</button></a>${a.art==='privat'&&a.zustand!=='defekt'&&i>=0?`<button data-dh="${i}">Verhandeln</button>`:''}${i>=0?`<button data-dv="${i}">+ Vergleich</button>`:''}${zurueck}<button data-vzu="1">Schließen</button></div>`;
+}
+document.addEventListener('keydown',e=>{ if(e.target.id==='snq'&&e.key==='Enter'){ e.preventDefault(); $('#snstart').click(); } });
+document.addEventListener('keydown',e=>{ if(e.target.id==='korbneu'&&e.key==='Enter'){ e.preventDefault(); if(korbeingabe()){ korbzeigen(); $('#korbneu').focus(); } else if(korb.length) vergleichen(); } });
+document.addEventListener('click',e=>{
+  const v=e.target.closest('[data-vgl]'); if(v){ e.preventDefault(); e.stopPropagation(); const a=reg[+v.dataset.vgl], i=korb.findIndex(k=>k.url===a.url);
+    if(i>=0) korb.splice(i,1); else if(korb.length<4) korb.push(korbeintrag(a)); zeigen(); korbzeigen(); return; }
+  const vd=e.target.closest('[data-vdet]'); if(vd&&vglDaten){ const p=vglDaten.produkte[+vd.dataset.vdet]; if(p){ const q=Object.entries(QUELLE_VON).find(([k])=>(p.url||'').includes(k)); details({titel:p.name,url:p.url||'',preis:p.bester||0,quelle:q?q[1]:'idealo',zustand:'',bild:'',art:''},true); } return; }
+  if(e.target.dataset.vback){ $('#vdl').innerHTML=vglHtml; return; }
+  const de=e.target.closest('[data-det]'); if(de){ e.preventDefault(); e.stopPropagation(); details(reg[+de.dataset.det]); return; }
+  if(e.target.dataset.dh){ $('#vdlg').close(); handeln(reg[+e.target.dataset.dh]); return; }
+  if(e.target.dataset.dv){ const a=reg[+e.target.dataset.dv]; if(korb.length<4&&!korb.some(k=>k.url===a.url)) korb.push(korbeintrag(a)); $('#vdlg').close(); zeigen(); korbzeigen(); return; }
+  const kw=e.target.closest('[data-korbweg]'); if(kw){ korb.splice(+kw.dataset.korbweg,1); if(stand) zeigen(); korbzeigen(); return; }
+  if(e.target.id==='vglauf'){ korbOffen=true; if(!korb.length&&stand&&(stand.produkt||stand.anfrage)) korb.push({name:stand.produkt||stand.anfrage}); korbzeigen(); $('#korbneu').focus(); return; }
+  if(e.target.id==='korbdazu'){ if(korbeingabe()) korbzeigen(); $('#korbneu').focus(); return; }
+  if(e.target.id==='korbzu'){ korbOffen=false; korb=[]; if(stand) zeigen(); korbzeigen(); return; }
+  if(e.target.id==='vglstart'){ vergleichen(); return; }
+  if(e.target.dataset.vzu||e.target===$('#vdlg')){ $('#vdlg').close(); return; }
+  if(e.target.closest('#vdlg [data-q]')) $('#vdlg').close();
+},true);
+// ---------- Verhandeln ----------
+let verhandlungen=[];
+async function post(pfad,daten){ const r=await fetch(pfad,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(daten)}); return r.json(); }
+function kopieren(text){ const t=document.createElement('textarea'); t.value=text; t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select(); let ok=false; try{ ok=document.execCommand('copy'); }catch(e){} t.remove(); if(!ok&&navigator.clipboard) navigator.clipboard.writeText(text).catch(()=>{}); }
+async function handelsliste(l){
+  try{ verhandlungen=Array.isArray(l)?l:await (await fetch('/api/verhandlungen')).json(); }catch(e){ verhandlungen=[]; }
+  $('#handel').innerHTML=verhandlungen.length?`<details class="kasten" ${verhandlungen.length<4?'open':''}><summary>Meine Verhandlungen (${verhandlungen.length})</summary>${verhandlungen.map((x,i)=>`<div class="hv" data-hv="${i}"><div style="min-width:0;cursor:pointer"><b>${esc(x.titel)}</b><div class="leise klein">${esc(x.quelle)} · Verkäufer ${eur(x.preis)} → mein Preis ${eur(x.mein)} · <b>${esc(x.stand)}</b> · ${esc(x.zeit)}</div></div><div><button>Weiter</button> <button data-fort="1" title="Aus der Liste nehmen">✕</button></div></div>`).join('')}</details>`:'';
+}
+let autoDaten=[];
+async function autoliste(l){
+  try{ autoDaten=Array.isArray(l)?l:await (await fetch('/api/auto')).json(); }catch(e){ return; }
+  const offen=autoDaten.filter(x=>['wartet','gesendet','verhandelt','einig','rueckfrage'].includes(x.stand)).length;
+  $('#auto').innerHTML=autoDaten.length?`<details class="kasten" style="border-color:var(--akzent)" ${offen?'open':''}><summary>Selbstständige Verhandlungen (${offen} laufend, ${autoDaten.length} gesamt)</summary>${autoDaten.slice(0,30).map((x,i)=>`<div class="hv" style="grid-template-columns:1fr"><div><b>${esc(x.titel)}</b> <span class="m ${x.stand==='einig'?'neu':['betrug','fehler','rueckfrage'].includes(x.stand)?'fehlt':''}">${esc(x.standtext)}</span>
+    <div class="leise klein">${esc(x.verkaeufer||'Verkäufer')} · Preis ${eur(x.preis)} → mein Preis ${eur(x.mein)} · ${x.weg==='versand'?'Versand, PayPal':'Abholung, bar'} · Gegenrunden ${x.runden} · zuletzt ${esc(x.geaendert)}</div>
+    ${x.hinweis?`<div class="klein" style="color:var(--warn)">${esc(x.hinweis)}</div>`:''}
+    <details style="margin-top:6px"><summary class="klein">Verlauf (${x.verlauf.length})</summary>${x.verlauf.map(m=>`<div class="klein" style="margin:6px 0;padding:6px 10px;border-radius:10px;background:${m.von==='ich'?'var(--akzent2)':'var(--karte2)'}"><b>${m.von==='ich'?'Ich (App)':esc(x.verkaeufer||'Verkäufer')}</b> · ${esc(m.zeit)}<br>${esc(m.text)}</div>`).join('')||'<div class="klein leise">noch nichts</div>'}</details>
+    <div class="reihe"><a href="${esc(x.url)}" target="_blank" rel="noopener"><button>Anzeige öffnen ↗</button></a>${['rueckfrage','einig','verhandelt','gesendet'].includes(x.stand)?`<input class="zahlfeld" style="flex:1;min-width:200px;width:auto" id="aa${i}" placeholder="Eigene Antwort an den Verkäufer …"><button data-aantw="${i}">Senden</button>`:''}${['wartet','gesendet','verhandelt','rueckfrage'].includes(x.stand)?`<button data-astop="${i}">Stoppen</button>`:''}</div></div></div>`).join('')}</details>`:'';
+}
+document.addEventListener('click',async e=>{
+  if(e.target.dataset.astop){ autoliste(await post('/api/auto/stop',{id:autoDaten[+e.target.dataset.astop].id})); }
+  if(e.target.dataset.aantw){ const i=+e.target.dataset.aantw, t=($('#aa'+i)||{}).value||''; if(t.trim().length<2) return; const d=await post('/api/auto/antwort',{id:autoDaten[i].id,text:t}); if(!d.fehler) autoliste(d); }
+});
+setInterval(()=>{ if(autoDaten.some(x=>['wartet','gesendet','verhandelt','rueckfrage','einig','abgelehnt','festgefahren'].includes(x.stand))&&!document.querySelector('#auto input:focus')) autoliste(); },30000);
+async function entwurf(){
+  const m=parseFloat($('#hp').value); if(!m){ $('#hp').focus(); return; } meinPreis=m; akt.mein=m;
+  const weg=$('#hweg').value; akt.weg=weg;
+  $('#hgeb').textContent=weg==='versand'?'PayPal „Waren und Dienstleistungen“: Die Gebühr liegt bei ungefähr '+eur(Math.round((m*0.0249+0.35)*100)/100)+' (rund 2,49 % + 0,35 € – den aktuellen Satz bitte bei PayPal prüfen). Dazu kommt der Versand.':'';
+  $('#ht').value='Schreibe …'; const d=await post('/api/nachricht',{titel:akt.a.titel,preis:akt.a.preis,mein:m,quelle:akt.a.quelle,weg}); $('#ht').value=d.text||d.fehler||'';
+}
+function handeln(a,alt){
+  akt={a,mein:alt?alt.mein:meinPreis};
+  $('#dl').innerHTML=`<h3>Verhandeln</h3><div class="leise">${esc(a.titel)}</div>
+  <div class="reihe"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.quelle)}</span><span>Verkäufer will <b>${eur(a.preis)}</b></span><label>· Mein Preis <input class="zahlfeld" id="hp" type="number" min="1" step="1" value="${akt.mein||''}" placeholder="€"></label><label>· <select id="hweg"><option value="abholung">Abholung, bar</option><option value="versand"${a.fern?' selected':''}>Versand, PayPal mit Käuferschutz (Gebühr zahle ich)</option></select></label><button id="hneu">Nachricht schreiben</button></div>
+  <div class="klein leise" id="hgeb" style="margin-top:6px"></div>
+  <div style="margin-top:12px"><textarea id="ht" rows="5" placeholder="Hier erscheint die Nachricht an den Verkäufer – du kannst sie ändern.">${esc(alt?alt.text:'')}</textarea></div>
+  <div class="reihe"><button class="haupt" id="hkop" style="padding:9px 16px">Kopieren und Angebot öffnen</button><span class="leise klein">Dann beim Verkäufer einfügen (⌘V) und senden – das Senden bleibt bei dir.</span></div>
+  <div style="margin-top:18px;border-top:1px solid var(--linie);padding-top:14px"><b>Verkäufer hat geantwortet?</b> <span class="leise klein">Antwort hier einfügen – du bekommst einen Vorschlag.</span>
+  <textarea id="ha" rows="3" style="margin-top:8px" placeholder="Antwort des Verkäufers"></textarea>
+  <div class="reihe"><button id="hant">Antwort vorschlagen</button><span id="hlage"></span></div>
+  <textarea id="hr" rows="4" style="margin-top:8px;display:none"></textarea>
+  <div class="reihe" id="hrk" style="display:none"><button id="hrkop">Antwort kopieren und Angebot öffnen</button></div></div>
+  <div class="kasten" style="margin-top:14px;border-color:var(--akzent)"><b>Selbstständig verhandeln lassen</b> <span id="hkonto" class="leise klein">– prüfe Konto …</span>
+  <div class="klein leise" style="margin:6px 0">Die App sendet die Nachricht oben über dein Kleinanzeigen-Konto, liest die Antworten, bleibt bei deinem Preis (höchstens 3 Gegenrunden) und meldet sich per Telegram, sobald ihr euch einig seid, der Verkäufer etwas fragt oder etwas nach Betrug aussieht. Abholung und Bezahlung machst du.</div>
+  <button class="haupt" id="hauto" style="padding:9px 16px" disabled>Selbstständig verhandeln</button> <span id="hautoinfo" class="klein"></span></div>
+  <div class="reihe" style="justify-content:flex-end"><button id="hzu">Schließen</button></div>`;
+  $('#dlg').showModal(); if(!alt&&akt.mein) entwurf();
+  const istKA=(a.url||'').includes('kleinanzeigen.de/s-anzeige/');
+  if(!istKA){ $('#hkonto').textContent='– nur bei Kleinanzeigen-Angeboten möglich.'; }
+  else fetch('/api/konto').then(r=>r.json()).then(k=>{ const el=$('#hkonto'); if(el){ el.textContent='– '+k.hinweis; $('#hauto').disabled=!k.bereit; } }).catch(()=>{});
+}
+$('#dlg').addEventListener('click',async e=>{
+  if(e.target.id==='hzu'||e.target===$('#dlg')){ $('#dlg').close(); return; }
+  if(e.target.id==='hneu'){ entwurf(); return; }
+  if(e.target.id==='hauto'){ const text=$('#ht').value.trim(), m=parseFloat($('#hp').value)||0; if(!text||text==='Schreibe …'||!m){ $('#hautoinfo').textContent='Erst deinen Preis eintragen und die Nachricht schreiben lassen.'; return; }
+    e.target.disabled=true; $('#hautoinfo').textContent='Starte …';
+    const d=await post('/api/auto/start',{url:akt.a.url,titel:akt.a.titel,preis:akt.a.preis,mein:m,weg:$('#hweg').value,text});
+    if(d.fehler){ $('#hautoinfo').innerHTML='<span style="color:var(--rot)">'+esc(d.fehler)+'</span>'; e.target.disabled=false; } else { $('#hautoinfo').textContent='Läuft – die Nachricht wird jetzt gesendet. Stand unter „Selbstständige Verhandlungen“.'; autoliste(d); }
+    return; }
+  const merk=stand=>post('/api/verhandlung',{url:akt.a.url,titel:akt.a.titel,quelle:akt.a.quelle,preis:akt.a.preis,mein:akt.mein||parseFloat($('#hp').value)||0,stand,text:$('#ht').value}).then(handelsliste);
+  if(e.target.id==='hkop'){ if(!$('#ht').value.trim()||$('#ht').value==='Schreibe …') return; kopieren($('#ht').value); merk('Nachricht kopiert – wartet auf Antwort'); window.open(akt.a.url,'_blank'); e.target.textContent='Kopiert ✓ – Angebot geöffnet'; return; }
+  if(e.target.id==='hant'){ const t=$('#ha').value.trim(); if(!t) return; $('#hlage').textContent='Lese …';
+    const d=await post('/api/antwort',{titel:akt.a.titel,preis:akt.a.preis,mein:akt.mein||parseFloat($('#hp').value)||0,antwort:t,weg:$('#hweg').value});
+    if(d.lage==='betrugsverdacht'){ $('#hlage').innerHTML=`<b style="color:var(--rot)">⚠ Betrugsverdacht – nicht bezahlen, nichts anklicken</b><div class="klein" style="color:var(--rot);flex-basis:100%">${(d.warn||[]).map(esc).join(' · ')}</div>`; $('#hr').style.display='block'; $('#hrk').style.display='flex'; $('#hr').value=d.antwort||''; merk('⚠ BETRUGSVERDACHT'); return; }
+    const L={einig:'✓ Einig – Verkäufer nimmt deinen Preis an. Den Abschluss machst du.',gegenangebot:'Gegenangebot'+(d.preis_verkaeufer?' '+eur(d.preis_verkaeufer):''),abgelehnt:'Abgelehnt',rueckfrage:'Rückfrage des Verkäufers',unklar:'Nicht eindeutig'};
+    $('#hlage').innerHTML=`<b>${L[d.lage]||L.unklar}</b>`; $('#hr').style.display='block'; $('#hrk').style.display='flex'; $('#hr').value=d.antwort||''; merk(d.lage==='einig'?'EINIG – Abschluss durch dich':(L[d.lage]||'Antwort erhalten')); return; }
+  if(e.target.id==='hrkop'){ kopieren($('#hr').value); window.open(akt.a.url,'_blank'); e.target.textContent='Kopiert ✓'; }
+});
+zeigen(); merkliste(); handelsliste(); abholzeile(); autoliste();
+const vor=new URLSearchParams(location.search).get('q'); if(vor) suchen(vor);
+</script>
+</body>
+</html>
