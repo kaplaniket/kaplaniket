@@ -484,7 +484,14 @@ def schnaeppchen(e, heute=None):
     gemischt = len([k for k, v in je.items() if k and len(v) >= 3]) >= 2      # mehrere Speichergrößen im Ergebnis
     markt = markt_alle
     ABSCHLAG = 0.90      # verlangt wird mehr, als am Ende gezahlt wird: Verkaufserlös vorsichtig mit 90 % der verlangten Mitte
-    wieder = round(markt * ABSCHLAG)
+
+    def erloes(preise):
+        """Vorsichtiger Verkaufserlös: 90 % der Mitte, höchstens aber das untere Viertel – wer dort anbietet, ist billiger als drei von vier."""
+        p = sorted(preise)
+        return round(min(statistics.median(p) * ABSCHLAG, p[len(p) // 4]))
+
+    wieder = erloes(basis)
+    alle_preise = sorted(a["preis"] for a in e.get("treffer", []) if a.get("zustand") != "defekt")
     heute = heute or datetime.date.today()
     aus = []
     for a, auff in [(x, False) for x in e.get("treffer", [])] + [(x, True) for x in e.get("auffaellig", [])]:
@@ -493,16 +500,22 @@ def schnaeppchen(e, heute=None):
         versand = 0 if "nur Abholung" in (a.get("hinweis") or "") else (a.get("versand") or 0) or (6 if a.get("art") == "privat" else 0)
         gruende, stufe = [], 0
         markt, k = markt_alle, speicher(a)
+        wieder = erloes(basis)
         if gemischt:      # mit der eigenen Speichergröße vergleichen, nicht mit dem Schnitt aller Ausstattungen
             if k and len(je.get(k, [])) >= 5:
                 markt = statistics.median(je[k])
+                wieder = erloes(je[k])
             else:
                 stufe = 1
                 gruende.append("Speichergröße %s – Marktpreis ist über alle Ausstattungen gemittelt, bitte selbst vergleichen" % ("im Titel nicht genannt" if not k else "selten"))
-        wieder = round(markt * ABSCHLAG)
         gewinn = wieder - a["preis"] - versand
         if gewinn < 25 or gewinn < a["preis"] * 0.12:
             continue
+        # Gibt es in dieser Preislage viele Angebote, liegt der wirkliche Markt eher dort – dann ist es kein Ausreißer nach unten
+        aehnlich_billig = sum(1 for p in alle_preise if p <= a["preis"] * 1.1)
+        if aehnlich_billig >= 12:
+            stufe = max(stufe, 1)
+            gruende.append("%d Angebote liegen in dieser Preislage oder darunter – teurer weiterverkaufen wird schwer" % aehnlich_billig)
         if auff or a["preis"] < markt * 0.5:
             stufe = 2
             gruende.append("unter der Hälfte des Marktpreises – oft Lockpreis, Zubehör oder Betrug")
@@ -531,5 +544,5 @@ def schnaeppchen(e, heute=None):
         aus.append(dict(a, markt=round(markt), wiederverkauf=wieder, ersparnis=round(markt - a["preis"]), ersparnis_pct=round((1 - a["preis"] / markt) * 100),
                         nebenkosten=versand, gewinn=round(gewinn), rendite=round(gewinn / a["preis"] * 100), risiko=("niedrig", "mittel", "hoch")[stufe], gruende=gruende))
     aus.sort(key=lambda a: ({"niedrig": 0, "mittel": 1, "hoch": 2}[a["risiko"]], -a["gewinn"]))
-    return {"markt": round(markt_alle), "wiederverkauf": round(markt_alle * ABSCHLAG), "anzahl_basis": len(basis), "gemischt": gemischt, "herkunft": herkunft,
+    return {"markt": round(markt_alle), "wiederverkauf": erloes(basis), "anzahl_basis": len(basis), "gemischt": gemischt, "herkunft": herkunft,
             "von": round(basis[len(basis) // 4]), "bis": round(basis[(3 * len(basis)) // 4]), "liste": aus[:40]}

@@ -28,7 +28,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "4.3"
+FASSUNG = "4.4"
 NEUES = "Schnäppchen: Marktpreis berichtigt (nur noch aus der unsortierten Stichprobe bei Kleinanzeigen), Herkunft der Preise wird angezeigt"      # kurzer Text zum letzten Stand
 
 
