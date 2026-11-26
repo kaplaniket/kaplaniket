@@ -147,6 +147,7 @@ dialog::backdrop{background:rgba(8,12,16,.55)}
 <input id="q" type="search" placeholder="Produkt oder Wunsch, z. B. „Wasserspender mit Sprudel bis 900 €“" autofocus autocomplete="off"></div>
 <button class="haupt">Suchen</button></form>
 <button id="vglauf" title="Produkte vergleichen: Vorteile, Nachteile, Empfehlung">Vergleichen</button>
+<button id="snap" title="Angebote weit unter Marktpreis – mit Gewinnrechnung für den Weiterverkauf" style="border-color:var(--akzent);color:var(--akzent);font-weight:650">Schnäppchen</button>
 <button id="vkauf" title="Eigene Artikel verkaufen: Fotos hochladen, Text und Preis vorschlagen lassen, einstellen">Verkaufen</button>
 </div></header>
 <main>
@@ -245,6 +246,7 @@ function zeigen(){
     <div class="seg"><label title="Aus: auch Pro/Mini/Max und andere Größen zulassen"><input type="checkbox" id="streng" ${streng?'checked':''}>Genau diese Ausführung</label></div>
     <select id="sort"><option value="auf"${sortierung==='auf'?' selected':''}>Preis aufsteigend</option><option value="ab"${sortierung==='ab'?' selected':''}>Preis absteigend</option></select>
     <label class="klein leise">Mein Preis <input class="zahlfeld" id="meinpreis" type="number" min="1" step="1" placeholder="€" value="${meinPreis||''}" style="width:86px;padding:5px 8px"></label>
+    <button id="snap2" style="border-color:var(--akzent);color:var(--akzent);font-weight:650">💰 Schnäppchen${d.schnaeppchen&&d.schnaeppchen.liste.length?' ('+d.schnaeppchen.liste.filter(x=>x.risiko!=='hoch').length+')':''}</button>
     <button id="merken" title="Auf die Merkliste: Der Preis wird alle 3 Stunden geprüft. Mit „Mein Preis“ kommt eine Telegram-Meldung, sobald er erreicht ist.">🔔 Preisalarm</button></div></div>`;
     h+=t.slice(0,zeigeAnzahl).map((a,i)=>karte(a,i+1,d.ueblich)).join('')||`<div class="kasten leise">Mit dieser Auswahl bleibt kein Angebot übrig.</div>`;
     if(t.length>zeigeAnzahl) h+=`<button class="mehr" id="mehr">Weitere ${Math.min(40,t.length-zeigeAnzahl)} von ${t.length-zeigeAnzahl} zeigen</button>`;
@@ -302,6 +304,47 @@ document.addEventListener('click',e=>{
   if(e.target.id==='mehr'){ zeigeAnzahl+=40; zeigen(); return; }
   if(e.target.id==='tiefer'&&stand){ suchen(stand.anfrage,true); scrollTo({top:0}); return; }
   if(e.target.id==='merken'&&stand){ const z=parseFloat(($('#meinpreis')||{}).value)||meinPreis||0; senden('/api/merken',stand.anfrage,z); e.target.textContent=z?'🔔 Alarm ab '+eur(z):'★ Gemerkt – Preis wird beobachtet'; }
+});
+// ---------- Schnäppchen: weit unter Marktpreis kaufen, mit Gewinn weiterverkaufen ----------
+let snapListe=[];
+const RISIKO={niedrig:['neu','geringes Risiko'],mittel:['fehlt','mittleres Risiko'],hoch:['defekt','hohes Risiko']};
+function snapKarte(a,i){
+  return `<div class="vp" style="margin-bottom:10px"><div style="display:grid;grid-template-columns:${a.bild?'84px ':''}1fr auto;gap:14px;align-items:start">${a.bild?`<img src="${esc(a.bild)}" referrerpolicy="no-referrer" style="width:84px;height:84px;object-fit:cover;border-radius:10px" onerror="this.remove()">`:''}
+   <div style="min-width:0"><b>${esc(a.titel)}</b>${a.produkt?` <span class="m">${esc(a.produkt)}</span>`:''}
+    <div class="z" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.shop||a.quelle)}</span><span class="m ${a.zustand}">${ZU[a.zustand]||''}</span><span class="m ${RISIKO[a.risiko][0]}">${RISIKO[a.risiko][1]}</span>${a.km!=null?`<span class="m">${a.km} km</span>`:''}</div>
+    <div class="klein leise" style="margin-top:6px">${esc([a.ort,a.hinweis].filter(Boolean).join(' · '))}</div>
+    <ul class="${a.risiko==='niedrig'?'pl':'mi'}" style="margin-top:6px">${a.gruende.map(g=>`<li>${esc(g)}</li>`).join('')}</ul></div>
+   <div style="text-align:right;white-space:nowrap"><div style="font-size:24px;font-weight:750">${eur(a.preis)}</div><div class="klein leise">üblich ${eur(a.markt)} · <b style="color:var(--akzent)">−${a.ersparnis_pct} %</b></div>
+    <div style="margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--akzent2)"><div class="klein">möglicher Gewinn</div><div style="font-size:20px;font-weight:750;color:var(--akzent)">+${eur(a.gewinn)}</div><div class="klein leise">${a.rendite} % · Verkauf ~${eur(a.wiederverkauf)}${a.nebenkosten?' · Versand ~'+eur(a.nebenkosten):''}</div></div></div></div>
+   <div class="reihe"><a href="${esc(a.url)}" target="_blank" rel="noopener"><button class="haupt" style="padding:7px 14px;font-size:14px">Angebot öffnen ↗</button></a><button data-snapdet="${i}">Details</button>${a.art==='privat'?`<button data-snaphan="${i}">Verhandeln</button>`:''}${a.produkt?`<button data-q="${esc(a.produkt)}">Alle Angebote dazu</button>`:''}</div></div>`;
+}
+function snapZeigen(kopf,liste,fuss){
+  snapListe=liste; const gut=liste.filter(a=>a.risiko!=='hoch'), heikel=liste.filter(a=>a.risiko==='hoch');
+  $('#vdl').innerHTML=`<h3>💰 Schnäppchen</h3>${kopf}
+   ${gut.length?gut.map(a=>snapKarte(a,liste.indexOf(a))).join(''):'<div class="kasten">Gerade kein Angebot, das sich nach Abzug der Nebenkosten mit mindestens 25 € und 12 % Gewinn weiterverkaufen ließe.</div>'}
+   ${heikel.length?`<details class="kasten warn"><summary>${heikel.length} extrem billige Angebote mit hohem Risiko – nur ansehen, wenn du genau prüfst</summary><div style="margin-top:10px">${heikel.map(a=>snapKarte(a,liste.indexOf(a))).join('')}</div></details>`:''}
+   <div class="kasten klein leise">So wird gerechnet: Marktpreis = Mitte der gebrauchten Privatangebote. Wiederverkauf vorsichtig mit 93 % davon. Gewinn = Wiederverkauf − Kaufpreis − Versand (privat pauschal 6 €). Es ist eine Schätzung: Der tatsächliche Verkaufspreis hängt von Zustand, Zubehör und Geduld ab. Wer regelmäßig einkauft, um mit Gewinn zu verkaufen, handelt gewerblich (Gewerbeanmeldung, Steuern, Gewährleistung) – das bitte mit dem Steuerberater klären.</div>
+   ${fuss||''}<div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`;
+  if(!$('#vdlg').open) $('#vdlg').showModal();
+}
+function snapSuche(){ const d=stand, s=d&&d.schnaeppchen;
+  if(!s||!s.markt){ snapZeigen(`<div class="kasten warn">Für „${esc(d?d.anfrage:'')}“ gibt es zu wenige gebrauchte Privatangebote (${s?s.anzahl_basis:0}), um einen verlässlichen Marktpreis zu bestimmen. Genauer suchen (Marke + Modell + Größe) oder den Radar nehmen.</div>`,[],`<div class="reihe"><button id="radarstart" class="haupt" style="padding:9px 16px">Radar: beliebte Produkte durchsuchen</button></div>`); return; }
+  snapZeigen(`<div class="leise" style="margin-bottom:12px">„${esc(d.anfrage)}“ · Marktpreis gebraucht <b>${eur(s.markt)}</b> (aus ${s.anzahl_basis} Privatangeboten) · realistischer Wiederverkauf <b>~${eur(s.wiederverkauf)}</b></div>`,s.liste,`<div class="reihe"><button id="radarstart">Radar: auch andere beliebte Produkte durchsuchen</button></div>`); }
+async function radarLaden(neu){
+  $('#vdl').innerHTML=`<h3>💰 Schnäppchen-Radar</h3><div class="leise">Durchsuche gängige, gut weiterverkäufliche Produkte und deine Merkliste nach Angeboten weit unter Marktpreis … Das dauert beim ersten Mal 1–2 Minuten.</div><div class="skel" style="margin-top:14px"></div><div class="skel"></div>`;
+  if(!$('#vdlg').open) $('#vdlg').showModal();
+  let d; try{ d=await (await fetch('/api/radar'+(neu?'?neu=1':''))).json(); }catch(e){ d={fehler:'Keine Antwort vom Preisjäger ('+e+').'}; }
+  if(d.fehler){ $('#vdl').innerHTML=`<h3>Schnäppchen-Radar</h3><div class="kasten warn">${esc(d.fehler)}</div><div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`; return; }
+  snapZeigen(`<div class="leise" style="margin-bottom:10px">Radar über ${d.produkte.length} Produkte · Stand ${esc(d.zeit||'')}${d.laeuft?' · ein Durchlauf läuft gerade, das ist der letzte fertige Stand':''}</div>
+   <div class="chips" style="margin-bottom:12px">${d.produkte.map(p=>`<button class="chip" data-q="${esc(p.name)}" title="${p.angebote} Angebote${p.markt?', Marktpreis '+eur(p.markt):''}">${esc(p.name)}${p.schnaeppchen?` <b style="color:var(--akzent)">+${eur(p.bester_gewinn)}</b>`:' <span class="x">–</span>'}</button>`).join('')}</div>`,d.liste,`<div class="reihe"><button id="radarneu">Radar jetzt neu durchsuchen</button></div>`);
+}
+document.addEventListener('click',e=>{ const z=e.target;
+  if(z.id==='snap'){ if(stand) snapSuche(); else radarLaden(false); return; }
+  if(z.id==='snap2'){ snapSuche(); return; }
+  if(z.id==='radarstart'){ radarLaden(false); return; }
+  if(z.id==='radarneu'){ radarLaden(true); return; }
+  if(z.dataset.snapdet){ const a=snapListe[+z.dataset.snapdet]; reg.includes(a)||reg.push(a); details(a,false); return; }
+  if(z.dataset.snaphan){ const a=snapListe[+z.dataset.snaphan]; $('#vdlg').close(); reg.includes(a)||reg.push(a); handeln(a); return; }
 });
 // ---------- Verkaufen ----------
 let vkFotos=[], vkArtikel=[], vkPortale=[], vkOffen=null;

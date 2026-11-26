@@ -27,7 +27,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "3.2"
+FASSUNG = "3.3"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -204,6 +204,43 @@ def unbekannte_trennen(e):
 TIEFE = {1: (4, 12, 2, 3), 2: (8, 40, 4, 8)}
 
 
+# Schnäppchen-Radar: Produkte mit großem Gebrauchtmarkt, die sich schnell weiterverkaufen lassen
+RADAR = ["iphone 13 128gb", "iphone 14 128gb", "iphone 15 128gb", "macbook air m1", "macbook air m2", "ipad 9 64gb", "playstation 5", "nintendo switch oled",
+         "steam deck oled", "dyson v11", "dyson v15", "airpods pro 2", "apple watch series 9", "sony wh-1000xm5", "thermomix tm6"]
+_radar = {"zeit": 0, "daten": None, "laeuft": False}
+
+
+def radar(neu=False):
+    """Durchsucht die Radar-Produkte und die Merkliste nach Schnäppchen (Ergebnis wird 30 Minuten gehalten)."""
+    if _radar["daten"] and not neu and time.time() - _radar["zeit"] < 1800:
+        return _radar["daten"]
+    if _radar["laeuft"]:
+        return dict(_radar["daten"] or {"liste": [], "produkte": []}, laeuft=True)
+    _radar["laeuft"] = True
+    try:
+        namen = list(dict.fromkeys(RADAR + [m["anfrage"] for m in _merk_lesen()[:10] if not _AB.search(m["anfrage"])]))
+
+        def eins(n):
+            try:
+                e = suche(n)
+                s = e.get("schnaeppchen") or {}
+                return n, s, len(e["treffer"])
+            except Exception:
+                return n, {}, 0
+
+        liste, produkte = [], []
+        with ThreadPoolExecutor(max_workers=3) as topf:
+            for n, s, zahl in topf.map(eins, namen):
+                gut = [a for a in s.get("liste", []) if a["risiko"] != "hoch"]
+                produkte.append({"name": n, "markt": s.get("markt"), "angebote": zahl, "schnaeppchen": len(gut), "bester_gewinn": gut[0]["gewinn"] if gut else 0})
+                liste += [dict(a, produkt=n) for a in s.get("liste", [])[:6]]
+        liste.sort(key=lambda a: ({"niedrig": 0, "mittel": 1, "hoch": 2}[a["risiko"]], -a["gewinn"]))
+        _radar.update(zeit=time.time(), daten={"liste": liste[:60], "produkte": sorted(produkte, key=lambda p: -p["bester_gewinn"]), "zeit": time.strftime("%d.%m.%Y %H:%M")})
+        return _radar["daten"]
+    finally:
+        _radar["laeuft"] = False
+
+
 _AB = re.compile(r"\bab\s+([a-zA-Z]{0,3})(\d{1,2})\b(?!\s*(?:€|euro|eur|gb|tb|zoll|km|jahre?)\b)", re.I)
 
 
@@ -226,6 +263,7 @@ def suche(anfrage, streng=True, tiefe=1, plz=None, km=None, nur_abholung=False):
     e["quellen"] = [dict(q, gefunden=sum(x["gefunden"] for t in teile for x in t["quellen"] if x["name"] == q["name"]),
                          passend=sum(x["passend"] for t in teile for x in t["quellen"] if x["name"] == q["name"])) for q in teile[0]["quellen"]]
     e["ueblich"] = statistics.median([a["preis"] for a in e["treffer"]]) if len(e["treffer"]) >= 5 else None
+    e["schnaeppchen"] = kern.schnaeppchen(e)
     e.update(anfrage=anfrage, gelesen=sum(t.get("gelesen", 0) for t in teile), dauer=max(t["dauer"] for t in teile), links=quellen.links(texte[0]),
              stufen=[{"name": st.upper(), "treffer": len(t["treffer"]), "ab": t["treffer"][0]["preis"] if t["treffer"] else None, "suche": x}
                      for st, t, x in zip(stufen, teile, texte)],
@@ -346,6 +384,7 @@ def _suche_eine(anfrage, streng=True, tiefe=1, plz=None, km=None, nur_abholung=F
     e["tiefe"], e["gelesen"] = tiefe, len({(a.get("quelle"), a.get("url")) for a in roh})
     e.update(anfrage=voll, produkt=anfrage, verstanden=v if voll.lower() != anfrage.lower() else None, streng=streng, quellen=list(status.values()), links=quellen.links(anfrage),
              groessen=kern.groessen(anfrage, e["treffer"]), dauer=round(time.time() - start, 1), zeit=time.strftime("%d.%m.%Y %H:%M"))
+    e["schnaeppchen"] = kern.schnaeppchen(e)
     e["defekt"], e["auffaellig"] = e["defekt"][:40], e["auffaellig"][:40]
     with _sperre:
         _speicher[schluessel] = (time.time(), e)
@@ -473,6 +512,11 @@ class Antwort(BaseHTTPRequestHandler):
             self._json(_merk_lesen())
         elif u.path == "/api/konto":
             self._json(verhandler.konto())
+        elif u.path == "/api/radar":
+            try:
+                self._json(radar((p.get("neu") or ["0"])[0] == "1"))
+            except Exception as e:
+                self._json({"fehler": "Radar fehlgeschlagen: %s" % e}, 500)
         elif u.path == "/api/verkauf":
             self._json({"artikel": verkauf.liste(), "portale": [{"name": n, "url": x} for n, x in verkauf.PORTALE]})
         elif u.path.startswith("/verkauf/bild/"):

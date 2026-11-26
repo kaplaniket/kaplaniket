@@ -146,5 +146,14 @@ print("%-6s Nachprüfung Angebotsseite: %s Stelle(n), „%s“" % ("ok" if gut e
 gut = kern.fenster("osmofresh fusion pro", "Osmofresh Quella Pro Black 379,00 € Zum Shop … Osmofresh Fusion Pro ab 1.181,50 € 5 Angebote Jimmy Wasserfilter ab 99 €")[0] == 0
 fehler += not gut
 print("%-6s Verweis „Name ab … €“ zählt nicht als Bestätigung" % ("ok" if gut else "FEHLER"))
+# Schnäppchen
+import datetime
+basis = [{"quelle": "K", "titel": "x", "preis": p, "url": str(i), "art": "privat", "zustand": "gebraucht", "hinweis": "Versand möglich · 25.11.2026"} for i, p in enumerate([240, 250, 250, 260, 260, 270, 280, 300, 150])]
+sn = kern.schnaeppchen({"treffer": basis + [{"quelle": "A", "titel": "h", "preis": 180, "url": "h", "art": "händler", "zustand": "aufbereitet", "hinweis": ""}],
+                        "auffaellig": [{"quelle": "K", "titel": "billig", "preis": 60, "url": "b", "art": "privat", "zustand": "gebraucht", "hinweis": "", "warn": []}]}, datetime.date(2026, 11, 26))
+namen = [(a["preis"], a["risiko"], a["gewinn"]) for a in sn["liste"]]
+gut = sn["markt"] == 260 and namen[0] == (150, "niedrig", 242 - 150 - 6) and (180, "niedrig", 62) in namen and namen[-1][:2] == (60, "hoch")
+fehler += not gut
+print("%-6s Schnäppchen: Markt %s, Liste %s" % ("ok" if gut else "FEHLER", sn["markt"], namen))
 print("\nERGEBNIS: %s" % ("alles in Ordnung" if not fehler else "%d FEHLER" % fehler))
 sys.exit(1 if fehler else 0)
