@@ -3,6 +3,8 @@
 # Start: python3 server.py   (Port: PREISJAEGER_PORT, Vorgabe 8815)
 import json
 import os
+import re
+import statistics
 import threading
 import time
 import functools
@@ -23,7 +25,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "2.2"
+FASSUNG = "2.3"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -200,7 +202,38 @@ def unbekannte_trennen(e):
 TIEFE = {1: (4, 12, 2, 3), 2: (8, 40, 4, 8)}
 
 
+_AB = re.compile(r"\bab\s+([a-zA-Z]{0,3})(\d{1,2})\b(?!\s*(?:€|euro|eur|gb|tb|zoll|km|jahre?)\b)", re.I)
+
+
 def suche(anfrage, streng=True, tiefe=1, plz=None, km=None, nur_abholung=False):
+    """„Mac mini ab M4“ heißt: M4 oder neuer. Dann wird je Generation (M4, M5, M6, M7) gesucht und zusammengeführt."""
+    anfrage = " ".join(anfrage.split())[:120]
+    m = _AB.search(anfrage)
+    if not m:
+        return _suche_eine(anfrage, streng, tiefe, plz, km, nur_abholung)
+    stufen = [m.group(1) + str(int(m.group(2)) + i) for i in range(4)]
+    texte = [(anfrage[:m.start()] + st + anfrage[m.end():]).strip() for st in stufen]
+    with ThreadPoolExecutor(max_workers=4) as topf:
+        teile = list(topf.map(lambda t: _suche_eine(t, streng, tiefe, plz, km, nur_abholung), texte))
+    e = dict(teile[0])
+    for k in ("treffer", "aehnlich", "auffaellig", "defekt", "unbekannt", "versand"):
+        alle = []
+        for st, teil in zip(stufen, teile):
+            alle += [dict(a, variante=st.upper()) for a in teil.get(k, [])]
+        e[k] = sorted(alle, key=lambda a: a["preis"])[:600 if k == "treffer" else 60]
+    e["quellen"] = [dict(q, gefunden=sum(x["gefunden"] for t in teile for x in t["quellen"] if x["name"] == q["name"]),
+                         passend=sum(x["passend"] for t in teile for x in t["quellen"] if x["name"] == q["name"])) for q in teile[0]["quellen"]]
+    e["ueblich"] = statistics.median([a["preis"] for a in e["treffer"]]) if len(e["treffer"]) >= 5 else None
+    e.update(anfrage=anfrage, gelesen=sum(t.get("gelesen", 0) for t in teile), dauer=max(t["dauer"] for t in teile), links=quellen.links(texte[0]),
+             stufen=[{"name": st.upper(), "treffer": len(t["treffer"]), "ab": t["treffer"][0]["preis"] if t["treffer"] else None, "suche": x}
+                     for st, t, x in zip(stufen, teile, texte)],
+             groessen={}, andere_ausfuehrungen={}, verstanden=None, produkt=texte[0])
+    if not plz:
+        _merk_stand(e)
+    return e
+
+
+def _suche_eine(anfrage, streng=True, tiefe=1, plz=None, km=None, nur_abholung=False):
     anfrage = " ".join(anfrage.split())[:120]
     tiefe = 2 if tiefe == 2 else 1
     ka_neu, ka_billig, vi_neu, vi_billig = TIEFE[tiefe]

@@ -121,6 +121,11 @@ def pruefe(anfrage, titel, text="", streng=True):
     if not ag or not tt:
         return False, "fehlt"
     aw = set(flach(ag))
+    # Zusammengeschrieben: „MacMini“, „Macbookair“ = zwei aufeinanderfolgende Suchwörter
+    for x, y in zip(ag, ag[1:]):
+        if len(x) == 1 and len(y) == 1 and x[0].isalpha() and y[0].isalpha() and (x[0] + y[0]) in tt:
+            i = tt.index(x[0] + y[0])
+            tt[i:i + 1] = [x[0], y[0]]
     # Zusammengesetzte Wörter: Suchwort „osmose“ steckt in „Umkehrosmose“/„Osmoseanlage“, „wasserspender“ in „Tischwasserspender“
     lang = [g[0] for g in ag if len(g) == 1 and len(g[0]) >= 5 and g[0].isalpha()]
     if lang:
@@ -149,7 +154,7 @@ def pruefe(anfrage, titel, text="", streng=True):
             weite = max(p + len(g) for p, (_, g) in zip(nah, kern_g)) - min(nah)
             if beste is None or weite < beste[0]:
                 beste = (weite, nah)
-        if beste[0] > sum(len(g) for _, g in kern_g) + 2:
+        if beste[0] > sum(len(g) for _, g in kern_g) + 7:
             return False, "fehlt"
         for p, (n, g) in zip(beste[1], kern_g):
             stellen[n] = (p, p + len(g))
@@ -185,6 +190,16 @@ def pruefe(anfrage, titel, text="", streng=True):
                 # „iPhone 13 Hülle schwarz“ ist Zubehör; „iPhone 13, Hülle, Ladekabel, OVP“ ist das Gerät mit Beigaben
                 if not any(x in ZUBEHOER or x in BEIGABE for x in tt[i + 1:]):
                     return False, "zubehoer"
+    # Zubehörwort zwischen den Suchwörtern: „iMac 24 Zoll Netzteil … M3“
+    for i in range(erste + 1, letzte):
+        if tt[i] not in aw and (tt[i] in ZUBEHOER or tt[i].startswith("ersatz")) and not (set(tt[max(0, i - 4):i]) & MITGELIEFERT):
+            return False, "zubehoer"
+    # Titel nennt mehrere Geschwister-Modelle („M1 M3 M4“, „V8 V10 V11“): Zubehör, das zu allen passt – kein einzelnes Gerät
+    for g in ag:
+        if len(g) == 2 and g[0].isalpha() and g[1].isdigit() and len(g[0]) <= 2:
+            andere = {tt[i + 1] for i in range(len(tt) - 1) if tt[i] == g[0] and tt[i + 1].isdigit() and tt[i + 1] != g[1]}
+            if len(andere) >= 2:
+                return False, "zubehoer"
     if streng:
         # andere Ausführung: direkt hinter (oder vor) dem gesuchten Namen steht z. B. „Pro“, „Mini“, „Max“
         belegt = set()
