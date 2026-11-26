@@ -94,6 +94,19 @@ details[open] summary{margin-bottom:12px}
 .merk{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center}
 .mehr{display:block;margin:10px auto 0}
 footer{margin-top:40px;color:var(--leise);font-size:12.5px;text-align:center}
+.handeln{margin-top:6px;font-size:12.5px;padding:4px 10px;border-radius:8px;border-color:var(--akzent);color:var(--akzent);font-weight:650;background:transparent}
+.handeln:hover{background:var(--akzent2)}
+.ueber{color:var(--warn);font-weight:600}
+dialog{border:1px solid var(--linie);border-radius:16px;background:var(--karte);color:var(--text);padding:0;width:min(640px,94vw);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(8,12,16,.55)}
+.dl{padding:20px 22px}
+.dl h3{margin:0 0 4px;font-size:18px}
+.dl textarea{width:100%;font:inherit;border:1.5px solid var(--linie);border-radius:10px;padding:10px 12px;background:var(--karte2);color:var(--text);resize:vertical;outline:none}
+.dl textarea:focus,.zahlfeld:focus{border-color:var(--akzent)}
+.zahlfeld{font:inherit;width:110px;padding:6px 10px;border:1.5px solid var(--linie);border-radius:10px;background:var(--karte);color:var(--text);outline:none}
+.reihe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.hv{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:8px 0;border-top:1px solid var(--linie)}
+.hv:first-of-type{border-top:0}
 .skel{height:112px;border-radius:14px;margin-bottom:8px;background:linear-gradient(90deg,var(--karte) 25%,var(--karte2) 50%,var(--karte) 75%);background-size:200% 100%;animation:sk 1.2s linear infinite;border:1px solid var(--linie)}
 @keyframes sk{to{background-position:-200% 0}}
 @media (max-width:820px){.zahlen{grid-template-columns:1fr 1fr}.zahl.best{grid-column:1/-1}.schritte{grid-template-columns:1fr}.marke span{display:none}}
@@ -110,7 +123,9 @@ footer{margin-top:40px;color:var(--leise);font-size:12.5px;text-align:center}
 <main>
 <div class="quellen" id="quellen"></div>
 <div class="merk" id="merk"></div>
+<div id="handel"></div>
 <div id="aus"></div>
+<dialog id="dlg"><div class="dl" id="dl"></div></dialog>
 <footer>TK Preisjäger {{FASSUNG}} · © 2026 Tekin Kaplan</footer>
 </main>
 <script>
@@ -118,9 +133,9 @@ const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>
 const eur=n=>n.toLocaleString('de-DE',{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2})+' €';
 const QUELLEN=['Kleinanzeigen','Vinted','Shpock','Hood','rebuy','Amazon','idealo','MediaMarkt','Saturn'];
 const ZU={neu:'Neu',aufbereitet:'Geprüft',gebraucht:'Gebraucht',defekt:'Defekt'};
-const BSP=['iPhone 13 128GB','Sony WH-1000XM5','Dyson V11 unter 200 €','Wasserspender mit Sprudel und Heißwasser bis 900 €','Lego 42115 neu'];
+const BSP=['iPhone 13 128GB','Sony WH-1000XM5','Ich brauche ein Cube Kinderfahrrad 24 Zoll mit Licht, nicht teurer als 250','Wasserspender, der sprudeln kann und heißes Wasser macht, für höchstens 900 €'];
 let stand=null, nurQuelle=null, zeigeAnzahl=40, laeuft=false;
-const wahl={neu:true,aufbereitet:true,gebraucht:true}; let streng=true, sortierung='auf';
+const wahl={neu:true,aufbereitet:true,gebraucht:true}; let streng=true, sortierung='auf', meinPreis=null, reg=[], akt=null;
 
 function quellenleiste(){
   const z={}; if(stand) [...stand.treffer,...stand.aehnlich].forEach(a=>z[a.quelle]=(z[a.quelle]||0)+1);
@@ -135,10 +150,11 @@ function quellenleiste(){
 function karte(a,nr,ueblich){
   const bild=a.bild?`<img src="${esc(a.bild)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=ohne>–</div>'">`:'<div class="ohne">–</div>';
   const spar=ueblich&&a.preis<ueblich*0.93&&a.zustand!=='defekt'?`<span class="spar">${Math.round((1-a.preis/ueblich)*100)} % unter üblich</span>`:(a.art==='händler'?'<span>Händler</span>':'<span>Privat</span>');
+  const i=reg.push(a)-1, kannHandeln=a.art==='privat'&&a.zustand!=='defekt';
   return `<a class="a" href="${esc(a.url)}" target="_blank" rel="noopener"><div class="nr">${nr||''}</div>${bild}<div style="min-width:0"><div class="t">${esc(a.titel)}</div>
   <div class="z"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.quelle)}</span><span class="m ${a.zustand}">${ZU[a.zustand]||''}</span>${a.fehlt?`<span class="m fehlt">ohne „${esc(a.fehlt)}“ im Titel</span>`:''}</div>
   ${(a.wunsch_da||[]).length||(a.wunsch_offen||[]).length?`<div class="z">${(a.wunsch_da||[]).map(w=>`<span class="m neu">✓ ${esc(w)}</span>`).join('')}${(a.wunsch_offen||[]).map(w=>`<span class="m fehlt">${esc(w)} nicht genannt</span>`).join('')}</div>`:''}<div class="i">${esc([a.ort,a.hinweis].filter(Boolean).join(' · '))}</div></div>
-  <div class="p"><b>${eur(a.preis)}</b>${spar}</div></a>`;
+  <div class="p"><b>${eur(a.preis)}</b>${a.ueber?`<span class="ueber">${eur(a.ueber)} über deinem Preis</span>`:spar}${kannHandeln?`<br><button class="handeln" data-handeln="${i}">Verhandeln</button>`:''}</div></a>`;
 }
 function filtern(l){ return l.filter(a=>wahl[a.zustand]!==false&&(a.zustand==='defekt'||wahl[a.zustand])&&(!nurQuelle||a.quelle===nurQuelle)); }
 function startseite(){
@@ -147,10 +163,10 @@ function startseite(){
   <div class="bsp">${BSP.map(b=>`<button class="chip" data-q="${esc(b)}">${esc(b)}</button>`).join('')}</div>
   <div class="schritte"><div class="schritt"><b>1 · Genau dieses Produkt</b><span class="leise">Andere Ausführungen (Pro, Mini, andere Größe), Zubehör, Ersatzteile, Leerkartons und Gesuche werden aussortiert.</span></div>
   <div class="schritt"><b>2 · Üblicher Preis</b><span class="leise">Aus allen Treffern wird der Marktpreis bestimmt. Lockpreise und Defekte stehen getrennt, nicht ganz oben.</span></div>
-  <div class="schritt"><b>3 · Günstigste zuerst</b><span class="leise">Eine Liste über alle Seiten, sortiert nach Preis, mit Zustand, Ort und direktem Link zum Angebot.</span></div></div></div>`;
+  <div class="schritt"><b>3 · Verhandeln</b><span class="leise">Nenne deinen Preis: Die App schreibt die Nachricht an den Verkäufer und schlägt Antworten vor. Senden und Abschluss machst du.</span></div></div></div>`;
 }
 function zeigen(){
-  quellenleiste(); const d=stand; if(!d) return startseite();
+  quellenleiste(); reg=[]; const d=stand; if(!d) return startseite();
   let t=filtern(d.treffer); const ae=filtern(d.aehnlich||[]);
   const nurFast=!d.treffer.length&&(d.aehnlich||[]).length>0; if(nurFast) t=ae;
   if(sortierung==='ab') t=[...t].reverse();
@@ -176,6 +192,7 @@ function zeigen(){
     <div class="seg">${[['gebraucht','Gebraucht'],['aufbereitet','Geprüft'],['neu','Neu']].map(([k,n])=>`<label><input type="checkbox" data-zu="${k}" ${wahl[k]?'checked':''}>${n}</label>`).join('')}</div>
     <div class="seg"><label title="Aus: auch Pro/Mini/Max und andere Größen zulassen"><input type="checkbox" id="streng" ${streng?'checked':''}>Genau diese Ausführung</label></div>
     <select id="sort"><option value="auf"${sortierung==='auf'?' selected':''}>Preis aufsteigend</option><option value="ab"${sortierung==='ab'?' selected':''}>Preis absteigend</option></select>
+    <label class="klein leise">Mein Preis <input class="zahlfeld" id="meinpreis" type="number" min="1" step="1" placeholder="€" value="${meinPreis||''}" style="width:86px;padding:5px 8px"></label>
     <button id="merken">☆ Merken</button></div></div>`;
     h+=t.slice(0,zeigeAnzahl).map((a,i)=>karte(a,i+1,d.ueblich)).join('')||`<div class="kasten leise">Mit dieser Auswahl bleibt kein Angebot übrig.</div>`;
     if(t.length>zeigeAnzahl) h+=`<button class="mehr" id="mehr">Weitere ${Math.min(40,t.length-zeigeAnzahl)} von ${t.length-zeigeAnzahl} zeigen</button>`;
@@ -197,7 +214,7 @@ async function suchen(text){
   $('#aus').innerHTML=`<div class="leise" style="margin:18px 2px 12px">Suche „${esc(text)}“ auf ${QUELLEN.length} Seiten gleichzeitig, bestimme den üblichen Preis und sortiere Zubehör aus …</div>`+'<div class="skel"></div>'.repeat(5);
   try{
     const r=await fetch('/api/suche?q='+encodeURIComponent(text)+'&streng='+(streng?1:0)); const d=await r.json(); laeuft=false;
-    if(d.fehler){ quellenleiste(); $('#aus').innerHTML=`<div class="kasten warn">${esc(d.fehler)}</div>`; } else { d.aehnlich=d.aehnlich||[]; stand=d; zeigen(); merkliste(); }
+    if(d.fehler){ quellenleiste(); $('#aus').innerHTML=`<div class="kasten warn">${esc(d.fehler)}</div>`; } else { d.aehnlich=d.aehnlich||[]; stand=d; if(d.verstanden&&d.verstanden.max) meinPreis=d.verstanden.max; zeigen(); merkliste(); }
   }catch(e){ laeuft=false; quellenleiste(); $('#aus').innerHTML='<div class="kasten warn">Der Preisjäger ist gerade nicht erreichbar.</div>'; }
 }
 async function merkliste(daten){
@@ -212,15 +229,55 @@ document.addEventListener('change',e=>{
   if(e.target.dataset.zu){ wahl[e.target.dataset.zu]=e.target.checked; zeigen(); }
   else if(e.target.id==='streng'){ streng=e.target.checked; if(stand) suchen(stand.anfrage); }
   else if(e.target.id==='sort'){ sortierung=e.target.value; zeigen(); }
+  else if(e.target.id==='meinpreis'){ meinPreis=parseFloat(e.target.value)||null; }
 });
 document.addEventListener('click',e=>{
+  const hb=e.target.closest('[data-handeln]'); if(hb){ e.preventDefault(); e.stopPropagation(); handeln(reg[+hb.dataset.handeln]); return; }
+  const hv=e.target.closest('[data-hv]'); if(hv){ const x=verhandlungen[+hv.dataset.hv]; if(e.target.dataset.fort) { post('/api/verhandlung',{url:x.url,stand:'weg'}).then(handelsliste); } else handeln({titel:x.titel,preis:x.preis,url:x.url,quelle:x.quelle},x); return; }
   const weg=e.target.closest('[data-weg]'); if(weg){ e.stopPropagation(); senden('/api/vergessen',weg.dataset.weg); return; }
   const c=e.target.closest('[data-q]'); if(c){ suchen(c.dataset.q); scrollTo({top:0}); return; }
   const qu=e.target.closest('[data-quelle]'); if(qu&&stand){ nurQuelle=nurQuelle===qu.dataset.quelle?null:qu.dataset.quelle; zeigeAnzahl=40; zeigen(); return; }
   if(e.target.id==='mehr'){ zeigeAnzahl+=40; zeigen(); return; }
   if(e.target.id==='merken'&&stand){ senden('/api/merken',stand.anfrage); e.target.textContent='★ Gemerkt'; }
 });
-zeigen(); merkliste();
+// ---------- Verhandeln ----------
+let verhandlungen=[];
+async function post(pfad,daten){ const r=await fetch(pfad,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(daten)}); return r.json(); }
+function kopieren(text){ const t=document.createElement('textarea'); t.value=text; t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select(); let ok=false; try{ ok=document.execCommand('copy'); }catch(e){} t.remove(); if(!ok&&navigator.clipboard) navigator.clipboard.writeText(text).catch(()=>{}); }
+async function handelsliste(l){
+  try{ verhandlungen=Array.isArray(l)?l:await (await fetch('/api/verhandlungen')).json(); }catch(e){ verhandlungen=[]; }
+  $('#handel').innerHTML=verhandlungen.length?`<details class="kasten" ${verhandlungen.length<4?'open':''}><summary>Meine Verhandlungen (${verhandlungen.length})</summary>${verhandlungen.map((x,i)=>`<div class="hv" data-hv="${i}"><div style="min-width:0;cursor:pointer"><b>${esc(x.titel)}</b><div class="leise klein">${esc(x.quelle)} · Verkäufer ${eur(x.preis)} → mein Preis ${eur(x.mein)} · <b>${esc(x.stand)}</b> · ${esc(x.zeit)}</div></div><div><button>Weiter</button> <button data-fort="1" title="Aus der Liste nehmen">✕</button></div></div>`).join('')}</details>`:'';
+}
+async function entwurf(){
+  const m=parseFloat($('#hp').value); if(!m){ $('#hp').focus(); return; } meinPreis=m; akt.mein=m;
+  $('#ht').value='Schreibe …'; const d=await post('/api/nachricht',{titel:akt.a.titel,preis:akt.a.preis,mein:m,quelle:akt.a.quelle}); $('#ht').value=d.text||d.fehler||'';
+}
+function handeln(a,alt){
+  akt={a,mein:alt?alt.mein:meinPreis};
+  $('#dl').innerHTML=`<h3>Verhandeln</h3><div class="leise">${esc(a.titel)}</div>
+  <div class="reihe"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.quelle)}</span><span>Verkäufer will <b>${eur(a.preis)}</b></span><label>· Mein Preis <input class="zahlfeld" id="hp" type="number" min="1" step="1" value="${akt.mein||''}" placeholder="€"></label><button id="hneu">Nachricht schreiben</button></div>
+  <div style="margin-top:12px"><textarea id="ht" rows="5" placeholder="Hier erscheint die Nachricht an den Verkäufer – du kannst sie ändern.">${esc(alt?alt.text:'')}</textarea></div>
+  <div class="reihe"><button class="haupt" id="hkop" style="padding:9px 16px">Kopieren und Angebot öffnen</button><span class="leise klein">Dann beim Verkäufer einfügen (⌘V) und senden – das Senden bleibt bei dir.</span></div>
+  <div style="margin-top:18px;border-top:1px solid var(--linie);padding-top:14px"><b>Verkäufer hat geantwortet?</b> <span class="leise klein">Antwort hier einfügen – du bekommst einen Vorschlag.</span>
+  <textarea id="ha" rows="3" style="margin-top:8px" placeholder="Antwort des Verkäufers"></textarea>
+  <div class="reihe"><button id="hant">Antwort vorschlagen</button><span id="hlage"></span></div>
+  <textarea id="hr" rows="4" style="margin-top:8px;display:none"></textarea>
+  <div class="reihe" id="hrk" style="display:none"><button id="hrkop">Antwort kopieren und Angebot öffnen</button></div></div>
+  <div class="reihe" style="justify-content:flex-end"><button id="hzu">Schließen</button></div>`;
+  $('#dlg').showModal(); if(!alt&&akt.mein) entwurf();
+}
+$('#dlg').addEventListener('click',async e=>{
+  if(e.target.id==='hzu'||e.target===$('#dlg')){ $('#dlg').close(); return; }
+  if(e.target.id==='hneu'){ entwurf(); return; }
+  const merk=stand=>post('/api/verhandlung',{url:akt.a.url,titel:akt.a.titel,quelle:akt.a.quelle,preis:akt.a.preis,mein:akt.mein||parseFloat($('#hp').value)||0,stand,text:$('#ht').value}).then(handelsliste);
+  if(e.target.id==='hkop'){ if(!$('#ht').value.trim()||$('#ht').value==='Schreibe …') return; kopieren($('#ht').value); merk('Nachricht kopiert – wartet auf Antwort'); window.open(akt.a.url,'_blank'); e.target.textContent='Kopiert ✓ – Angebot geöffnet'; return; }
+  if(e.target.id==='hant'){ const t=$('#ha').value.trim(); if(!t) return; $('#hlage').textContent='Lese …';
+    const d=await post('/api/antwort',{titel:akt.a.titel,preis:akt.a.preis,mein:akt.mein||parseFloat($('#hp').value)||0,antwort:t});
+    const L={einig:'✓ Einig – Verkäufer nimmt deinen Preis an. Den Abschluss machst du.',gegenangebot:'Gegenangebot'+(d.preis_verkaeufer?' '+eur(d.preis_verkaeufer):''),abgelehnt:'Abgelehnt',rueckfrage:'Rückfrage des Verkäufers',unklar:'Nicht eindeutig'};
+    $('#hlage').innerHTML=`<b>${L[d.lage]||L.unklar}</b>`; $('#hr').style.display='block'; $('#hrk').style.display='flex'; $('#hr').value=d.antwort||''; merk(d.lage==='einig'?'EINIG – Abschluss durch dich':(L[d.lage]||'Antwort erhalten')); return; }
+  if(e.target.id==='hrkop'){ kopieren($('#hr').value); window.open(akt.a.url,'_blank'); e.target.textContent='Kopiert ✓'; }
+});
+zeigen(); merkliste(); handelsliste();
 const vor=new URLSearchParams(location.search).get('q'); if(vor) suchen(vor);
 </script>
 </body>

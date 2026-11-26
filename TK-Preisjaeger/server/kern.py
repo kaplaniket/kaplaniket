@@ -369,7 +369,11 @@ def wuensche_anwenden(e, v):
         for a in liste:
             voll = (a["titel"] + " " + (a.get("text") or "") + " " + (a.get("hinweis") or "")).lower()
             if v["max"] and a["preis"] > v["max"]:
-                raus("über deinem Höchstpreis"); continue
+                # Privatangebote bis 40 % über dem eigenen Preis bleiben drin: die lassen sich herunterhandeln
+                if a.get("art") == "privat" and a["preis"] <= v["max"] * 1.4 and a.get("zustand") != "defekt":
+                    a["ueber"] = round(a["preis"] - v["max"], 2)
+                else:
+                    raus("über deinem Preis"); continue
             if v["min"] and a["preis"] < v["min"]:
                 raus("unter deinem Mindestpreis"); continue
             if v["zustand"] and a.get("zustand") not in v["zustand"] and a.get("zustand") != "defekt":

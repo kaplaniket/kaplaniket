@@ -11,12 +11,15 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import kern
 import quellen
+import sprache
 
 ORT = os.path.dirname(os.path.abspath(__file__))
 DATEN = os.path.join(ORT, "daten")
 MERK = os.path.join(DATEN, "merkliste.json")
+HANDEL = os.path.join(DATEN, "verhandlungen.json")
+NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "1.1"
+FASSUNG = "1.2"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -35,7 +38,7 @@ def suche(anfrage, streng=True):
         if alt and time.time() - alt[0] < 600:
             return dict(alt[1], aus_speicher=True)
     start = time.time()
-    voll, v = anfrage, kern.verstehen(anfrage)      # Freitext: Produkt, Ausstattung, Preisgrenze, Zustand
+    voll, v = anfrage, sprache.verstehen(anfrage)      # Freitext: Produkt, Ausstattung, Preisgrenze, Zustand
     anfrage = v["produkt"]
     roh, status = [], {n: {"name": n, "gefunden": 0, "passend": 0, "fehler": ""} for n, _, _, _ in quellen.QUELLEN}
 
@@ -69,13 +72,15 @@ def suche(anfrage, streng=True):
         ab = max(1, int(e["ueblich"] * kern.GRENZE))
         sammeln([(n, f, anfrage, ab, s) for n, f, _, zwei in quellen.QUELLEN if zwei for s in (1, 2) if not (n == "Vinted" and s == 2)])
         e = kern.bewerten(anfrage, [dict(a) for a in roh], streng, e["ueblich"])
-    e = kern.wuensche_anwenden(e, v)
-    for a in e["treffer"]:
-        status[a["quelle"]]["passend"] += 1
     arten = {n: art for n, _, art, _ in quellen.QUELLEN}
     for l in (e["treffer"], e["auffaellig"], e["defekt"], e["aehnlich"]):
         for a in l:
             a["art"] = arten.get(a["quelle"], "")
+    e = kern.wuensche_anwenden(e, v)
+    for a in e["treffer"]:
+        status[a["quelle"]]["passend"] += 1
+    for l in (e["treffer"], e["auffaellig"], e["defekt"], e["aehnlich"]):
+        for a in l:
             a.pop("text", None)
     e.update(anfrage=voll, produkt=anfrage, verstanden=v if voll.lower() != anfrage.lower() else None, streng=streng, quellen=list(status.values()), links=quellen.links(anfrage),
              groessen=kern.groessen(anfrage, e["treffer"]), dauer=round(time.time() - start, 1), zeit=time.strftime("%d.%m.%Y %H:%M"))
@@ -156,6 +161,8 @@ class Antwort(BaseHTTPRequestHandler):
                 self._json({"fehler": "Suche fehlgeschlagen: %s" % e}, 500)
         elif u.path == "/api/merkliste":
             self._json(_merk_lesen())
+        elif u.path == "/api/verhandlungen":
+            self._json(_lesen(HANDEL))
         elif u.path == "/api/stand":
             self._json({"name": "TK Preisjäger", "fassung": FASSUNG, "quellen": [n for n, _, _, _ in quellen.QUELLEN]})
         else:
@@ -168,6 +175,11 @@ class Antwort(BaseHTTPRequestHandler):
         except Exception:
             d = {}
         a = " ".join(str(d.get("anfrage", "")).split())[:120]
+        if u.path in ("/api/nachricht", "/api/antwort", "/api/verhandlung"):
+            try:
+                return self._json(self._handel(u.path, d))
+            except Exception as e:
+                return self._json({"fehler": "Das hat nicht geklappt: %s" % e}, 400)
         if u.path == "/api/merken" and a:
             with _sperre:
                 liste = _merk_lesen()
@@ -185,6 +197,39 @@ class Antwort(BaseHTTPRequestHandler):
             self._json(_merk_lesen())
         else:
             self.send_error(404)
+
+
+def _lesen(pfad):
+    try:
+        with open(pfad, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def _handel(self, pfad, d):
+    """Verhandeln: Nachricht entwerfen, Antwort des Verkäufers einordnen, Stand festhalten. Gesendet wird hier nie etwas."""
+    titel, url = str(d.get("titel", ""))[:160], str(d.get("url", ""))[:400]
+    preis, mein = float(d.get("preis") or 0), float(d.get("mein") or 0)
+    if pfad == "/api/nachricht":
+        if not (titel and preis > 0 and mein > 0):
+            raise ValueError("Titel, Preis und dein Preis werden gebraucht")
+        return {"text": sprache.nachricht(titel, preis, mein, str(d.get("quelle", "Kleinanzeigen"))[:20], NAME)}
+    if pfad == "/api/antwort":
+        return sprache.gegenantwort(titel, preis, mein, str(d.get("antwort", ""))[:1000], NAME)
+    with _sperre:      # /api/verhandlung: anlegen, ändern oder (stand = "weg") entfernen
+        liste = [x for x in _lesen(HANDEL) if x.get("url") != url]
+        if url and d.get("stand") != "weg":
+            liste.insert(0, {"url": url, "titel": titel, "quelle": str(d.get("quelle", ""))[:20], "preis": preis, "mein": mein,
+                             "stand": str(d.get("stand", "Nachricht kopiert"))[:60], "text": str(d.get("text", ""))[:1500], "zeit": time.strftime("%d.%m.%Y %H:%M")})
+        os.makedirs(DATEN, exist_ok=True)
+        with open(HANDEL + ".neu", "w", encoding="utf-8") as f:
+            json.dump(liste[:200], f, ensure_ascii=False, indent=1)
+        os.replace(HANDEL + ".neu", HANDEL)
+    return liste
+
+
+Antwort._handel = _handel
 
 
 if __name__ == "__main__":
