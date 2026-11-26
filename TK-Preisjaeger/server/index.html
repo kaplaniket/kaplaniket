@@ -477,7 +477,7 @@ document.addEventListener('click',async e=>{
   if(e.target.dataset.astop){ autoliste(await post('/api/auto/stop',{id:autoDaten[+e.target.dataset.astop].id})); }
   if(e.target.dataset.aantw){ const i=+e.target.dataset.aantw, t=($('#aa'+i)||{}).value||''; if(t.trim().length<2) return; const d=await post('/api/auto/antwort',{id:autoDaten[i].id,text:t}); if(!d.fehler) autoliste(d); }
 });
-setInterval(()=>{ if(autoDaten.some(x=>['wartet','gesendet','verhandelt','rueckfrage'].includes(x.stand))&&!document.querySelector('#auto input:focus')) autoliste(); },30000);
+setInterval(()=>{ if(autoDaten.some(x=>['wartet','gesendet','verhandelt','rueckfrage','einig','abgelehnt','festgefahren'].includes(x.stand))&&!document.querySelector('#auto input:focus')) autoliste(); },30000);
 async function entwurf(){
   const m=parseFloat($('#hp').value); if(!m){ $('#hp').focus(); return; } meinPreis=m; akt.mein=m;
   const weg=$('#hweg').value; akt.weg=weg;

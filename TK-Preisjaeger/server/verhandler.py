@@ -329,7 +329,13 @@ def lauf():
     if not _laeuft.acquire(blocking=False):
         return
     try:
-        offen = [a for a in _lesen() if a["stand"] in OFFEN or a["stand"] == "einig" or a.get("zu_senden")]
+        def frisch(a):      # abgelehnte/festgefahrene Verhandlungen noch drei Tage mitlesen: Verkäufer melden sich oft später mit einem Gegenangebot
+            try:
+                return time.time() - time.mktime(time.strptime(a.get("geaendert", ""), "%d.%m.%Y %H:%M")) < 3 * 86400
+            except Exception:
+                return False
+        offen = [a for a in _lesen() if a["stand"] in OFFEN or a["stand"] == "einig" or a.get("zu_senden")
+                 or (a["stand"] in ("abgelehnt", "festgefahren") and frisch(a))]
         if not offen:
             return
 
