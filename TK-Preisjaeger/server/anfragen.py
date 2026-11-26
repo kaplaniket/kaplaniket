@@ -208,12 +208,16 @@ def _behandeln(b, d, a, v, partner, probe=False):
     if g["antworten"] >= HOECHSTENS:
         g.update(stand="wartet auf dich", hinweis="Schon %d automatische Antworten – ab hier du." % HOECHSTENS)
         return melden("💬 Preisjäger: %s schreibt weiter zu „%s“ – bitte selbst antworten:\n%s" % (partner, a["titel"][:50], neu[:400]))
-    r = sprache.verkaufsantwort(a, g["verlauf"][-8:], neu, NAME)
+    echter_verlauf = [{"von": "ich" if m["von"] != "verk" else "kaeufer", "text": m["text"]} for m in n[-12:]]      # auch Tekins eigene Nachrichten
+    r = sprache.verkaufsantwort(a, echter_verlauf + [{"von": "kaeufer", "text": neu}], neu, NAME)
     lage = r.get("lage", "unklar")
     if lage == "betrugsverdacht":
         g.update(stand="betrug", hinweis=r.get("warnung", "wirkt wie eine bekannte Masche"))
         return melden("⚠ Preisjäger: BETRUGSVERDACHT bei Anfrage von %s zu „%s“ – nicht geantwortet.\n%s" % (partner, a["titel"][:50], neu[:300]))
     antwort = _antwort_sicher(r.get("antwort") or "", a)
+    if antwort and sprache.zu_aehnlich(antwort, [m["text"] for m in n if m["von"] != "verk"]):      # nie zweimal (fast) dasselbe schreiben
+        g.update(stand="wartet auf dich", hinweis="Ich hätte mich wiederholt – bitte selbst antworten.")
+        return melden("💬 Preisjäger: %s schreibt zu „%s“ – ich hätte mich wiederholt, bitte selbst antworten:\n%s" % (partner, a["titel"][:50], neu[:400]))
     if not antwort or not verhandler._antworten(b, {}, antwort):
         g.update(stand="wartet auf dich", hinweis="Antwort konnte nicht gesendet werden.")
         return melden("💬 Preisjäger: Anfrage von %s zu „%s“ – Antwort konnte nicht gesendet werden:\n%s" % (partner, a["titel"][:50], neu[:400]))

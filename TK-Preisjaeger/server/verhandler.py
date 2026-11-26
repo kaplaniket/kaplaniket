@@ -285,17 +285,31 @@ def _weiter(b, a):
             _merk(a, zu_senden="", verlauf=a["verlauf"] + [{"von": "ich", "text": text, "zeit": _jetzt()}], gesehen=sum(1 for m in n if m["von"] == "verk"))
         return
     vom_verk = [m["text"] for m in n if m["von"] == "verk"]
-    if len(vom_verk) <= a.get("gesehen", 0):
+    # Neu ist nur, was NACH meiner letzten Nachricht steht. Steht meine Antwort schon im Postfach (auch wenn der letzte Lauf
+    # abgebrochen ist), wird nicht noch einmal geantwortet.
+    schwanz = []
+    for m in reversed(n):
+        if m["von"] != "verk":
+            break
+        schwanz.insert(0, m["text"])
+    neu = " ".join(schwanz)[:1500]
+    if not neu or neu == a.get("letzte_neu"):
         if a["stand"] == "gesendet" and a.get("hinweis") and any(m["von"] == "ich" for m in n):
             _merk(a, hinweis="")      # Erstnachricht steht im Postfach: Senden bestätigt
         return
-    neu = " ".join(vom_verk[a.get("gesehen", 0):])[:1500]
+    a["letzte_neu"] = neu
+    _merk(a, letzte_neu=neu)
+    eigene = [m["text"] for m in n if m["von"] != "verk"]
     verlauf = a["verlauf"] + [{"von": "verk", "text": neu, "zeit": _jetzt()}]
     if a["stand"] == "einig":      # nach der Einigung schreibt nur noch Tekin
         _merk(a, verlauf=verlauf, gesehen=len(vom_verk))
         return melden("💬 Preisjäger: Neue Nachricht von %s zu „%s“ (ihr seid euch bei %s einig):\n%s\n%s" % (a["verkaeufer"], a["titel"][:50], _eur(a["mein"]), neu[:400], a["url"]))
-    g = sprache.gegenantwort(a["titel"], a["preis"], a["mein"], neu, NAME, a["weg"])
+    g = sprache.gegenantwort(a["titel"], a["preis"], a["mein"], neu, NAME, a["weg"], n[:-len(schwanz)] if schwanz else n)
     lage = g.get("lage", "unklar")
+    if lage == "abgelehnt" and (a.get("abschluss") or a["stand"] == "abgelehnt"):
+        # endgültig abgelehnt und der freundliche Abschluss ist schon geschrieben: nichts mehr senden
+        _merk(a, stand="abgelehnt", verlauf=verlauf, gesehen=len(vom_verk))
+        return melden("✖ Preisjäger: %s lehnt bei „%s“ weiter ab (%s). Ich schreibe nichts mehr." % (a["verkaeufer"], a["titel"][:50], neu[:120]))
     if lage == "betrugsverdacht":
         _merk(a, stand="betrug", verlauf=verlauf, gesehen=len(vom_verk), hinweis=" · ".join(g.get("warn") or []))
         return melden("⚠ Preisjäger: BETRUGSVERDACHT bei „%s“ (%s) – abgebrochen, nichts bezahlen, nichts anklicken.\n%s\nVerkäufer schrieb: %s" % (
@@ -308,6 +322,13 @@ def _weiter(b, a):
         return melden("↔ Preisjäger: %s bleibt bei „%s“ über deinem Preis (%s)%s. Verhandlung angehalten – du entscheidest.\n%s" % (
             a["verkaeufer"], a["titel"][:50], _eur(a["mein"]), (", zuletzt " + _eur(g["preis_verkaeufer"])) if g.get("preis_verkaeufer") else "", a["url"]))
     antwort = _sicher(g.get("antwort") or "", a)
+    if antwort and sprache.zu_aehnlich(antwort, eigene):      # nie zweimal (fast) dasselbe schreiben: einmal neu formulieren lassen
+        g2 = sprache.gegenantwort(a["titel"], a["preis"], a["mein"], neu + "\n(Hinweis an dich: Deine letzte Formulierung war einer früheren zu ähnlich – ganz anders und kürzer schreiben.)",
+                                  NAME, a["weg"], n[:-len(schwanz)] if schwanz else n)
+        antwort = _sicher(g2.get("antwort") or "", a)
+        if not antwort or sprache.zu_aehnlich(antwort, eigene):
+            _merk(a, stand="rueckfrage", verlauf=verlauf, gesehen=len(vom_verk), hinweis="Ich hätte mich wiederholt – bitte selbst antworten. Vorschlag: " + (antwort or ""))
+            return melden("❓ Preisjäger: Bei „%s“ (%s) hätte ich mich wiederholt – bitte selbst antworten.\nVerkäufer: %s" % (a["titel"][:50], a["verkaeufer"], neu[:300]))
     if not antwort or not _antworten(b, a, antwort):
         return _merk(a, verlauf=verlauf, hinweis="Antwort konnte nicht gesendet werden – nächster Versuch beim nächsten Lauf.")
     verlauf.append({"von": "ich", "text": antwort, "zeit": _jetzt()})
@@ -316,7 +337,7 @@ def _weiter(b, a):
         return melden("✅ Preisjäger: EINIG bei %s für „%s“ mit %s. Ich habe nach %s gefragt – ab hier übernimmst du.\n%s" % (
             _eur(a["mein"]), a["titel"][:50], a["verkaeufer"], "Versand und PayPal-Daten" if a["weg"] == "versand" else "dem Abholtermin", a["url"]))
     if lage == "abgelehnt":
-        _merk(a, stand="abgelehnt", verlauf=verlauf, gesehen=len(vom_verk))
+        _merk(a, stand="abgelehnt", verlauf=verlauf, gesehen=len(vom_verk), abschluss=True)
         return melden("✖ Preisjäger: %s hat dein Angebot von %s für „%s“ abgelehnt." % (a["verkaeufer"], _eur(a["mein"]), a["titel"][:50]))
     _merk(a, stand="verhandelt", verlauf=verlauf, gesehen=len(vom_verk), runden=a["runden"] + 1, hinweis="")
 

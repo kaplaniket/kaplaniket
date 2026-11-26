@@ -84,7 +84,14 @@ def nachricht(titel, preis, mein, quelle="Kleinanzeigen", name="", weg="abholung
     return "Hallo, ich habe Interesse an „%s“. Wäre %s für dich in Ordnung? %s %s" % (titel[:70], _eur(mein), abwicklung, gruss)
 
 
-def gegenantwort(titel, preis, mein, antwort, name="", weg="abholung"):
+def zu_aehnlich(text, fruehere, grenze=0.6):
+    """Ist der neue Text einer früheren eigenen Nachricht zu ähnlich? (Wortfolgen-Vergleich, ohne Gruß)"""
+    import difflib
+    kern_ = lambda t: re.sub(r"viele grüße.*$", "", " ".join(t.lower().split()))
+    return any(difflib.SequenceMatcher(None, kern_(text), kern_(f)).ratio() >= grenze for f in fruehere if f)
+
+
+def gegenantwort(titel, preis, mein, antwort, name="", weg="abholung", verlauf=None):
     """Vorschlag für die Antwort auf die Rückmeldung des Verkäufers. Bleibt beim eigenen Preis; den Abschluss macht der Käufer selbst."""
     gruss = "Viele Grüße" + (", " + name if name else "")
     t = ki("Du hilfst einem privaten Käufer beim Verhandeln auf einem Kleinanzeigenmarkt. Er will höchstens seinen Wunschpreis zahlen. "
@@ -95,8 +102,13 @@ def gegenantwort(titel, preis, mein, antwort, name="", weg="abholung"):
            "\"preis_verkaeufer\": genannter Preis als Zahl oder null, \"antwort\": kurze freundliche Antwort per Du, höchstens 50 Wörter. "
            "Bei \"einig\": bedanken und nach Abholung/Bezahlung und Termin fragen, nichts fest zusagen außer dem Preis. Bei \"gegenangebot\": "
            "höflich beim Wunschpreis bleiben und einmal begründen (zeitnahe Abholung, sofortige Bezahlung). Bei \"abgelehnt\": freundlich "
-           "bedanken und anbieten, dass das Angebot bestehen bleibt. Erfinde nichts. Schluss: „%s“.}" % gruss,
-           "Artikel: %s\nPreis des Verkäufers laut Anzeige: %s\nMein Wunschpreis: %s\nAbwicklung: %s\nAntwort des Verkäufers: %s" % (
+           "bedanken und anbieten, dass das Angebot bestehen bleibt. Erfinde nichts. Schluss: „%s“.} "
+           "WICHTIG: Du siehst den bisherigen Verlauf. Wiederhole keine eigene frühere Nachricht – weder wörtlich noch mit demselben Satzanfang "
+           "oder derselben Begründung; schreibe kürzer und anders. Hast du deinen Preis schon einmal bekräftigt und der Verkäufer lehnt erneut "
+           "ab (z. B. „nein danke“, „bleibt dabei“), dann ist die lage \"abgelehnt\" und die Antwort ist nur ein kurzer, freundlicher Abschluss "
+           "OHNE neues Preisangebot (z. B. „Alles klar, danke dir trotzdem. Falls sich etwas ändert, melde dich gern.“)." % gruss,
+           "BISHERIGER VERLAUF:\n%s\n\n" % ("\n".join(("Ich: " if m.get("von") != "verk" else "Verkäufer: ") + m["text"][:300] for m in (verlauf or [])[-10:]) or "(nur die Erstnachricht)") +
+           "Artikel: %s\nPreis des Verkäufers laut Anzeige: %s\nMein Wunschpreis: %s\nAbwicklung: %s\nNeue Antwort des Verkäufers: %s" % (
                titel[:120], _eur(preis), _eur(mein),
                "Versand; Zahlung nur per PayPal Waren und Dienstleistungen mit Käuferschutz, Gebühr trägt der Käufer; nie Freunde und Familie" if weg == "versand" else "Abholung mit Barzahlung",
                antwort[:800]),
@@ -211,7 +223,9 @@ VERKAUF = ('Du beantwortest für einen privaten Verkäufer Nachrichten von Kaufi
            '(5) Verdacht auf Betrug (Kurier, Zahlungslink, Bitte um Mail/Telefonnummer, Dritter zahlt, Ausland, freiwillig mehr Geld): lage '
            '"betrugsverdacht", keine Antwort nötig. Antworte NUR mit JSON: {"lage": eines von "frage", "verhandlung", "einig", "termin", "unklar", '
            '"betrugsverdacht", "gebot": vom Interessenten gebotener Preis als Zahl oder null, "warnung": ein Satz bei Betrugsverdacht, sonst "", '
-           '"antwort": freundliche Antwort per Du, höchstens 60 Wörter, ohne Floskeln}. Schluss der Antwort: „%s“.')
+           '"antwort": freundliche Antwort per Du, höchstens 60 Wörter, ohne Floskeln}. Schluss der Antwort: „%s“. '
+           'WICHTIG: Im bisherigen Verlauf stehen auch Nachrichten, die der Verkäufer selbst geschrieben hat. Widersprich ihnen nie (hat er z. B. '
+           'schon Versand oder einen Preis zugesagt, gilt das) und wiederhole keine frühere eigene Nachricht – schreibe anders und knapper.')
 
 
 def verkaufsantwort(anzeige, verlauf, neu, name=""):
