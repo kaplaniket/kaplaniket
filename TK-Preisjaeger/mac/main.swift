@@ -86,7 +86,7 @@ class App: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate, 
     @objc func ueber() {
         let m = NSAlert()
         m.messageText = NAME
-        m.informativeText = "Fassung 1.0\nFindet für genau ein Produkt den günstigsten Preis – neu und gebraucht.\n\n© 2026 Tekin Kaplan. Alle Rechte vorbehalten."
+        m.informativeText = "Fassung 1.1\nFindet für genau ein Produkt den günstigsten Preis – neu und gebraucht.\n\n© 2026 Tekin Kaplan. Alle Rechte vorbehalten."
         m.runModal()
     }
     @objc func neuLaden() { if web.url?.scheme?.hasPrefix("http") == true { web.reload() } else { verbinden() } }
@@ -103,6 +103,14 @@ class App: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate, 
     func webView(_ w: WKWebView, createWebViewWith c: WKWebViewConfiguration, for a: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         if let u = a.request.url { NSWorkspace.shared.open(u) }
         return nil
+    }
+    // Dateiauswahl (Fotos für „Verkaufen“): ohne diese Funktion öffnet WebKit keinen Auswahldialog
+    func webView(_ w: WKWebView, runOpenPanelWith p: WKOpenPanelParameters, initiatedByFrame f: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = p.allowsMultipleSelection
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.beginSheetModal(for: fenster) { antwort in completionHandler(antwort == .OK ? panel.urls : nil) }
     }
     func webView(_ w: WKWebView, didFailProvisionalNavigation n: WKNavigation!, withError e: Error) { keineVerbindung() }
 

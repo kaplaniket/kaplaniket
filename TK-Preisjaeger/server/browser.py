@@ -57,6 +57,14 @@ class Browser:
             raise Fehler(str(r["exceptionDetails"].get("exception", {}).get("description") or r["exceptionDetails"].get("text"))[:300])
         return r.get("result", {}).get("value")
 
+    def dateien(self, auswahl, pfade):
+        """Hängt Dateien an ein Datei-Eingabefeld (wie „Durchsuchen“ im Fenster)."""
+        r = self.ruf("Runtime.evaluate", expression="document.querySelector(%s)" % json.dumps(auswahl))
+        kennung = r.get("result", {}).get("objectId")
+        if not kennung:
+            raise Fehler("Datei-Feld nicht gefunden")
+        self.ruf("DOM.setFileInputFiles", files=list(pfade), objectId=kennung)
+
     def url(self):
         return self.js("return location.href")
 

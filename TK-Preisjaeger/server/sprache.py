@@ -25,11 +25,11 @@ VERSTEHEN = ('Du zerlegst einen Kaufwunsch für eine Preissuche. Antworte NUR mi
              'sonst null, "umkreis": Umkreis in km als Zahl, falls genannt, sonst null}')
 
 
-def ki(system, text, max_tokens=300, temperatur=0.2, warten=9):
+def ki(system, text, max_tokens=300, temperatur=0.2, warten=9, bilder=None):
     if not _frage:
         return None
     try:
-        return _topf.submit(_frage, system, text, max_tokens, temperatur, "preisjaeger").result(timeout=warten)
+        return _topf.submit(_frage, system, text, max_tokens, temperatur, "preisjaeger", bilder).result(timeout=warten)
     except Exception:
         return None
 

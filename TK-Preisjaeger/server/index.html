@@ -128,6 +128,12 @@ dialog::backdrop{background:rgba(8,12,16,.55)}
 .vp .un li::before{content:"?";color:var(--leise)}
 .empf{background:var(--akzent2);border:1.5px solid var(--akzent);border-radius:14px;padding:14px 16px;margin-top:12px}
 @media (max-width:900px){.vg{grid-template-columns:1fr !important}}
+.abwurf{border:2px dashed var(--linie);border-radius:16px;padding:30px 20px;text-align:center;background:var(--karte);cursor:pointer}
+.abwurf.drueber{border-color:var(--akzent);background:var(--akzent2)}
+.fotos{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.fotos img{width:96px;height:96px;object-fit:cover;border-radius:10px;border:1px solid var(--linie)}
+.vkfeld{width:100%;font:inherit;border:1.5px solid var(--linie);border-radius:10px;padding:9px 12px;background:var(--karte2);color:var(--text);outline:none}
+.vkfeld:focus{border-color:var(--akzent)}
 .skel{height:112px;border-radius:14px;margin-bottom:8px;background:linear-gradient(90deg,var(--karte) 25%,var(--karte2) 50%,var(--karte) 75%);background-size:200% 100%;animation:sk 1.2s linear infinite;border:1px solid var(--linie)}
 @keyframes sk{to{background-position:-200% 0}}
 @media (max-width:820px){.zahlen{grid-template-columns:1fr 1fr}.zahl.best{grid-column:1/-1}.schritte{grid-template-columns:1fr}.marke span{display:none}}
@@ -141,6 +147,7 @@ dialog::backdrop{background:rgba(8,12,16,.55)}
 <input id="q" type="search" placeholder="Produkt oder Wunsch, z. B. „Wasserspender mit Sprudel bis 900 €“" autofocus autocomplete="off"></div>
 <button class="haupt">Suchen</button></form>
 <button id="vglauf" title="Produkte vergleichen: Vorteile, Nachteile, Empfehlung">Vergleichen</button>
+<button id="vkauf" title="Eigene Artikel verkaufen: Fotos hochladen, Text und Preis vorschlagen lassen, einstellen">Verkaufen</button>
 </div></header>
 <main>
 <div class="quellen" id="quellen"></div>
@@ -295,6 +302,72 @@ document.addEventListener('click',e=>{
   if(e.target.id==='mehr'){ zeigeAnzahl+=40; zeigen(); return; }
   if(e.target.id==='tiefer'&&stand){ suchen(stand.anfrage,true); scrollTo({top:0}); return; }
   if(e.target.id==='merken'&&stand){ const z=parseFloat(($('#meinpreis')||{}).value)||meinPreis||0; senden('/api/merken',stand.anfrage,z); e.target.textContent=z?'🔔 Alarm ab '+eur(z):'★ Gemerkt – Preis wird beobachtet'; }
+});
+// ---------- Verkaufen ----------
+let vkFotos=[], vkArtikel=[], vkPortale=[], vkOffen=null;
+function verkleinern(datei){ return new Promise((fertig,fehler)=>{ const bild=new Image(); const u=URL.createObjectURL(datei);
+  bild.onload=()=>{ const m=1600, f=Math.min(1,m/Math.max(bild.width,bild.height)); const c=document.createElement('canvas'); c.width=Math.round(bild.width*f); c.height=Math.round(bild.height*f);
+    c.getContext('2d').drawImage(bild,0,0,c.width,c.height); URL.revokeObjectURL(u); fertig(c.toDataURL('image/jpeg',0.85)); };
+  bild.onerror=()=>{ URL.revokeObjectURL(u); fehler(new Error('Bild nicht lesbar: '+datei.name)); }; bild.src=u; }); }
+async function vkDazu(dateien){ for(const d of [...dateien].slice(0,10-vkFotos.length)){ if(!/^image\//.test(d.type)&&!/\.(jpe?g|png|heic|webp)$/i.test(d.name)) continue; try{ vkFotos.push(await verkleinern(d)); }catch(e){ $('#vkinfo').textContent=String(e.message||e); } } vkSeite(); }
+async function vkLaden(){ try{ const d=await (await fetch('/api/verkauf')).json(); vkArtikel=d.artikel; vkPortale=d.portale; }catch(e){} }
+function vkSeite(){
+  stand=null; quellenleiste();
+  const a=vkOffen&&vkArtikel.find(x=>x.id===vkOffen);
+  let h=`<div class="leiste"><h2>Verkaufen</h2><button data-vkzur="1">← Zurück zur Preissuche</button></div>`;
+  if(!a){
+    h+=`<div class="abwurf" id="vkab"><b style="font-size:17px">Fotos des Artikels hierher ziehen</b><div class="leise" style="margin:6px 0 12px">oder klicken und auswählen – bis zu 10 Fotos. Die App erkennt den Artikel, schreibt den Anzeigentext und schlägt einen Preis aus den aktuellen Marktangeboten vor.</div><button class="haupt" style="padding:9px 18px">Fotos auswählen</button><input type="file" id="vkdatei" accept="image/*" multiple style="display:none"></div>
+    ${vkFotos.length?`<div class="fotos">${vkFotos.map((f,i)=>`<div style="position:relative"><img src="${f}"><button data-vkfotoweg="${i}" style="position:absolute;top:2px;right:2px;padding:0 6px;border-radius:99px">✕</button></div>`).join('')}</div>
+    <div class="reihe"><input class="vkfeld" id="vkhinweis" style="flex:1;min-width:260px" placeholder="Optional: Was soll die App wissen? z. B. „2 Jahre alt, mit Rechnung, Akku neu“"><button class="haupt" id="vkstart" style="padding:10px 18px">Artikel erkennen und Anzeige erstellen</button></div>`:''}
+    <div class="klein" id="vkinfo" style="margin-top:8px;color:var(--warn)"></div>`;
+    if(vkArtikel.length) h+=`<div class="leiste"><h2>Meine Artikel</h2></div>`+vkArtikel.map(x=>`<div class="a" style="grid-template-columns:92px 1fr auto;cursor:pointer;padding-left:10px" data-vkauf="${x.id}"><img src="/verkauf/bild/${x.id}/0"><div style="min-width:0"><div class="t">${esc(x.titel||x.produkt||'Noch nicht ausgewertet')}</div><div class="z"><span class="m ${/veröffentlicht$/.test(x.stand)||x.stand==='veröffentlicht'?'neu':''}">${esc(x.stand)}</span>${x.zustand?`<span class="m">${esc(x.zustand)}</span>`:''}</div><div class="i">${x.bilder} Foto${x.bilder>1?'s':''} · ${esc(x.geaendert)}</div></div><div class="p"><b>${x.preis?eur(x.preis)+(x.vb?' VB':''):'–'}</b></div></div>`).join('');
+  } else {
+    const m=a.markt, ka=(a.portale||{}).kleinanzeigen;
+    h+=`<div class="reihe"><button data-vkauf="">← Alle Artikel</button><span class="m">${esc(a.stand)}</span>${a.produkt?`<span class="leise">Erkannt: <b>${esc(a.produkt)}</b>${a.sicher===false?' (nicht sicher – bitte prüfen)':''}</span>`:''}</div>
+    <div class="fotos">${Array.from({length:a.bilder},(_,i)=>`<img src="/verkauf/bild/${a.id}/${i}">`).join('')}</div>
+    ${m?`<div class="kasten"><b>Preisvorschlag aus dem Markt</b> <span class="leise klein">– ${m.grob?'kaum Privatangebote gefunden, grob vom Neupreis geschätzt':m.angebote+' passende Privatangebote für „'+esc(m.suche)+'“'}</span>
+      <div class="zahlen" style="grid-template-columns:repeat(4,1fr);margin:10px 0 4px"><button class="zahl" data-vkpreis="${m.schnell}"><div class="leise klein">Schnell verkauft</div><div class="w">${eur(m.schnell)}</div><div class="u">unter dem Üblichen</div></button><button class="zahl best" data-vkpreis="${m.empfohlen}"><div class="klein" style="font-weight:650">Empfohlen</div><div class="w" style="font-size:26px">${eur(m.empfohlen)}</div><div class="u">passend zum Zustand</div></button><button class="zahl" data-vkpreis="${m.hoch}"><div class="leise klein">Mit Verhandlungsspielraum</div><div class="w">${eur(m.hoch)}</div><div class="u">als VB ansetzen</div></button><div class="zahl"><div class="leise klein">Andere verlangen</div><div class="w" style="font-size:17px">${m.guenstigstes?eur(m.guenstigstes)+' – '+eur(m.teuerstes):'–'}</div><div class="u">${m.ueblich?'üblich '+eur(m.ueblich):''}${m.neu_ab?' · neu ab '+eur(m.neu_ab):''}</div></div></div>
+      <button data-q="${esc(m.suche)}" class="klein">Diese Angebote ansehen</button></div>`:(a.titel?`<div class="kasten warn klein">Für diesen Artikel habe ich keine vergleichbaren Angebote gefunden – den Preis bitte selbst festlegen.</div>`:'')}
+    ${(a.maengel||[]).length?`<div class="kasten warn"><b>Auf den Fotos sichtbare Mängel</b> (stehen im Text): ${a.maengel.map(esc).join(' · ')}</div>`:''}
+    ${(a.fragen||[]).length?`<div class="kasten"><b>Bitte ergänzen</b> <span class="leise klein">– das sieht man auf Fotos nicht:</span> ${a.fragen.map(esc).join(' · ')}</div>`:''}
+    <div class="kasten"><label class="klein leise">Titel (höchstens 65 Zeichen)</label><input class="vkfeld" id="vktitel" maxlength="65" value="${esc(a.titel)}">
+      <label class="klein leise" style="display:block;margin-top:10px">Beschreibung</label><textarea class="vkfeld" id="vktext" rows="11">${esc(a.beschreibung)}</textarea>
+      <div class="reihe"><label>Preis <input class="zahlfeld" id="vkpreis" type="number" min="1" step="1" value="${a.preis||''}"> €</label><label class="q" style="cursor:pointer;--f:var(--akzent)"><input type="checkbox" id="vkvb" ${a.vb?'checked':''} style="margin:0 4px 0 0">Verhandlungsbasis (VB)</label><button id="vkneu">Fotos neu auswerten</button><button id="vkspeich">Speichern</button></div></div>
+    <div class="kasten" style="border-color:var(--akzent)"><b>Bei Kleinanzeigen einstellen</b> <span class="leise klein" id="vkkonto"></span>
+      <div class="klein leise" style="margin:6px 0">Die App füllt „Anzeige aufgeben“ in deinem Konto aus (Titel, Kategorie-Vorschlag, Text, Preis, alle Fotos). Als Entwurf findest du die Anzeige bei Kleinanzeigen unter „Meins“ und veröffentlichst sie selbst – oder du lässt direkt veröffentlichen.</div>
+      <div class="reihe"><button class="haupt" id="vkentwurf" style="padding:9px 16px">Als Entwurf bei Kleinanzeigen speichern</button><button id="vkpub">Direkt veröffentlichen</button><span id="vkstat" class="klein"></span></div>
+      ${ka?`<div class="klein" style="margin-top:8px"><b>${esc(ka.stand)}</b> · ${esc(ka.zeit)}${ka.kategorie?' · Kategorie: '+esc(ka.kategorie):''} · ${ka.fotos} Foto(s) erkannt${(ka.meldungen||[]).length?'<br><span style="color:var(--warn)">Kleinanzeigen meldet: '+ka.meldungen.map(esc).join(' · ')+'</span>':''}</div>`:''}</div>
+    <div class="kasten links"><b>Weitere Portale</b> <span class="leise klein">– dort kann die App nicht selbst einstellen: Text kopieren, Portal öffnen, einfügen</span><br>
+      <button id="vkkopt">Titel kopieren</button> <button id="vkkopb">Beschreibung kopieren</button> ${vkPortale.map(p=>`<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.name)} ↗</a>`).join('')}</div>
+    <div class="reihe" style="justify-content:flex-end"><button data-vkweg="${a.id}">Artikel aus der Liste nehmen</button></div>`;
+  }
+  $('#aus').innerHTML=h;
+  if(a) fetch('/api/konto').then(r=>r.json()).then(k=>{ const e=$('#vkkonto'); if(e){ e.textContent='– '+(k.bereit?'Konto ist verbunden.':k.hinweis); $('#vkentwurf').disabled=$('#vkpub').disabled=!k.bereit; } }).catch(()=>{});
+}
+function vkFelder(){ return {id:vkOffen,titel:$('#vktitel').value,beschreibung:$('#vktext').value,preis:parseFloat($('#vkpreis').value)||0,vb:$('#vkvb').checked}; }
+async function vkAuswerten(id){ $('#aus').innerHTML=`<div class="leise" style="margin:18px 2px 12px">Sehe mir die Fotos an, schreibe die Anzeige und suche vergleichbare Angebote für den Preis … (etwa 20–40 Sekunden)</div><div class="skel"></div><div class="skel"></div>`;
+  const d=await post('/api/verkauf/erkennen',{id}); await vkLaden(); vkOffen=id; vkSeite(); if(d.fehler){ const e=document.createElement('div'); e.className='kasten warn'; e.textContent=d.fehler; $('#aus').prepend(e); } }
+document.addEventListener('dragover',e=>{ const z=e.target.closest&&e.target.closest('#vkab'); if(z){ e.preventDefault(); z.classList.add('drueber'); } });
+document.addEventListener('dragleave',e=>{ const z=e.target.closest&&e.target.closest('#vkab'); if(z) z.classList.remove('drueber'); });
+document.addEventListener('drop',e=>{ const z=e.target.closest&&e.target.closest('#vkab'); if(z){ e.preventDefault(); vkDazu(e.dataTransfer.files); } });
+document.addEventListener('change',e=>{ if(e.target.id==='vkdatei') vkDazu(e.target.files); });
+document.addEventListener('click',async e=>{
+  const z=e.target;
+  if(z.id==='vkauf'){ await vkLaden(); vkOffen=null; vkSeite(); return; }
+  if(z.dataset.vkzur){ vkOffen=null; stand=null; zeigen(); return; }
+  if(z.closest('#vkab')&&z.id!=='vkdatei'){ $('#vkdatei').click(); return; }
+  if(z.dataset.vkfotoweg){ vkFotos.splice(+z.dataset.vkfotoweg,1); vkSeite(); return; }
+  if(z.id==='vkstart'){ const hinweis=$('#vkhinweis').value; z.disabled=true; z.textContent='Lade Fotos hoch …'; const d=await post('/api/verkauf/neu',{bilder:vkFotos,hinweis}); if(d.fehler){ $('#vkinfo').textContent=d.fehler; z.disabled=false; return; } vkFotos=[]; vkAuswerten(d.id); return; }
+  const auf=z.closest('[data-vkauf]'); if(auf){ vkOffen=auf.dataset.vkauf||null; vkSeite(); scrollTo({top:0}); return; }
+  if(z.closest('[data-vkpreis]')){ $('#vkpreis').value=z.closest('[data-vkpreis]').dataset.vkpreis; return; }
+  if(z.id==='vkspeich'){ await post('/api/verkauf/speichern',vkFelder()); await vkLaden(); z.textContent='Gespeichert ✓'; return; }
+  if(z.id==='vkneu'){ vkAuswerten(vkOffen); return; }
+  if(z.id==='vkkopt'){ kopieren($('#vktitel').value); z.textContent='Kopiert ✓'; return; }
+  if(z.id==='vkkopb'){ kopieren($('#vktext').value); z.textContent='Kopiert ✓'; return; }
+  if(z.id==='vkentwurf'||z.id==='vkpub'){ const pub=z.id==='vkpub'; if(pub&&!confirm('Die Anzeige wird sofort öffentlich bei Kleinanzeigen eingestellt. Fortfahren?')) return;
+    $('#vkentwurf').disabled=$('#vkpub').disabled=true; $('#vkstat').textContent='Fülle das Formular aus und lade die Fotos hoch … (etwa 30–60 Sekunden)';
+    const d=await post('/api/verkauf/einstellen',Object.assign(vkFelder(),{modus:pub?'veroeffentlichen':'entwurf'})); await vkLaden(); vkSeite(); if(d.fehler){ $('#vkstat').innerHTML='<span style="color:var(--rot)">'+esc(d.fehler)+'</span>'; } return; }
+  if(z.dataset.vkweg){ await post('/api/verkauf/weg',{id:z.dataset.vkweg}); await vkLaden(); vkOffen=null; vkSeite(); return; }
 });
 // ---------- Vergleichen ----------
 let korb=[], korbOffen=false;

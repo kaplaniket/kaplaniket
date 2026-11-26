@@ -19,6 +19,7 @@ import kern
 import quellen
 import sprache
 import verhandler
+import verkauf
 
 ORT = os.path.dirname(os.path.abspath(__file__))
 DATEN = os.path.join(ORT, "daten")
@@ -26,7 +27,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "3.0"
+FASSUNG = "3.1"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -472,6 +473,20 @@ class Antwort(BaseHTTPRequestHandler):
             self._json(_merk_lesen())
         elif u.path == "/api/konto":
             self._json(verhandler.konto())
+        elif u.path == "/api/verkauf":
+            self._json({"artikel": verkauf.liste(), "portale": [{"name": n, "url": x} for n, x in verkauf.PORTALE]})
+        elif u.path.startswith("/verkauf/bild/"):
+            t = u.path.split("/")
+            pfad = verkauf.bildpfad(t[3], t[4]) if len(t) == 5 else None
+            if not pfad:
+                return self.send_error(404)
+            with open(pfad, "rb") as f:
+                b = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Length", str(len(b)))
+            self.end_headers()
+            self.wfile.write(b)
         elif u.path == "/api/auto":
             self._json(verhandler.liste())
         elif u.path == "/api/verhandlungen":
@@ -484,10 +499,28 @@ class Antwort(BaseHTTPRequestHandler):
     def do_POST(self):
         u = urllib.parse.urlparse(self.path)
         try:
-            d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length") or 0), 4000)) or b"{}")
+            grenze = 16_000_000 if u.path == "/api/verkauf/neu" else 60_000
+            d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length") or 0), grenze)) or b"{}")
         except Exception:
             d = {}
         a = " ".join(str(d.get("anfrage", "")).split())[:120]
+        if u.path.startswith("/api/verkauf/"):
+            try:
+                k = str(d.get("id", ""))
+                if u.path == "/api/verkauf/neu":
+                    return self._json(verkauf.neu(d))
+                if u.path == "/api/verkauf/erkennen":
+                    return self._json(verkauf.erkennen(k, suche))
+                if u.path == "/api/verkauf/speichern":
+                    return self._json(verkauf.speichern(k, d))
+                if u.path == "/api/verkauf/einstellen":
+                    verkauf.speichern(k, d)
+                    return self._json(verkauf.einstellen(k, "veroeffentlichen" if d.get("modus") == "veroeffentlichen" else "entwurf"))
+                if u.path == "/api/verkauf/weg":
+                    return self._json(verkauf.loeschen(k))
+                return self.send_error(404)
+            except Exception as e:
+                return self._json({"fehler": str(e)}, 400)
         if u.path.startswith("/api/auto/"):
             try:
                 if u.path == "/api/auto/start":
