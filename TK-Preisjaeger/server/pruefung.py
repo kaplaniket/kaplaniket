@@ -43,6 +43,7 @@ FAELLE = [
     ("dyson v11", "Dyson Zubehör für V10 und V15 (evtl. V7, V8, V11)", "fehlt"),
     ("dyson v11", "pezzi di ricambio per dyson V11 originali", "fehlt"),
     ("dyson v11", "Dyson Staubsauger V11 Absolute", True),
+    ("aqmos drinking pro", "Aqmos Ersatzfilter für DrinKing Pro – 4-in-1 Umkehrosmose", "zubehoer"),
     ("aqmos drinking pro", "Aqmos DrinKing Pro / Ihr Premium-Auftisch Wasserspender / TOP!!!", True),
     ("aqmos drinking pro osmose", "AQMOS DrinKing Pro Osmose-Wasserspender – still, sprudelnd, kalt & heiß", True),
     ("playstation 5", "Crucial P310 2TB PCIe Gen4 NVMe M.2 SSD PS5 Playstation 5", "fehlt"),

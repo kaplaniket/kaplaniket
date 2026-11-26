@@ -168,6 +168,8 @@ def pruefe(anfrage, titel, text="", streng=True):
             continue
         if w in PASSEND and i < erste:
             return False, "zubehoer"
+        if w.startswith("ersatz") and not (set(tt[max(0, i - 4):i]) & MITGELIEFERT):
+            return False, "zubehoer"      # Ersatzfilter, Ersatzakku, Ersatzteil … – egal wo im Titel
         if w in ZUBEHOER or any(w.endswith(z) for z in ("hülle", "kabel", "folie", "glas", "halterung", "tasche", "case", "cover")) and w not in aw:
             davor = set(tt[max(0, i - 4):i])
             if i < erste and not (davor & MITGELIEFERT):
