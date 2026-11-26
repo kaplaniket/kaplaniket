@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Tekin Kaplan">
+<title>TK Preisjäger</title>
+<style>
+:root{--bg:#f4f6f5;--karte:#fff;--text:#16211d;--leise:#5d6b66;--linie:#dfe5e2;--gruen:#0b7a53;--gruen2:#e3f4ec;--warn:#a65b00;--warn2:#fff3df;--rot:#b3261e;--blau:#1f5fae}
+@media (prefers-color-scheme:dark){:root{--bg:#101614;--karte:#19211e;--text:#e8efec;--leise:#9aa9a3;--linie:#2a3531;--gruen:#4fd1a1;--gruen2:#143027;--warn:#ffb95c;--warn2:#33270f;--rot:#ff8a80;--blau:#8ab8ff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:22px 16px 60px}
+h1{font-size:22px;margin:0 0 2px}
+.unter{color:var(--leise);margin:0 0 16px}
+form{display:flex;gap:8px}
+input[type=search]{flex:1;min-width:0;font-size:18px;padding:13px 15px;border:1.5px solid var(--linie);border-radius:12px;background:var(--karte);color:var(--text);outline:none}
+input[type=search]:focus{border-color:var(--gruen)}
+button{font:inherit;cursor:pointer;border-radius:12px;border:1.5px solid var(--linie);background:var(--karte);color:var(--text);padding:8px 13px}
+button.haupt{background:var(--gruen);border-color:var(--gruen);color:#fff;font-weight:600;font-size:17px;padding:0 22px}
+@media (prefers-color-scheme:dark){button.haupt{color:#06281c}}
+.wahl{display:flex;flex-wrap:wrap;gap:6px 16px;margin:12px 2px 0;color:var(--leise)}
+.wahl label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{border-radius:99px;padding:5px 12px;font-size:14px}
+.chip b{font-weight:600}
+.chip .x{margin-left:6px;color:var(--leise)}
+#lauf{margin:26px 0;color:var(--leise);display:none}
+.kreis{display:inline-block;width:16px;height:16px;border:2.5px solid var(--linie);border-top-color:var(--gruen);border-radius:50%;animation:d .8s linear infinite;vertical-align:-3px;margin-right:8px}
+@keyframes d{to{transform:rotate(360deg)}}
+.bester{background:var(--gruen2);border:1.5px solid var(--gruen);border-radius:16px;padding:16px;margin:22px 0 10px;display:flex;gap:16px;align-items:center}
+.bester img{width:110px;height:110px;object-fit:cover;border-radius:10px;background:var(--karte)}
+.bester .p{font-size:34px;font-weight:700;color:var(--gruen);line-height:1.1}
+.bester .t{font-weight:600;margin:4px 0}
+.kopf{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin:22px 2px 8px}
+.kopf h2{font-size:16px;margin:0}
+.leise{color:var(--leise);font-size:13.5px}
+.zeile{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center;background:var(--karte);border:1px solid var(--linie);border-radius:12px;padding:9px 12px;margin-bottom:6px;text-decoration:none;color:inherit}
+.zeile:hover{border-color:var(--gruen)}
+.zeile img,.zeile .ohne{width:64px;height:64px;object-fit:cover;border-radius:8px;background:var(--bg)}
+.zeile .t{font-weight:550;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.zeile .p{font-size:19px;font-weight:700;white-space:nowrap;text-align:right}
+.m{display:inline-block;font-size:12px;border-radius:6px;padding:1px 7px;margin-right:5px;background:var(--bg);border:1px solid var(--linie);color:var(--leise)}
+.m.q{color:var(--blau);font-weight:600}
+.m.neu{color:var(--gruen);border-color:var(--gruen)}
+.m.defekt{color:var(--rot);border-color:var(--rot)}
+.kasten{background:var(--karte);border:1px solid var(--linie);border-radius:12px;padding:12px 14px;margin-top:10px}
+.kasten.warn{background:var(--warn2);border-color:var(--warn)}
+details summary{cursor:pointer;font-weight:600}
+.links a{display:inline-block;margin:6px 8px 0 0;padding:6px 12px;border:1px solid var(--linie);border-radius:99px;text-decoration:none;color:var(--blau);background:var(--karte)}
+.fehler{color:var(--rot)}
+footer{margin-top:34px;color:var(--leise);font-size:12.5px;text-align:center}
+@media (max-width:560px){.zeile{grid-template-columns:52px 1fr auto}.zeile img,.zeile .ohne{width:52px;height:52px}.bester{flex-direction:column;align-items:flex-start}button.haupt{padding:0 14px}}
+</style>
+</head>
+<body>
+<main>
+<h1>TK Preisjäger</h1>
+<p class="unter">Produkt eingeben – gesucht wird genau dieses Produkt, neu und gebraucht, der günstigste Preis steht oben.</p>
+<form id="f">
+<input id="q" type="search" placeholder="z. B. iPhone 13 128GB · Sony WH-1000XM5 · Dyson V11" autofocus autocomplete="off">
+<button class="haupt">Suchen</button>
+</form>
+<div class="wahl">
+<label><input type="checkbox" id="neu" checked> Neu</label>
+<label><input type="checkbox" id="auf" checked> Geprüft/aufbereitet</label>
+<label><input type="checkbox" id="geb" checked> Gebraucht</label>
+<label title="Aus: auch Pro/Mini/Max und andere Speichergrößen zulassen"><input type="checkbox" id="streng" checked> Nur genau diese Ausführung</label>
+</div>
+<div class="chips" id="merk"></div>
+<div id="lauf"><span class="kreis"></span><span id="lauftext"></span></div>
+<div id="aus"></div>
+<footer>TK Preisjäger {{FASSUNG}} · © 2026 Tekin Kaplan</footer>
+</main>
+<script>
+const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const eur=n=>n.toLocaleString('de-DE',{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2})+' €';
+const ZU={neu:'Neu',aufbereitet:'Geprüft/aufbereitet',gebraucht:'Gebraucht',defekt:'Defekt'};
+let stand=null, uhr=null;
+
+function zeile(a){
+  const bild=a.bild?`<img src="${esc(a.bild)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=ohne></div>'">`:'<div class="ohne"></div>';
+  const neben=[a.ort,a.hinweis].filter(Boolean).join(' · ');
+  return `<a class="zeile" href="${esc(a.url)}" target="_blank" rel="noopener">${bild}<div><div class="t">${esc(a.titel)}</div>
+  <div><span class="m q">${esc(a.quelle)}</span><span class="m ${a.zustand}">${ZU[a.zustand]||''}</span><span class="leise">${esc(neben)}</span></div></div>
+  <div class="p">${eur(a.preis)}</div></a>`;
+}
+function zeigen(){
+  const d=stand; if(!d) return;
+  const an={neu:$('#neu').checked,aufbereitet:$('#auf').checked,gebraucht:$('#geb').checked};
+  const t=d.treffer.filter(a=>an[a.zustand]);
+  let h='';
+  if(t.length){
+    const b=t[0];
+    h+=`<div class="bester">${b.bild?`<img src="${esc(b.bild)}" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<div>
+    <div class="leise">Günstigstes passendes Angebot</div><div class="p">${eur(b.preis)}</div><div class="t">${esc(b.titel)}</div>
+    <div><span class="m q">${esc(b.quelle)}</span><span class="m ${b.zustand}">${ZU[b.zustand]}</span><span class="leise">${esc([b.ort,b.hinweis].filter(Boolean).join(' · '))}</span></div>
+    <div style="margin-top:10px"><a href="${esc(b.url)}" target="_blank" rel="noopener"><button class="haupt" style="padding:8px 18px;font-size:15px">Angebot öffnen</button></a>
+    <button id="merken" style="margin-left:6px">Auf die Merkliste</button></div></div></div>`;
+    const je={}; t.forEach(a=>{ if(!je[a.zustand]) je[a.zustand]=a; });
+    h+=`<div class="leise" style="margin:0 2px">${Object.keys(ZU).filter(z=>je[z]).map(z=>`${ZU[z]} ab <b>${eur(je[z].preis)}</b> (${esc(je[z].quelle)})`).join(' · ')}${d.ueblich?` · üblicher Preis rund ${eur(Math.round(d.ueblich))}`:''}</div>`;
+  } else {
+    h+=`<div class="kasten warn"><b>Kein passendes Angebot gefunden.</b> Prüfe die Schreibweise oder nimm weniger Wörter (Marke + Modell genügt). Die Direktlinks unten suchen auf weiteren Seiten.</div>`;
+  }
+  const gr=Object.entries(d.groessen||{}), av=Object.entries(d.andere_ausfuehrungen||{});
+  if(gr.length||av.length){
+    h+=`<div class="kasten"><b>Genauer suchen:</b> <span class="chips" style="display:inline-flex;margin:0 0 0 6px">`+
+      gr.map(([g,n])=>`<button class="chip" data-q="${esc(d.anfrage+' '+g.replace(' ',''))}">${esc(g)} <span class="x">${n}</span></button>`).join('')+
+      av.map(([g,n])=>`<button class="chip" data-q="${esc(d.anfrage+' '+g)}">${esc(d.anfrage)} <b>${esc(g.toUpperCase())}</b> <span class="x">${n}</span></button>`).join('')+`</span></div>`;
+  }
+  if(t.length){
+    h+=`<div class="kopf"><h2>${t.length} passende Angebote, günstigste zuerst</h2><span class="leise">Stand ${esc(d.zeit)} · ${d.dauer} s</span></div>`+t.slice(0,150).map(zeile).join('');
+  }
+  if(d.auffaellig.length) h+=`<details class="kasten warn"><summary>${d.auffaellig.length} auffällig billige Angebote (weit unter dem üblichen Preis – meist Zubehör, Lockangebot oder Betrug)</summary><div style="margin-top:10px">${d.auffaellig.map(zeile).join('')}</div></details>`;
+  if(d.defekt.length) h+=`<details class="kasten"><summary>${d.defekt.length} defekte Geräte / Bastlerware</summary><div style="margin-top:10px">${d.defekt.map(zeile).join('')}</div></details>`;
+  const so=Object.entries(d.aussortiert||{});
+  h+=`<details class="kasten"><summary>Was wurde durchsucht und aussortiert?</summary><div style="margin-top:8px">`+
+    d.quellen.map(q=>`<div>${esc(q.name)}: ${q.fehler?`<span class="fehler">nicht erreichbar (${esc(q.fehler)})</span>`:`${q.gefunden} gefunden, ${q.passend} passend`}</div>`).join('')+
+    (so.length?`<div style="margin-top:8px">Aussortiert: ${so.map(([k,v])=>`${v} × ${esc(k)}`).join(' · ')}</div>`:'')+`</div></details>`;
+  h+=`<div class="kasten links"><b>Weitere Seiten</b> <span class="leise">(lassen keine automatische Abfrage zu – öffnen mit fertiger Suche)</span><br>${d.links.map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.name)}</a>`).join('')}</div>`;
+  $('#aus').innerHTML=h;
+}
+async function suchen(text){
+  text=(text??$('#q').value).trim(); if(text.length<2) return;
+  $('#q').value=text; $('#aus').innerHTML=''; $('#lauf').style.display='block';
+  const schritte=['Kleinanzeigen, Vinted, Shpock, Hood …','Amazon, idealo, rebuy, MediaMarkt, Saturn …','Üblichen Preis bestimmen, Zubehör und andere Ausführungen aussortieren …','Billigste echte Angebote gezielt nachladen …'];
+  let i=0; $('#lauftext').textContent=schritte[0]; clearInterval(uhr); uhr=setInterval(()=>{i=Math.min(i+1,schritte.length-1);$('#lauftext').textContent=schritte[i]},2500);
+  try{
+    const r=await fetch('/api/suche?q='+encodeURIComponent(text)+'&streng='+($('#streng').checked?1:0)); const d=await r.json();
+    if(d.fehler) $('#aus').innerHTML=`<div class="kasten warn">${esc(d.fehler)}</div>`; else { stand=d; zeigen(); merkliste(); }
+  }catch(e){ $('#aus').innerHTML='<div class="kasten warn">Der Preisjäger ist gerade nicht erreichbar.</div>'; }
+  clearInterval(uhr); $('#lauf').style.display='none';
+}
+async function merkliste(daten){
+  try{ const l=daten||await (await fetch('/api/merkliste')).json();
+    $('#merk').innerHTML=l.map(m=>{ const pfeil=m.vorher&&m.preis<m.vorher?' ↓':m.vorher&&m.preis>m.vorher?' ↑':'';
+      return `<button class="chip" data-q="${esc(m.anfrage)}" title="${m.zeit?'Stand '+esc(m.zeit)+(m.tiefst?' · tiefster bisher '+eur(m.tiefst):''):'noch nicht gesucht'}">${esc(m.anfrage)}${m.preis?` <b>${eur(m.preis)}${pfeil}</b>`:''}<span class="x" data-weg="${esc(m.anfrage)}">✕</span></button>`}).join('');
+  }catch(e){}
+}
+async function senden(pfad,anfrage){ const r=await fetch(pfad,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({anfrage})}); merkliste(await r.json()); }
+$('#f').addEventListener('submit',e=>{e.preventDefault();suchen()});
+['#neu','#auf','#geb'].forEach(s=>$(s).addEventListener('change',zeigen));
+$('#streng').addEventListener('change',()=>{ if(stand) suchen(stand.anfrage) });
+document.addEventListener('click',e=>{
+  const weg=e.target.closest('[data-weg]'); if(weg){ e.stopPropagation(); senden('/api/vergessen',weg.dataset.weg); return; }
+  const c=e.target.closest('[data-q]'); if(c){ suchen(c.dataset.q); scrollTo({top:0,behavior:'smooth'}); return; }
+  if(e.target.id==='merken'&&stand){ senden('/api/merken',stand.anfrage); e.target.textContent='Gemerkt ✓'; }
+});
+merkliste();
+const vor=new URLSearchParams(location.search).get('q'); if(vor) suchen(vor);
+</script>
+</body>
+</html>
