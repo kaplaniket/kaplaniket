@@ -105,7 +105,7 @@ def ist_defekt(titel, text):
         t = quelle.lower()
         teile = flach(zerlegen(t))
         for i, w in enumerate(teile):
-            if w in DEFEKT_WORT and not (set(teile[max(0, i - 3):i]) & VERNEINUNG):
+            if (w in DEFEKT_WORT or "defekt" in w) and not (set(teile[max(0, i - 3):i]) & VERNEINUNG):
                 return True
         for s in DEFEKT_SATZ:
             j = t.find(s)

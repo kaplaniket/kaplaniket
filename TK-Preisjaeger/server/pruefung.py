@@ -62,6 +62,7 @@ DEFEKT = [
     ("iPhone 13 128GB iCloud gesperrt", "", True),
     ("iPhone 13 128GB Top Zustand", "Das Display hat nur leichte Kratzer", False),
     ("iPhone 13, 128 GB, beschädigter Bildschirm", "", True),
+    ("DYSON V11 Total Clean, incl. Zubehör, TEILDEFEKT, TOP-Zustand!", "", True),
     ("iPhone 13 128GB , Batteria 100%, Da riparare", "", True),
 ]
 
