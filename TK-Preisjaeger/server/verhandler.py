@@ -33,7 +33,7 @@ const knopf = [...document.querySelectorAll('button')].find(x => /Nachricht schr
 return {titel: ((document.querySelector('#viewad-title') || {}).innerText || document.title || '').trim(),
         preis: ((document.querySelector('#viewad-price') || {}).innerText || '').trim(),
         text: ((document.querySelector('#viewad-description-text') || {}).innerText || '').trim().slice(0, 4000),
-        verk: namen.filter(n => n.length > 1 && !/Anzeigen online|Folgen|Profil/i.test(n))[0] || '',
+        verk: namen.filter(n => n.length > 1 && !/Anzeigen|Folgen|Profil/i.test(n)).sort((x, y) => y.length - x.length)[0] || '',
         form: !!document.querySelector('#viewad-contact-form textarea[name=message]') || !!knopf,
         url: location.href};"""
 
@@ -73,8 +73,9 @@ return {ok: /Nachricht (wurde )?(erfolgreich )?(gesendet|verschickt|versendet)|D
 
 JS_OEFFNE = """
 const name = arguments[0].toLowerCase(), nr = arguments[1];
-const arts = [...document.querySelectorAll('.ConversationByDateList article')].slice(0, 20)
-  .filter(a => { const s = a.querySelector('span'); return s && s.innerText.trim().toLowerCase() === name; });
+// name leer = die obersten Gespräche der Reihe nach (Notweg, wenn der Verkäufername nicht bekannt ist)
+const arts = [...document.querySelectorAll('.ConversationByDateList article')].slice(0, name ? 20 : 6)
+  .filter(a => { const s = a.querySelector('span'); return !name || (s && s.innerText.trim().toLowerCase() === name); });
 if (!arts[nr]) return false;
 (arts[nr].querySelector('a,[role=button]') || arts[nr]).click();
 return true;"""
@@ -84,7 +85,8 @@ const W = document.querySelector('[data-testid=conversation-wrapper]');
 if (!W) return null;
 const ls = [...W.querySelectorAll('a[href*="zur-anzeige"], a[href*="s-anzeige"]')];
 const a = ls[0];
-return {anzeige: a ? a.getAttribute('href') : '', titel: ls.map(x => x.innerText.trim()).sort((x, y) => y.length - x.length)[0] || '',
+const pn = W.querySelector('a[href*="s-bestandsliste"]');
+return {partner: pn ? (pn.getAttribute('title') || pn.innerText || '').trim() : '', anzeige: a ? a.getAttribute('href') : '', titel: ls.map(x => x.innerText.trim()).sort((x, y) => y.length - x.length)[0] || '',
         nachrichten: [...W.querySelectorAll('[data-testid=INBOUND],[data-testid=OUTBOUND]')]
           .map(x => ({von: x.dataset.testid === 'INBOUND' ? 'verk' : 'ich', text: x.innerText.trim()})).filter(m => m.text)};"""
 
@@ -234,16 +236,23 @@ def _erste_senden(b, a):
 
 def _gespraech(b, a):
     """Öffnet im Postfach das Gespräch zu dieser Anzeige (nur Gespräche mit genau diesem Verkäufernamen werden angeklickt)."""
-    if not a.get("verkaeufer"):
-        return None
+    passt = lambda v: v and (a["adid"] and a["adid"] in (v.get("anzeige") or "") or v.get("titel", "")[:14].lower() == a["titel"][:14].lower())
     b.geh("https://www.kleinanzeigen.de/m-nachrichten.html", 4)
-    for nr in range(4):
-        if not b.js(JS_OEFFNE, a["verkaeufer"], nr):
-            return None
-        time.sleep(3)
-        v = b.js(JS_VERLAUF)
-        if v and (a["adid"] and a["adid"] in (v.get("anzeige") or "") or v.get("titel", "")[:14].lower() == a["titel"][:14].lower()):
-            return v
+    v = b.js(JS_VERLAUF)      # das oberste Gespräch ist schon geöffnet
+    if passt(v):
+        return v
+    # erst nach dem Verkäufernamen, dann (Notweg, nur in den ersten zwei Tagen) die obersten Gespräche der Reihe nach
+    wege = ([a["verkaeufer"]] if len(a.get("verkaeufer") or "") > 2 else []) + ([""] if a.get("erstellt", "")[:10] >= time.strftime("%d.%m.%Y", time.localtime(time.time() - 2 * 86400))[:0] else [])
+    for name in wege:
+        for nr in range(6 if not name else 4):
+            if not b.js(JS_OEFFNE, name, nr):
+                break
+            time.sleep(3)
+            v = b.js(JS_VERLAUF)
+            if passt(v):
+                if v.get("partner") and len(a.get("verkaeufer") or "") <= 2:
+                    _merk(a, verkaeufer=v["partner"])
+                return v
     return None
 
 
