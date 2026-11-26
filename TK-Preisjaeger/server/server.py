@@ -28,8 +28,8 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "4.4"
-NEUES = "Schnäppchen: Marktpreis berichtigt (nur noch aus der unsortierten Stichprobe bei Kleinanzeigen), Herkunft der Preise wird angezeigt"      # kurzer Text zum letzten Stand
+FASSUNG = "4.5"
+NEUES = "Schnäppchen neu gerechnet: Marktpreis berichtigt, extreme Ausreißer (über 50 % unter Markt) werden jetzt gelesen und oben gezeigt"      # kurzer Text zum letzten Stand
 
 
 def _bau():
@@ -521,7 +521,10 @@ def _suche_eine(anfrage, streng=True, tiefe=1, plz=None, km=None, nur_abholung=F
     # (ab der Hälfte des üblichen Preises, nach Preis sortiert; darunter liegt fast nur Zubehör)
     if e["ueblich"]:
         ab = max(1, int(e["ueblich"] * kern.GRENZE))
+        tief_ab = max(1, int(e["ueblich"] * 0.2))      # auch die extremen Ausreißer lesen (20–50 % des Üblichen): dort liegen die echten Schnäppchen – und viel Zubehör
         sammeln([("Kleinanzeigen", ka, anfrage, ab, s) for s in range(1, ka_billig + 1)]
+                + [("Kleinanzeigen", ka, anfrage, tief_ab, s) for s in range(1, 5)]
+                + [("Vinted", quellen.vinted, anfrage, tief_ab, 1)]
                 + ([("Kleinanzeigen", quellen.kleinanzeigen, anfrage, ab, s) for s in range(1, 7)] if ort else [])
                 + [("Vinted", quellen.vinted, anfrage, ab, s) for s in range(1, vi_billig + 1)])
         e = kern.bewerten(anfrage, aktiv(), streng, e["ueblich"])
@@ -565,7 +568,7 @@ def _suche_eine(anfrage, streng=True, tiefe=1, plz=None, km=None, nur_abholung=F
     e.update(anfrage=voll, produkt=anfrage, verstanden=v if voll.lower() != anfrage.lower() else None, streng=streng, quellen=list(status.values()), links=quellen.links(anfrage),
              groessen=kern.groessen(anfrage, e["treffer"]), dauer=round(time.time() - start, 1), zeit=time.strftime("%d.%m.%Y %H:%M"))
     e["schnaeppchen"] = kern.schnaeppchen(e)
-    e["defekt"], e["auffaellig"] = e["defekt"][:40], e["auffaellig"][:40]
+    e["defekt"], e["auffaellig"] = e["defekt"][:40], sorted(e["auffaellig"], key=lambda a: -a["preis"])[:60]
     with _sperre:
         _speicher[schluessel] = (time.time(), e)
         for k in [k for k, v in _speicher.items() if time.time() - v[0] > 3600]:

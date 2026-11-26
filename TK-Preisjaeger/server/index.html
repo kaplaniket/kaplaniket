@@ -272,7 +272,7 @@ function zeigen(){
     <div class="seg"><label title="Aus: auch Pro/Mini/Max und andere Größen zulassen"><input type="checkbox" id="streng" ${streng?'checked':''}>Genau diese Ausführung</label></div>
     <select id="sort"><option value="auf"${sortierung==='auf'?' selected':''}>Preis aufsteigend</option><option value="ab"${sortierung==='ab'?' selected':''}>Preis absteigend</option></select>
     <label class="klein leise">Mein Preis <input class="zahlfeld" id="meinpreis" type="number" min="1" step="1" placeholder="€" value="${meinPreis||''}" style="width:86px;padding:5px 8px"></label>
-    <button id="snap2" style="border-color:var(--akzent);color:var(--akzent);font-weight:650">💰 Schnäppchen${d.schnaeppchen&&d.schnaeppchen.liste.length?' ('+d.schnaeppchen.liste.filter(x=>x.risiko!=='hoch').length+')':''}</button>
+    <button id="snap2" style="border-color:var(--akzent);color:var(--akzent);font-weight:650">💰 Schnäppchen${d.schnaeppchen&&d.schnaeppchen.liste.length?' ('+d.schnaeppchen.liste.filter(x=>x.risiko!=='hoch'||x.extrem).length+')':''}</button>
     <button id="merken" title="Auf die Merkliste: Der Preis wird alle 3 Stunden geprüft. Mit „Mein Preis“ kommt eine Telegram-Meldung, sobald er erreicht ist.">🔔 Preisalarm</button></div></div>`;
     h+=t.slice(0,zeigeAnzahl).map((a,i)=>karte(a,i+1,d.ueblich)).join('')||`<div class="kasten leise">Mit dieser Auswahl bleibt kein Angebot übrig.</div>`;
     if(t.length>zeigeAnzahl) h+=`<button class="mehr" id="mehr">Weitere ${Math.min(40,t.length-zeigeAnzahl)} von ${t.length-zeigeAnzahl} zeigen</button>`;
@@ -340,7 +340,7 @@ async function snapEigen(job){
   snapZeigen(`<div class="leise" style="margin-bottom:10px">${snapLetzte?'Eigene Suche „'+esc(snapLetzte)+'“':'Alles im Umkreis'+(d.gelesen?' – zusätzlich '+d.gelesen+' neue Anzeigen aus deiner Gegend geprüft':'')} · Stand ${esc(d.zeit||'')}${d.umkreis?' · nur im Umkreis von '+d.umkreis.km+' km um '+esc(d.umkreis.plz):''}</div>
    <div class="chips" style="margin-bottom:12px">${d.produkte.map(p=>`<button class="chip" data-q="${esc(p.name)}" title="${p.angebote} Angebote${p.markt?', Marktpreis '+eur(p.markt):', zu wenige Privatangebote für einen Marktpreis ('+p.basis+')'}">${esc(p.name)}${p.schnaeppchen?` <b style="color:var(--akzent)">+${eur(p.bester_gewinn)}</b>`:' <span class="x">–</span>'}</button>`).join('')}</div>`,d.liste);
 }
-const RISIKO={niedrig:['neu','geringes Risiko'],mittel:['fehlt','mittleres Risiko'],hoch:['defekt','hohes Risiko']};
+const RISIKO={niedrig:['neu','keine Auffälligkeit erkannt'],mittel:['fehlt','bitte prüfen'],hoch:['defekt','hohes Risiko']};
 function snapKarte(a,i){
   return `<div class="vp" style="margin-bottom:10px"><div style="display:grid;grid-template-columns:${a.bild?'84px ':''}1fr auto;gap:14px;align-items:start">${a.bild?`<img src="${esc(a.bild)}" referrerpolicy="no-referrer" style="width:84px;height:84px;object-fit:cover;border-radius:10px" onerror="this.remove()">`:''}
    <div style="min-width:0"><b>${esc(a.titel)}</b>${a.produkt?` <span class="m">${esc(a.produkt)}</span>`:''}
@@ -348,11 +348,11 @@ function snapKarte(a,i){
     <div class="klein leise" style="margin-top:6px">${esc([a.ort,a.hinweis].filter(Boolean).join(' · '))}</div>
     <ul class="${a.risiko==='niedrig'?'pl':'mi'}" style="margin-top:6px">${a.gruende.map(g=>`<li>${esc(g)}</li>`).join('')}</ul></div>
    <div style="text-align:right;white-space:nowrap"><div style="font-size:24px;font-weight:750">${eur(a.preis)}</div><div class="klein leise">üblich ${eur(a.markt)} · <b style="color:var(--akzent)">−${a.ersparnis_pct} %</b></div>
-    <div style="margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--akzent2)"><div class="klein">möglicher Gewinn</div><div style="font-size:20px;font-weight:750;color:var(--akzent)">+${eur(a.gewinn)}</div><div class="klein leise">${a.rendite} % · Verkauf ~${eur(a.wiederverkauf)}${a.nebenkosten?' · Versand ~'+eur(a.nebenkosten):''}</div></div></div></div>
+    <div style="margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--akzent2)"><div class="klein">Abstand zum vorsichtigen Verkaufserlös</div><div style="font-size:20px;font-weight:750;color:var(--akzent)">${eur(a.gewinn)}</div><div class="klein leise">${a.rendite} % · Verkauf ~${eur(a.wiederverkauf)}${a.nebenkosten?' · Versand ~'+eur(a.nebenkosten):''}</div></div></div></div>
    <div class="reihe"><a href="${esc(a.url)}" target="_blank" rel="noopener"><button class="haupt" style="padding:7px 14px;font-size:14px">Angebot öffnen ↗</button></a><button data-snapdet="${i}">Details</button>${a.art==='privat'?`<button data-snaphan="${i}">Verhandeln</button>`:''}${a.produkt?`<button data-q="${esc(a.produkt)}">Alle Angebote dazu</button>`:''}</div></div>`;
 }
 function snapZeigen(kopf,liste,fuss){
-  snapListe=liste; const gut=liste.filter(a=>a.risiko!=='hoch'), heikel=liste.filter(a=>a.risiko==='hoch');
+  snapListe=liste; const gut=liste.filter(a=>a.risiko!=='hoch'), extrem=liste.filter(a=>a.extrem), heikel=liste.filter(a=>a.risiko==='hoch'&&!a.extrem);
   const ort=/^\d{5}$/.test(abhol.plz);
   const eigen=`<div class="kasten" style="margin-bottom:12px"><b>Eigene Schnäppchen-Suche</b>
     <div class="reihe"><input class="vkfeld" id="snq" style="flex:1;min-width:220px;width:auto" placeholder="Produkt, z. B. Mac mini M4 – oder leer lassen und „nur im Umkreis“ wählen: dann wird alles in deiner Nähe durchsucht" value="${esc(snapLetzte||'')}"><button class="haupt" id="snstart" style="padding:9px 16px">Schnäppchen suchen</button></div>
@@ -360,8 +360,9 @@ function snapZeigen(kopf,liste,fuss){
     <label title="${ort?'':'Oben unter „Abholung“ zuerst die Postleitzahl eintragen'}"><input type="checkbox" id="snort" ${ort&&abhol.an?'checked':''} ${ort?'':'disabled'}> nur im Umkreis${ort?' von '+abhol.km+' km um '+esc(abhol.plz):' (PLZ fehlt)'}</label>
     <label><input type="checkbox" id="snmerk"> dauerhaft in den Radar aufnehmen</label></div></div>`;
   $('#vdl').innerHTML=`<h3>💰 Schnäppchen</h3>${eigen}${kopf}
-   ${gut.length?gut.map(a=>snapKarte(a,liste.indexOf(a))).join(''):'<div class="kasten">Gerade kein Angebot, das sich nach Abzug der Nebenkosten mit mindestens 25 € und 12 % Gewinn weiterverkaufen ließe.</div>'}
-   ${heikel.length?`<details class="kasten warn"><summary>${heikel.length} extrem billige Angebote mit hohem Risiko – nur ansehen, wenn du genau prüfst</summary><div style="margin-top:10px">${heikel.map(a=>snapKarte(a,liste.indexOf(a))).join('')}</div></details>`:''}
+   ${extrem.length?`<div class="kasten warn" style="margin-bottom:12px"><b>⚡ ${extrem.length} extrem abweichende Preise – mehr als die Hälfte unter Marktpreis</b><div class="klein" style="margin:4px 0 10px">Hier liegen die größten Schnäppchen, aber auch Lockangebote, Defekte, gesperrte Geräte und Betrug. Die App kann das nicht unterscheiden: Anzeige öffnen, Text und Verkäufer prüfen, nur bei Abholung nach Funktionstest oder mit Käuferschutz kaufen.</div>${extrem.sort((x,y)=>y.gewinn-x.gewinn).map(a=>snapKarte(a,liste.indexOf(a))).join('')}</div>`:''}
+   ${gut.length?`<div class="leise klein" style="margin:4px 2px 8px">Unter Marktpreis, ohne erkannte Auffälligkeit:</div>`+gut.map(a=>snapKarte(a,liste.indexOf(a))).join(''):'<div class="kasten">Gerade kein Angebot, das sich nach Abzug der Nebenkosten mit mindestens 25 € und 12 % Gewinn weiterverkaufen ließe.</div>'}
+   ${heikel.length?`<details class="kasten warn"><summary>${heikel.length} weitere sehr billige Treffer – fast immer Zubehör, Teile oder Betrugszeichen</summary><div style="margin-top:10px">${heikel.map(a=>snapKarte(a,liste.indexOf(a))).join('')}</div></details>`:''}
    <div class="kasten klein leise">So wird gerechnet: Marktpreis = Mitte der gebrauchten Privatangebote bei Kleinanzeigen (unsortierte Stichprobe, bei mehreren Speichergrößen je Größe). Wiederverkauf vorsichtig: 90 % davon, höchstens das untere Viertel der verlangten Preise. Liegen viele Angebote in der Preislage des Fundes, steht das als Warnung dabei. Gewinn = Wiederverkauf − Kaufpreis − Versand (privat pauschal 6 €). Es ist eine Schätzung: Der tatsächliche Verkaufspreis hängt von Zustand, Zubehör und Geduld ab. Wer regelmäßig einkauft, um mit Gewinn zu verkaufen, handelt gewerblich (Gewerbeanmeldung, Steuern, Gewährleistung) – das bitte mit dem Steuerberater klären.</div>
    ${fuss||''}<div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`;
   if(!$('#vdlg').open) $('#vdlg').showModal();

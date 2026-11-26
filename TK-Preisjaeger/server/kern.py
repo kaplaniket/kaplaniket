@@ -541,8 +541,10 @@ def schnaeppchen(e, heute=None):
             gruende.append("Privatverkauf: vor dem Kauf Zustand und Funktion prüfen")
         if a.get("art") == "händler" and a.get("zustand") in ("neu", "aufbereitet") and stufe == 0:
             gruende = ["Händler mit Rechnung und Widerrufsrecht – geringes Risiko"]
-        aus.append(dict(a, markt=round(markt), wiederverkauf=wieder, ersparnis=round(markt - a["preis"]), ersparnis_pct=round((1 - a["preis"] / markt) * 100),
+        extrem = stufe == 2 and not a.get("warn") and a.get("vertrauen") != "unbekannt" and a["preis"] >= markt * 0.25
+        aus.append(dict(a, extrem=extrem, markt=round(markt), wiederverkauf=wieder, ersparnis=round(markt - a["preis"]), ersparnis_pct=round((1 - a["preis"] / markt) * 100),
                         nebenkosten=versand, gewinn=round(gewinn), rendite=round(gewinn / a["preis"] * 100), risiko=("niedrig", "mittel", "hoch")[stufe], gruende=gruende))
     aus.sort(key=lambda a: ({"niedrig": 0, "mittel": 1, "hoch": 2}[a["risiko"]], -a["gewinn"]))
+    aus = [a for a in aus if a["risiko"] != "hoch"][:40] + [a for a in aus if a.get("extrem")][:25] + [a for a in aus if a["risiko"] == "hoch" and not a.get("extrem")][:15]
     return {"markt": round(markt_alle), "wiederverkauf": erloes(basis), "anzahl_basis": len(basis), "gemischt": gemischt, "herkunft": herkunft,
-            "von": round(basis[len(basis) // 4]), "bis": round(basis[(3 * len(basis)) // 4]), "liste": aus[:40]}
+            "von": round(basis[len(basis) // 4]), "bis": round(basis[(3 * len(basis)) // 4]), "liste": aus}
