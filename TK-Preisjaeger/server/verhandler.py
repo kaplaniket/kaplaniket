@@ -241,8 +241,8 @@ def _gespraech(b, a):
     v = b.js(JS_VERLAUF)      # das oberste Gespräch ist schon geöffnet
     if passt(v):
         return v
-    # erst nach dem Verkäufernamen, dann (Notweg, nur in den ersten zwei Tagen) die obersten Gespräche der Reihe nach
-    wege = ([a["verkaeufer"]] if len(a.get("verkaeufer") or "") > 2 else []) + ([""] if a.get("erstellt", "")[:10] >= time.strftime("%d.%m.%Y", time.localtime(time.time() - 2 * 86400))[:0] else [])
+    # erst nach dem Verkäufernamen, dann als Notweg die obersten sechs Gespräche der Reihe nach
+    wege = ([a["verkaeufer"]] if len(a.get("verkaeufer") or "") > 2 else []) + [""]
     for name in wege:
         for nr in range(6 if not name else 4):
             if not b.js(JS_OEFFNE, name, nr):
