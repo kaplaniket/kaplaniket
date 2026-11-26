@@ -223,6 +223,8 @@ function zeigen(){
     <button id="merken">☆ Merken</button></div></div>`;
     h+=t.slice(0,zeigeAnzahl).map((a,i)=>karte(a,i+1,d.ueblich)).join('')||`<div class="kasten leise">Mit dieser Auswahl bleibt kein Angebot übrig.</div>`;
     if(t.length>zeigeAnzahl) h+=`<button class="mehr" id="mehr">Weitere ${Math.min(40,t.length-zeigeAnzahl)} von ${t.length-zeigeAnzahl} zeigen</button>`;
+    const ka=d.quellen.find(q=>q.name==='Kleinanzeigen')||{};
+    h+=`<div class="kasten" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between"><span>Gelesen: <b>${(d.gelesen||0).toLocaleString('de-DE')}</b> Anzeigen${ka.gesamt?` – Kleinanzeigen hat zu dieser Suche insgesamt <b>${ka.gesamt.toLocaleString('de-DE')}</b> (darunter viele andere Ausführungen und Zubehör). Gelesen werden die neuesten und gezielt die billigsten ab der Hälfte des üblichen Preises.`:'.'}</span>${d.tiefe===2?'<span class="m neu">gründliche Suche</span>':'<button id="tiefer">Gründlicher suchen (bis zu 1 Minute)</button>'}</div>`;
   }
   if(!nurFast&&ae.length) h+=`<details class="kasten"><summary>${ae.length} fast passende Angebote – ein Wort oder eine gewünschte Ausstattung ist nicht genannt</summary>${ae.map(a=>karte(a,0,d.ueblich)).join('')}</details>`;
   const au=filtern(d.auffaellig), de=d.defekt.filter(a=>!nurQuelle||a.quelle===nurQuelle);
@@ -230,17 +232,17 @@ function zeigen(){
   if(de.length) h+=`<details class="kasten"><summary>${de.length} defekte Geräte / Bastlerware</summary>${de.map(a=>karte(a,0,0)).join('')}</details>`;
   const so=Object.entries(d.aussortiert||{});
   h+=`<details class="kasten"><summary>Was wurde durchsucht und aussortiert?</summary><table style="border-collapse:collapse;font-size:14px">`+
-    d.quellen.map(q=>`<tr><td style="padding:2px 18px 2px 0;font-weight:600">${esc(q.name)}</td><td>${q.fehler?`<span style="color:var(--rot)">keine Antwort</span>`:`${q.gefunden} gelesen · ${q.passend} genau passend`}</td></tr>`).join('')+`</table>`+
+    d.quellen.map(q=>`<tr><td style="padding:2px 18px 2px 0;font-weight:600">${esc(q.name)}</td><td>${q.fehler?`<span style="color:var(--rot)">keine Antwort</span>`:`${q.gefunden} gelesen${q.gesamt?' von '+q.gesamt.toLocaleString('de-DE'):''} · ${q.passend} genau passend`}</td></tr>`).join('')+`</table>`+
     (so.length?`<div class="leise" style="margin-top:8px">Aussortiert: ${so.map(([k,v])=>`${v} × ${esc(k)}`).join(' · ')}</div>`:'')+`<div class="leise klein" style="margin-top:6px">Stand ${esc(d.zeit)} · ${d.dauer} s</div></details>`;
   h+=`<div class="kasten links"><b>Zusätzlich selbst öffnen</b> <span class="leise klein">– diese Seiten erlauben keine automatische Abfrage, die Suche ist schon eingetragen</span><br>${d.links.map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.name)} ↗</a>`).join('')}</div>`;
   $('#aus').innerHTML=h;
 }
-async function suchen(text){
+async function suchen(text,tief){
   text=(text??$('#q').value).trim(); if(text.length<2||laeuft) return;
   $('#q').value=text; laeuft=true; stand=null; nurQuelle=null; zeigeAnzahl=40; quellenleiste();
-  $('#aus').innerHTML=`<div class="leise" style="margin:18px 2px 12px">Suche „${esc(text)}“ auf ${QUELLEN.length} Seiten gleichzeitig, bestimme den üblichen Preis und sortiere Zubehör aus …</div>`+'<div class="skel"></div>'.repeat(5);
+  $('#aus').innerHTML=`<div class="leise" style="margin:18px 2px 12px">${tief?'Gründliche Suche: lese bis zu 1.200 Anzeigen bei Kleinanzeigen und Vinted – das dauert bis zu einer Minute …':'Suche „'+esc(text)+'“ auf '+QUELLEN.length+' Seiten gleichzeitig, bestimme den üblichen Preis und sortiere Zubehör aus …'}</div>`+'<div class="skel"></div>'.repeat(5);
   try{
-    const r=await fetch('/api/suche?q='+encodeURIComponent(text)+'&streng='+(streng?1:0)); const d=await r.json(); laeuft=false;
+    const r=await fetch('/api/suche?q='+encodeURIComponent(text)+'&streng='+(streng?1:0)+(tief?'&tief=1':'')); const d=await r.json(); laeuft=false;
     if(d.fehler){ quellenleiste(); $('#aus').innerHTML=`<div class="kasten warn">${esc(d.fehler)}</div>`; } else { d.aehnlich=d.aehnlich||[]; stand=d; if(d.verstanden&&d.verstanden.max) meinPreis=d.verstanden.max; zeigen(); merkliste(); }
   }catch(e){ laeuft=false; quellenleiste(); $('#aus').innerHTML='<div class="kasten warn">Der Preisjäger ist gerade nicht erreichbar.</div>'; }
 }
@@ -265,6 +267,7 @@ document.addEventListener('click',e=>{
   const c=e.target.closest('[data-q]'); if(c){ suchen(c.dataset.q); scrollTo({top:0}); return; }
   const qu=e.target.closest('[data-quelle]'); if(qu&&stand){ nurQuelle=nurQuelle===qu.dataset.quelle?null:qu.dataset.quelle; zeigeAnzahl=40; zeigen(); return; }
   if(e.target.id==='mehr'){ zeigeAnzahl+=40; zeigen(); return; }
+  if(e.target.id==='tiefer'&&stand){ suchen(stand.anfrage,true); scrollTo({top:0}); return; }
   if(e.target.id==='merken'&&stand){ senden('/api/merken',stand.anfrage); e.target.textContent='★ Gemerkt'; }
 });
 // ---------- Vergleichen ----------

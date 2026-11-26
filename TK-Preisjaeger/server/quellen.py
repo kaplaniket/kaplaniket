@@ -114,6 +114,9 @@ def _ka_seite(html):
     return aus
 
 
+GESAMT = {}      # Quelle -> Gesamtzahl der Anzeigen zur letzten Suche (soweit die Seite sie nennt)
+
+
 def kleinanzeigen(anfrage, ab=None, seite=1):
     slug = re.sub(r"[^a-z0-9äöüß]+", "-", anfrage.lower()).strip("-")
     teile = ["anzeige:angebote"]
@@ -121,7 +124,12 @@ def kleinanzeigen(anfrage, ab=None, seite=1):
         teile += ["preis:%d:" % ab, "sortierung:preis"]
     if seite > 1:
         teile.append("seite:%d" % seite)
-    return _ka_seite(holen("https://www.kleinanzeigen.de/s-%s/%s/k0" % ("/".join(teile), urllib.parse.quote(slug))))
+    html = holen("https://www.kleinanzeigen.de/s-%s/%s/k0" % ("/".join(teile), urllib.parse.quote(slug)))
+    if not ab and seite == 1:      # „1 - 25 von 8.667“: wie viele Anzeigen es insgesamt gibt
+        m = re.search(r"\d+\s*-\s*\d+\s*von\s*([\d.]+)", html)
+        if m:
+            GESAMT["Kleinanzeigen"] = int(m.group(1).replace(".", ""))
+    return _ka_seite(html)
 
 
 # ---------- Vinted ----------
@@ -129,6 +137,8 @@ def vinted(anfrage, ab=None, seite=1):
     u = "https://www.vinted.de/catalog?search_text=" + q(anfrage)
     if ab:
         u += "&order=price_low_to_high&price_from=%d&currency=EUR" % ab
+    if seite > 1:
+        u += "&page=%d" % seite
     b = BeautifulSoup(holen(u), "lxml")
     aus = []
     for a in b.select('a[data-testid$="--overlay-link"]'):

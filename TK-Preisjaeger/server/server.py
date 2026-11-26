@@ -19,7 +19,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "1.3.1"
+FASSUNG = "1.4"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -30,9 +30,21 @@ def _lauf(name, fn, anfrage, ab, seite):
         return name, [], "%s: %s" % (type(e).__name__, str(e)[:80])
 
 
-def suche(anfrage, streng=True):
+# Wie tief gelesen wird: (Kleinanzeigen-Seiten neueste, Kleinanzeigen-Seiten billigste, Vinted neueste, Vinted billigste)
+TIEFE = {1: (4, 12, 2, 3), 2: (8, 40, 4, 8)}
+
+
+def suche(anfrage, streng=True, tiefe=1):
     anfrage = " ".join(anfrage.split())[:120]
-    schluessel = (anfrage.lower(), streng)
+    tiefe = 2 if tiefe == 2 else 1
+    ka_neu, ka_billig, vi_neu, vi_billig = TIEFE[tiefe]
+    schluessel = (anfrage.lower(), streng, tiefe)
+    try:      # Suchtexte mitschreiben – nur zur Fehlersuche, bleibt auf dem eigenen Rechner
+        os.makedirs(DATEN, exist_ok=True)
+        with open(os.path.join(DATEN, "suchen.log"), "a", encoding="utf-8") as f:
+            f.write("%s\t%s\t%s\n" % (time.strftime("%d.%m.%Y %H:%M:%S"), tiefe, anfrage))
+    except Exception:
+        pass
     with _sperre:
         alt = _speicher.get(schluessel)
         if alt and time.time() - alt[0] < 600:
@@ -43,9 +55,9 @@ def suche(anfrage, streng=True):
     roh, status = [], {n: {"name": n, "gefunden": 0, "passend": 0, "fehler": ""} for n, _, _, _ in quellen.QUELLEN}
 
     def sammeln(auftraege):
-        with ThreadPoolExecutor(max_workers=12) as p:
+        with ThreadPoolExecutor(max_workers=10) as p:
             laeufe = [p.submit(_lauf, *a) for a in auftraege]
-            wait(laeufe, timeout=25)
+            wait(laeufe, timeout=30 * tiefe)
             for l in laeufe:
                 if not l.done():
                     continue
@@ -57,8 +69,11 @@ def suche(anfrage, streng=True):
                 if fehler and not status[name]["fehler"]:
                     status[name]["fehler"] = fehler
 
-    # 1. Durchgang: jede Quelle mit dem Suchtext (Kleinanzeigen zwei Seiten)
-    sammeln([(n, f, anfrage, None, 1) for n, f, _, _ in quellen.QUELLEN] + [("Kleinanzeigen", quellen.kleinanzeigen, anfrage, None, 2)])
+    # 1. Durchgang: jede Quelle mit dem Suchtext (Kleinanzeigen und Vinted mehrere Seiten)
+    quellen.GESAMT.pop("Kleinanzeigen", None)
+    sammeln([(n, f, anfrage, None, 1) for n, f, _, _ in quellen.QUELLEN]
+            + [("Kleinanzeigen", quellen.kleinanzeigen, anfrage, None, s) for s in range(2, ka_neu + 1)]
+            + [("Vinted", quellen.vinted, anfrage, None, s) for s in range(2, vi_neu + 1)])
     e = kern.bewerten(anfrage, [dict(a) for a in roh], streng)
     # Kaum Treffer: Die Seiten verlangen oft alle Wörter. Dann zusätzlich mit einem Beschreibungswort weniger suchen;
     # bewertet wird weiter gegen den vollen Suchtext (fehlt nur dieses Wort im Titel, steht es unter „fast passend“).
@@ -70,7 +85,8 @@ def suche(anfrage, streng=True):
     # (ab der Hälfte des üblichen Preises, nach Preis sortiert; darunter liegt fast nur Zubehör)
     if e["ueblich"]:
         ab = max(1, int(e["ueblich"] * kern.GRENZE))
-        sammeln([(n, f, anfrage, ab, s) for n, f, _, zwei in quellen.QUELLEN if zwei for s in (1, 2) if not (n == "Vinted" and s == 2)])
+        sammeln([("Kleinanzeigen", quellen.kleinanzeigen, anfrage, ab, s) for s in range(1, ka_billig + 1)]
+                + [("Vinted", quellen.vinted, anfrage, ab, s) for s in range(1, vi_billig + 1)])
         e = kern.bewerten(anfrage, [dict(a) for a in roh], streng, e["ueblich"])
     arten = {n: art for n, _, art, _ in quellen.QUELLEN}
     for l in (e["treffer"], e["auffaellig"], e["defekt"], e["aehnlich"]):
@@ -82,6 +98,9 @@ def suche(anfrage, streng=True):
     for l in (e["treffer"], e["auffaellig"], e["defekt"], e["aehnlich"]):
         for a in l:
             a.pop("text", None)
+    if "Kleinanzeigen" in quellen.GESAMT:
+        status["Kleinanzeigen"]["gesamt"] = quellen.GESAMT["Kleinanzeigen"]
+    e["tiefe"], e["gelesen"] = tiefe, len({(a.get("quelle"), a.get("url")) for a in roh})
     e.update(anfrage=voll, produkt=anfrage, verstanden=v if voll.lower() != anfrage.lower() else None, streng=streng, quellen=list(status.values()), links=quellen.links(anfrage),
              groessen=kern.groessen(anfrage, e["treffer"]), dauer=round(time.time() - start, 1), zeit=time.strftime("%d.%m.%Y %H:%M"))
     e["defekt"], e["auffaellig"] = e["defekt"][:40], e["auffaellig"][:40]
@@ -156,7 +175,7 @@ class Antwort(BaseHTTPRequestHandler):
             if len(a) < 2:
                 return self._json({"fehler": "Bitte ein Produkt eingeben."}, 400)
             try:
-                self._json(suche(a, (p.get("streng") or ["1"])[0] != "0"))
+                self._json(suche(a, (p.get("streng") or ["1"])[0] != "0", 2 if (p.get("tief") or ["0"])[0] == "1" else 1))
             except Exception as e:
                 self._json({"fehler": "Suche fehlgeschlagen: %s" % e}, 500)
         elif u.path == "/api/merkliste":
