@@ -290,3 +290,29 @@ LINKS = [
 
 def links(anfrage):
     return [{"name": n, "url": u.format(q=q(anfrage))} for n, u in LINKS]
+
+
+# ---------- Angaben von einer Angebotsseite lesen (für den Produktvergleich) ----------
+LESBAR = ("amazon.de", "mediamarkt.de", "saturn.de", "idealo.de", "rebuy.de", "kleinanzeigen.de", "hood.de", "shpock.com", "vinted.de")
+
+
+def seitentext(url, laenge=2800):
+    """Sichtbarer Text einer Angebotsseite (nur von den bekannten Verkaufsseiten), gekürzt. Bei Fehler ''."""
+    try:
+        host = urllib.parse.urlparse(url).hostname or ""
+        if not url.startswith("https://") or not any(host == h or host.endswith("." + h) for h in LESBAR):
+            return ""
+        b = BeautifulSoup(holen(url, 10), "lxml")
+        for x in b.select("script,style,noscript,svg,nav,footer,header,form,iframe"):
+            x.decompose()
+        kern_el = b.select_one("#feature-bullets, #productOverview_feature_div") if "amazon." in host else None
+        teile = []
+        if kern_el is not None:
+            t = b.select_one("#productTitle")
+            teile.append((t.get_text(" ", strip=True) + ". ") if t else "")
+            teile += [x.get_text(" ", strip=True) for x in b.select("#productOverview_feature_div, #feature-bullets, #productDescription")]
+        else:
+            teile.append((b.select_one("main") or b.body or b).get_text(" ", strip=True))
+        return re.sub(r"\s+", " ", " ".join(teile)).strip()[:laenge]
+    except Exception:
+        return ""

@@ -107,6 +107,27 @@ dialog::backdrop{background:rgba(8,12,16,.55)}
 .reihe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
 .hv{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:8px 0;border-top:1px solid var(--linie)}
 .hv:first-of-type{border-top:0}
+.vglk{margin-top:6px;margin-left:4px;font-size:12.5px;padding:4px 10px;border-radius:8px;background:transparent}
+.vglk.an{background:var(--akzent);border-color:var(--akzent);color:var(--akzent-t);font-weight:650}
+#korb{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--karte);border-top:1px solid var(--linie);box-shadow:0 -6px 24px rgba(0,0,0,.18);display:none}
+#korb .in{max-width:1120px;margin:0 auto;padding:10px 20px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#korb input{font:inherit;padding:7px 10px;border:1.5px solid var(--linie);border-radius:10px;background:var(--karte2);color:var(--text);min-width:220px;flex:1;outline:none}
+#vdlg{width:min(1180px,96vw)}
+.vg{display:grid;gap:12px;margin-top:14px}
+.vp{border:1px solid var(--linie);border-radius:14px;padding:14px;background:var(--karte2);min-width:0}
+.vp.sieger{border-color:var(--akzent);box-shadow:0 0 0 1.5px var(--akzent)}
+.vp h4{margin:0 0 2px;font-size:15.5px}
+.vp h5{margin:12px 0 4px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--leise)}
+.vp ul{margin:0;padding:0;list-style:none}
+.vp li{padding:2px 0 2px 20px;position:relative;font-size:14px}
+.vp li::before{position:absolute;left:0;font-weight:700}
+.vp .ja li::before{content:"✓";color:var(--akzent)}
+.vp .nein li::before{content:"✕";color:var(--rot)}
+.vp .pl li::before{content:"+";color:var(--akzent)}
+.vp .mi li::before{content:"–";color:var(--warn)}
+.vp .un li::before{content:"?";color:var(--leise)}
+.empf{background:var(--akzent2);border:1.5px solid var(--akzent);border-radius:14px;padding:14px 16px;margin-top:12px}
+@media (max-width:900px){.vg{grid-template-columns:1fr !important}}
 .skel{height:112px;border-radius:14px;margin-bottom:8px;background:linear-gradient(90deg,var(--karte) 25%,var(--karte2) 50%,var(--karte) 75%);background-size:200% 100%;animation:sk 1.2s linear infinite;border:1px solid var(--linie)}
 @keyframes sk{to{background-position:-200% 0}}
 @media (max-width:820px){.zahlen{grid-template-columns:1fr 1fr}.zahl.best{grid-column:1/-1}.schritte{grid-template-columns:1fr}.marke span{display:none}}
@@ -119,6 +140,7 @@ dialog::backdrop{background:rgba(8,12,16,.55)}
 <form id="f"><div class="feld"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
 <input id="q" type="search" placeholder="Produkt oder Wunsch, z. B. „Wasserspender mit Sprudel bis 900 €“" autofocus autocomplete="off"></div>
 <button class="haupt">Suchen</button></form>
+<button id="vglauf" title="Produkte vergleichen: Vorteile, Nachteile, Empfehlung">Vergleichen</button>
 </div></header>
 <main>
 <div class="quellen" id="quellen"></div>
@@ -126,6 +148,8 @@ dialog::backdrop{background:rgba(8,12,16,.55)}
 <div id="handel"></div>
 <div id="aus"></div>
 <dialog id="dlg"><div class="dl" id="dl"></div></dialog>
+<dialog id="vdlg"><div class="dl" id="vdl"></div></dialog>
+<div id="korb"><div class="in" id="korbin"></div></div>
 <footer>TK Preisjäger {{FASSUNG}} · © 2026 Tekin Kaplan</footer>
 </main>
 <script>
@@ -154,7 +178,7 @@ function karte(a,nr,ueblich){
   return `<a class="a" href="${esc(a.url)}" target="_blank" rel="noopener"><div class="nr">${nr||''}</div>${bild}<div style="min-width:0"><div class="t">${esc(a.titel)}</div>
   <div class="z"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.quelle)}</span><span class="m ${a.zustand}">${ZU[a.zustand]||''}</span>${a.fehlt?`<span class="m fehlt">ohne „${esc(a.fehlt)}“ im Titel</span>`:''}</div>
   ${(a.wunsch_da||[]).length||(a.wunsch_offen||[]).length?`<div class="z">${(a.wunsch_da||[]).map(w=>`<span class="m neu">✓ ${esc(w)}</span>`).join('')}${(a.wunsch_offen||[]).map(w=>`<span class="m fehlt">${esc(w)} nicht genannt</span>`).join('')}</div>`:''}<div class="i">${esc([a.ort,a.hinweis].filter(Boolean).join(' · '))}</div></div>
-  <div class="p"><b>${eur(a.preis)}</b>${a.ueber?`<span class="ueber">${eur(a.ueber)} über deinem Preis</span>`:spar}${kannHandeln?`<br><button class="handeln" data-handeln="${i}">Verhandeln</button>`:''}</div></a>`;
+  <div class="p"><b>${eur(a.preis)}</b>${a.ueber?`<span class="ueber">${eur(a.ueber)} über deinem Preis</span>`:spar}<br>${kannHandeln?`<button class="handeln" data-handeln="${i}">Verhandeln</button>`:''}<button class="vglk" data-det="${i}">Details</button><button class="vglk${korb.some(k=>k.url===a.url)?' an':''}" data-vgl="${i}">${korb.some(k=>k.url===a.url)?'✓ im Vergleich':'+ Vergleich'}</button></div></a>`;
 }
 function filtern(l){ return l.filter(a=>wahl[a.zustand]!==false&&(a.zustand==='defekt'||wahl[a.zustand])&&(!nurQuelle||a.quelle===nurQuelle)); }
 function startseite(){
@@ -240,6 +264,65 @@ document.addEventListener('click',e=>{
   if(e.target.id==='mehr'){ zeigeAnzahl+=40; zeigen(); return; }
   if(e.target.id==='merken'&&stand){ senden('/api/merken',stand.anfrage); e.target.textContent='★ Gemerkt'; }
 });
+// ---------- Vergleichen ----------
+let korb=[], korbOffen=false;
+function korbzeigen(){
+  const k=$('#korb'); k.style.display=(korb.length||korbOffen)?'block':'none'; document.body.style.paddingBottom=(korb.length||korbOffen)?'70px':'0';
+  $('#korbin').innerHTML=`<b>Vergleich</b>${korb.map((p,i)=>`<button class="chip" data-korbweg="${i}" title="${esc(p.name)}">${esc(p.name.length>34?p.name.slice(0,33)+'…':p.name)}${p.preis?' · '+eur(p.preis):''}<span class="x">✕</span></button>`).join('')}
+  <input id="korbneu" placeholder="${korb.length?'weiteres Produkt eintippen (Enter)':'Produkt eintippen, z. B. Dyson V11 (Enter)'}" ${korb.length>=4?'disabled':''}>
+  <button class="haupt" id="vglstart" style="padding:8px 16px" ${korb.length?'':'disabled'}>${korb.length===1?'Mit Alternativen vergleichen':'Vergleichen'}</button><button id="korbzu">✕</button>`;
+}
+async function vergleichen(){
+  if(!korb.length) return;
+  $('#vdl').innerHTML=`<h3>Vergleich läuft …</h3><div class="leise">Preise suchen, Angaben von den Angebotsseiten lesen, Vor- und Nachteile zusammenstellen. Das dauert etwa 15–40 Sekunden.</div><div class="skel" style="margin-top:14px"></div><div class="skel"></div>`;
+  $('#vdlg').showModal();
+  let d; try{ d=await post('/api/vergleich',{produkte:korb,wunsch:stand?stand.anfrage:''}); }catch(e){ d={fehler:'Der Preisjäger ist gerade nicht erreichbar.'}; }
+  if(d.fehler){ $('#vdl').innerHTML=`<h3>Vergleich</h3><div class="kasten warn">${esc(d.fehler)}</div><div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`; return; }
+  const li=(l,k)=>l.length?`<ul class="${k}">${l.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<div class="leise klein">–</div>';
+  const sieger=d.empfehlung.name;
+  $('#vdl').innerHTML=`<h3>Produktvergleich</h3><div class="leise klein">Stand ${esc(d.zeit)} · Preise aus der eigenen Suche</div>
+  <div class="empf"><div class="klein" style="font-weight:650;color:var(--akzent)">EMPFEHLUNG</div><div style="font-size:19px;font-weight:750;margin:2px 0 6px">${esc(sieger)}</div><div>${esc(d.empfehlung.grund)}</div>${d.empfehlung.wann_anders?`<div class="leise" style="margin-top:6px">${esc(d.empfehlung.wann_anders)}</div>`:''}</div>
+  <div class="vg" style="grid-template-columns:repeat(${d.produkte.length},1fr)">${d.produkte.map(p=>`<div class="vp${p.name===sieger?' sieger':''}">
+    <h4>${esc(p.name)}</h4>${p.vorschlag?'<span class="m">vorgeschlagene Alternative</span> ':''}${p.name===sieger?'<span class="m neu">Empfehlung</span>':''}
+    <div style="font-size:22px;font-weight:750;margin-top:6px">${p.bester?'ab '+eur(p.bester):'kein Preis gefunden'}</div><div class="leise klein">${esc(p.preise||'')}</div>
+    <div style="margin-top:6px">${esc(p.kurz)}</div>
+    <h5>Kann / hat</h5>${li(p.kann,'ja')}<h5>Kann nicht / fehlt</h5>${li(p.kann_nicht,'nein')}<h5>Vorteile</h5>${li(p.plus,'pl')}<h5>Nachteile</h5>${li(p.minus,'mi')}
+    <h5>Für wen</h5><div style="font-size:14px">${esc(p.fuer_wen)}</div>${p.unsicher.length?`<h5>Nicht sicher</h5>${li(p.unsicher,'un')}`:''}
+    <div class="reihe">${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener"><button>Angebot öffnen ↗</button></a>`:''}<button data-q="${esc(p.name)}">Preise suchen</button></div>
+    <div class="leise klein" style="margin-top:8px">${p.belegt?'Grundlage: Angaben von der Angebotsseite + KI-Wissen':'Grundlage: nur KI-Wissen (keine Angebotsseite lesbar)'}</div></div>`).join('')}</div>
+  <div class="kasten warn klein" style="margin-top:14px">Die Einschätzung schreibt eine KI. Technische Angaben können falsch oder veraltet sein – vor dem Kauf die Angebotsseite prüfen. Preise stammen aus der Suche zum genannten Zeitpunkt.</div>
+  <div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`;
+}
+async function details(a){
+  $('#vdl').innerHTML=`<h3>${esc(a.titel)}</h3><div class="leise">Lese die Angebotsseite und stelle Eigenschaften und Ausstattung zusammen … (etwa 10–20 Sekunden)</div><div class="skel" style="margin-top:14px"></div>`;
+  $('#vdlg').showModal();
+  let d; try{ d=await post('/api/details',{titel:a.titel,url:a.url,preis:a.preis,quelle:a.quelle}); }catch(e){ d={fehler:'Der Preisjäger ist gerade nicht erreichbar.'}; }
+  if(d.fehler){ $('#vdl').innerHTML=`<h3>${esc(a.titel)}</h3><div class="kasten warn">${esc(d.fehler)}</div><div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`; return; }
+  const li=(l,k)=>`<ul class="${k}">${l.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
+  const i=reg.indexOf(a);
+  $('#vdl').innerHTML=`<div style="display:flex;gap:16px;align-items:flex-start">${a.bild?`<img src="${esc(a.bild)}" referrerpolicy="no-referrer" style="width:130px;height:130px;object-fit:cover;border-radius:12px" onerror="this.remove()">`:''}
+  <div style="min-width:0;flex:1"><h3>${esc(d.produkt)}</h3><div class="leise klein">${esc(a.titel)}</div>
+  <div style="margin-top:6px"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.quelle)}</span> <span class="m ${a.zustand}">${ZU[a.zustand]||''}</span> <b style="font-size:22px;margin-left:8px">${eur(a.preis)}</b></div>
+  <div style="margin-top:8px">${esc(d.kurz)}</div></div></div>
+  <div class="vg" style="grid-template-columns:1fr 1fr"><div class="vp"><h5 style="margin-top:0">Eigenschaften</h5>${d.eigenschaften.length?`<table style="border-collapse:collapse;font-size:14px;width:100%">${d.eigenschaften.map(([k,w])=>`<tr><td style="padding:3px 12px 3px 0;color:var(--leise);vertical-align:top;white-space:nowrap">${esc(k)}</td><td style="padding:3px 0">${esc(w)}</td></tr>`).join('')}</table>`:'<div class="leise klein">keine Angaben</div>'}</div>
+  <div class="vp"><h5 style="margin-top:0">Ausstattung</h5>${d.ausstattung.length?li(d.ausstattung,'ja'):'<div class="leise klein">keine Angaben</div>'}${d.lieferumfang.length?`<h5>Lieferumfang</h5>${li(d.lieferumfang,'pl')}`:''}${d.zu_diesem_angebot.length?`<h5>Zu diesem Angebot</h5>${li(d.zu_diesem_angebot,'mi')}`:''}${d.unsicher.length?`<h5>Nicht sicher</h5>${li(d.unsicher,'un')}`:''}</div></div>
+  <div class="leise klein" style="margin-top:10px">${d.belegt?'Grundlage: Angaben von der Angebotsseite, ergänzt durch KI-Wissen über das Modell.':'Die Angebotsseite war nicht lesbar – Angaben stammen nur aus KI-Wissen über das Modell.'} Angaben können falsch sein; vor dem Kauf die Anzeige prüfen.</div>
+  <div class="reihe" style="justify-content:flex-end"><a href="${esc(a.url)}" target="_blank" rel="noopener"><button>Angebot öffnen ↗</button></a>${a.art==='privat'&&a.zustand!=='defekt'&&i>=0?`<button data-dh="${i}">Verhandeln</button>`:''}${i>=0?`<button data-dv="${i}">+ Vergleich</button>`:''}<button data-vzu="1">Schließen</button></div>`;
+}
+document.addEventListener('keydown',e=>{ if(e.target.id==='korbneu'&&e.key==='Enter'){ e.preventDefault(); const n=e.target.value.trim(); if(n.length>1&&korb.length<4){ korb.push({name:n}); korbzeigen(); $('#korbneu').focus(); } } });
+document.addEventListener('click',e=>{
+  const v=e.target.closest('[data-vgl]'); if(v){ e.preventDefault(); e.stopPropagation(); const a=reg[+v.dataset.vgl], i=korb.findIndex(k=>k.url===a.url);
+    if(i>=0) korb.splice(i,1); else if(korb.length<4) korb.push({name:a.titel,url:a.url,preis:a.preis,quelle:a.quelle,zustand:ZU[a.zustand]||''}); zeigen(); korbzeigen(); return; }
+  const de=e.target.closest('[data-det]'); if(de){ e.preventDefault(); e.stopPropagation(); details(reg[+de.dataset.det]); return; }
+  if(e.target.dataset.dh){ $('#vdlg').close(); handeln(reg[+e.target.dataset.dh]); return; }
+  if(e.target.dataset.dv){ const a=reg[+e.target.dataset.dv]; if(korb.length<4&&!korb.some(k=>k.url===a.url)) korb.push({name:a.titel,url:a.url,preis:a.preis,quelle:a.quelle,zustand:ZU[a.zustand]||''}); $('#vdlg').close(); zeigen(); korbzeigen(); return; }
+  const kw=e.target.closest('[data-korbweg]'); if(kw){ korb.splice(+kw.dataset.korbweg,1); if(stand) zeigen(); korbzeigen(); return; }
+  if(e.target.id==='vglauf'){ korbOffen=true; korbzeigen(); $('#korbneu').focus(); return; }
+  if(e.target.id==='korbzu'){ korbOffen=false; korb=[]; if(stand) zeigen(); korbzeigen(); return; }
+  if(e.target.id==='vglstart'){ vergleichen(); return; }
+  if(e.target.dataset.vzu||e.target===$('#vdlg')){ $('#vdlg').close(); return; }
+  if(e.target.closest('#vdlg [data-q]')) $('#vdlg').close();
+},true);
 // ---------- Verhandeln ----------
 let verhandlungen=[];
 async function post(pfad,daten){ const r=await fetch(pfad,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(daten)}); return r.json(); }

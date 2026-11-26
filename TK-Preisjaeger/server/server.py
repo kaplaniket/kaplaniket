@@ -19,7 +19,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "1.2"
+FASSUNG = "1.3"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -175,6 +175,21 @@ class Antwort(BaseHTTPRequestHandler):
         except Exception:
             d = {}
         a = " ".join(str(d.get("anfrage", "")).split())[:120]
+        if u.path == "/api/details":
+            try:
+                url = str(d.get("url") or "")
+                angaben = quellen.seitentext(url, 4500) if url else ""
+                e = sprache.details(str(d.get("titel", ""))[:160], angaben, float(d.get("preis") or 0) or None, str(d.get("quelle", ""))[:20])
+                if not e:
+                    raise ValueError("die KI hat nicht geantwortet – bitte noch einmal versuchen")
+                return self._json(dict(e, belegt=bool(angaben)))
+            except Exception as e:
+                return self._json({"fehler": "Details nicht möglich: %s" % e}, 400)
+        if u.path == "/api/vergleich":
+            try:
+                return self._json(vergleichen(d))
+            except Exception as e:
+                return self._json({"fehler": "Vergleich nicht möglich: %s" % e}, 400)
         if u.path in ("/api/nachricht", "/api/antwort", "/api/verhandlung"):
             try:
                 return self._json(self._handel(u.path, d))
@@ -197,6 +212,59 @@ class Antwort(BaseHTTPRequestHandler):
             self._json(_merk_lesen())
         else:
             self.send_error(404)
+
+
+def _eur(n):
+    return ("%.2f" % n).replace(".", ",").replace(",00", "") + " €"
+
+
+def vergleichen(d):
+    """Produktvergleich: bis zu 4 Produkte (aus der Trefferliste mit url/preis oder nur als Name). Zu einem einzelnen
+    Produkt werden auf Wunsch Alternativen gesucht. Preise und Händlerangaben kommen aus der eigenen Suche, die Einschätzung von der KI."""
+    eingang = [p for p in (d.get("produkte") or []) if str(p.get("name", "")).strip()][:4]
+    if not eingang:
+        raise ValueError("Bitte mindestens ein Produkt angeben")
+    if len(eingang) == 1 and d.get("alternativen", True):
+        eingang += [{"name": n, "vorschlag": True} for n in sprache.alternativen(str(eingang[0]["name"]))]
+    if len(eingang) < 2:
+        raise ValueError("Zum Vergleichen braucht es mindestens zwei Produkte – bitte ein zweites eintragen")
+
+    def aufbereiten(p):
+        name, url = " ".join(str(p["name"]).split())[:120], str(p.get("url") or "")
+        preise, bester, link = [], None, url
+        if p.get("preis"):
+            bester = float(p["preis"])
+            preise.append("%s (%s, %s)" % (_eur(bester), p.get("quelle", "Angebot"), p.get("zustand", "")))
+        else:      # nur ein Name: eigene Suche -> beste Preise je Zustand und eine Händlerseite für die Angaben
+            try:
+                e = suche(name)
+                je = {}
+                for a in e["treffer"] or e.get("aehnlich", []):
+                    if a["zustand"] not in je:
+                        je[a["zustand"]] = a
+                for z, a in je.items():
+                    preise.append("%s ab %s (%s)" % ({"neu": "neu", "aufbereitet": "geprüft", "gebraucht": "gebraucht"}.get(z, z), _eur(a["preis"]), a["quelle"]))
+                alle = e["treffer"] or e.get("aehnlich", [])
+                if alle:
+                    bester = alle[0]["preis"]
+                    haendler = [a for a in alle if a.get("art") == "händler"]
+                    link = (sorted(haendler, key=lambda a: a["quelle"] != "Amazon") or alle)[0]["url"]
+            except Exception:
+                pass
+        return {"name": name, "preise": " · ".join(preise), "bester": bester, "url": link, "vorschlag": bool(p.get("vorschlag")),
+                "angaben": quellen.seitentext(link) if link else ""}
+
+    with ThreadPoolExecutor(max_workers=4) as topf:
+        produkte = list(topf.map(aufbereiten, eingang))
+    v = sprache.vergleich(produkte, str(d.get("wunsch", "")))
+    if not v:
+        raise ValueError("die KI hat nicht geantwortet – bitte noch einmal versuchen")
+    for i, p in enumerate(v["produkte"]):
+        q = produkte[i] if i < len(produkte) else {}
+        p.update(name=q.get("name", p["name"]), preise=q.get("preise", ""), bester=q.get("bester"), url=q.get("url", ""),
+                 vorschlag=q.get("vorschlag", False), belegt=bool(q.get("angaben")))
+    v["zeit"] = time.strftime("%d.%m.%Y %H:%M")
+    return v
 
 
 def _lesen(pfad):

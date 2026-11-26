@@ -93,3 +93,71 @@ def gegenantwort(titel, preis, mein, antwort, name=""):
     except Exception:
         return {"lage": "unklar", "preis_verkaeufer": None,
                 "antwort": "Danke für deine Antwort. Mein Angebot von %s steht – ich könnte zeitnah abholen oder sofort bezahlen. %s" % (_eur(mein), gruss)}
+
+
+# ---------- Produktvergleich ----------
+ALTERNATIVEN = ('Nenne zu dem Produkt bis zu zwei direkt vergleichbare Konkurrenzprodukte (gleiche Gattung, ähnliche Preisklasse, in Deutschland '
+                'erhältlich, andere Hersteller oder das Nachbarmodell). Antworte NUR mit JSON: {"alternativen": ["Marke Modell", …]}. '
+                'Nur Produkte, die es sicher gibt; lieber weniger als erfundene.')
+VERGLEICH = ('Du vergleichst Produkte für einen Käufer in Deutschland. Grundlage sind zuerst die mitgelieferten „Angaben von der Angebotsseite“; '
+             'dein allgemeines Wissen nur ergänzend. Erfinde keine technischen Daten: Was du nicht sicher weißt, kommt in "unsicher". '
+             'Preise nennst du nur so, wie sie mitgeliefert sind. Antworte NUR mit JSON: {"produkte": [{"name": genau der mitgelieferte Name, '
+             '"kurz": ein Satz, was es ist, "kann": [bis 6 Stichpunkte: was es kann/hat], "kann_nicht": [bis 5: was es nicht kann/nicht hat], '
+             '"plus": [bis 4 Vorteile gegenüber den anderen], "minus": [bis 4 Nachteile gegenüber den anderen], "fuer_wen": ein Satz, '
+             '"unsicher": [Punkte, die du nicht sicher weißt, sonst leer]}], "empfehlung": {"name": einer der Namen, "grund": zwei bis drei Sätze '
+             'mit Bezug auf Preis und Wunsch des Käufers, "wann_anders": ein Satz, wann eines der anderen die bessere Wahl ist}}. '
+             'Stichpunkte kurz, auf Deutsch, ohne Werbesprache.')
+
+
+def alternativen(name):
+    roh = ki(ALTERNATIVEN, name[:160], 150, 0.2, 15)
+    try:
+        return [" ".join(str(x).split())[:70] for x in json.loads(re.search(r"\{.*\}", roh, re.S).group(0)).get("alternativen", []) if str(x).strip()][:2]
+    except Exception:
+        return []
+
+
+def vergleich(produkte, wunsch=""):
+    """produkte: [{name, preise (Text), angaben (Text von der Angebotsseite)}]. Rückgabe dict oder None, wenn die KI nicht antwortet."""
+    text = ("Wunsch des Käufers: %s\n\n" % wunsch[:300]) if wunsch else ""
+    for i, p in enumerate(produkte, 1):
+        text += "Produkt %d: %s\nGefundene Preise: %s\nAngaben von der Angebotsseite: %s\n\n" % (
+            i, p["name"], p.get("preise") or "keine gefunden", p.get("angaben") or "keine")
+    roh = ki(VERGLEICH, text[:14000], 2200, 0.2, 75)
+    try:
+        d = json.loads(re.search(r"\{.*\}", roh, re.S).group(0))
+        liste = lambda x, n: [" ".join(str(w).split())[:140] for w in (x if isinstance(x, list) else []) if str(w).strip()][:n]
+        aus = []
+        for p in d.get("produkte", [])[:len(produkte)]:
+            aus.append({"name": str(p.get("name", ""))[:120], "kurz": str(p.get("kurz", ""))[:240], "kann": liste(p.get("kann"), 6),
+                        "kann_nicht": liste(p.get("kann_nicht"), 5), "plus": liste(p.get("plus"), 4), "minus": liste(p.get("minus"), 4),
+                        "fuer_wen": str(p.get("fuer_wen", ""))[:240], "unsicher": liste(p.get("unsicher"), 4)})
+        e = d.get("empfehlung") or {}
+        return {"produkte": aus, "empfehlung": {"name": str(e.get("name", ""))[:120], "grund": str(e.get("grund", ""))[:600],
+                                                "wann_anders": str(e.get("wann_anders", ""))[:300]}} if aus else None
+    except Exception:
+        return None
+
+
+# ---------- Produktdetails: Eigenschaften und Ausstattung eines ausgewählten Angebots ----------
+DETAILS = ('Du stellst für einen Käufer die Eigenschaften eines Produkts zusammen. Grundlage sind zuerst die „Angaben von der Angebotsseite“; '
+           'allgemeines Wissen über das Modell nur ergänzend. Erfinde nichts; Unsicheres kommt in "unsicher". Antworte NUR mit JSON: '
+           '{"produkt": sauberer Produktname (Marke Modell), "kurz": ein bis zwei Sätze, was es ist, "eigenschaften": [["Merkmal", "Wert"], … bis 14 '
+           'technische Daten wie Maße, Leistung, Speicher, Anschlüsse, Baujahr], "ausstattung": [bis 10 Stichpunkte: Funktionen und Ausstattung], '
+           '"lieferumfang": [was laut Angebot dabei ist, sonst leer], "zu_diesem_angebot": [bis 6 Punkte nur aus der Angebotsseite: Zustand, Mängel, '
+           'Alter, Garantie, Abholung/Versand], "unsicher": [Punkte, die nicht sicher sind]}. Deutsch, knapp, keine Werbesprache.')
+
+
+def details(name, angaben="", preis=None, quelle=""):
+    text = "Angebot: %s\nPreis: %s\nQuelle: %s\nAngaben von der Angebotsseite: %s" % (name[:160], _eur(preis) if preis else "unbekannt", quelle, angaben or "keine lesbar")
+    roh = ki(DETAILS, text[:6000], 1100, 0.1, 45)
+    try:
+        d = json.loads(re.search(r"\{.*\}", roh, re.S).group(0))
+        liste = lambda x, n: [" ".join(str(w).split())[:160] for w in (x if isinstance(x, list) else []) if str(w).strip()][:n]
+        paare = [[" ".join(str(p[0]).split())[:50], " ".join(str(p[1]).split())[:120]] for p in (d.get("eigenschaften") or [])
+                 if isinstance(p, list) and len(p) == 2 and str(p[1]).strip()][:14]
+        return {"produkt": str(d.get("produkt") or name)[:120], "kurz": str(d.get("kurz", ""))[:400], "eigenschaften": paare,
+                "ausstattung": liste(d.get("ausstattung"), 10), "lieferumfang": liste(d.get("lieferumfang"), 8),
+                "zu_diesem_angebot": liste(d.get("zu_diesem_angebot"), 6), "unsicher": liste(d.get("unsicher"), 5)}
+    except Exception:
+        return None
