@@ -35,7 +35,7 @@ _KAEUFER_MASCHEN = [
 
 JS_ANZEIGEN = """
 return [...document.querySelectorAll('li[data-testid=ad-card][data-adid]')].map(li => {
-  const a = [...li.querySelectorAll('a[href*="/s-anzeige/"]')].map(x => ({t: x.innerText.trim(), h: x.href})).filter(x => x.t).sort((x, y) => y.t.length - x.t.length)[0] || {};
+  const a = [...li.querySelectorAll('a[href*="/s-anzeige/"]')].map(x => ({t: x.innerText.replace(/^\\s*Anzeige\\s*/, '').replace(/\\s+/g, ' ').trim(), h: x.href})).filter(x => x.t).sort((x, y) => y.t.length - x.t.length)[0] || {};
   const text = li.innerText.replace(/\\s+/g, ' ');
   const p = text.match(/(\\d[\\d.]*)\\s*€(\\s*VB)?/);
   return {adid: li.dataset.adid, titel: a.t || '', url: a.h || '', preis: p ? parseFloat(p[1].replace(/\\./g, '')) : 0, vb: !!(p && p[2]),
