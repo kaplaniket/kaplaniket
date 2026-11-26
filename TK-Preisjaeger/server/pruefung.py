@@ -37,6 +37,12 @@ FAELLE = [
     ("macbook air m2", "MacBook Pro M2 13 Zoll", "fehlt"),
     ("dyson v11", "Dyson V11 Akku Staubsauger", True),
     ("dyson v11", "Akku für Dyson V11", "zubehoer"),
+    ("iphone 13 128gb", "*128GB*Apple iPhone 12 kein x xs 11 13 14 15 16 pro max plus", "fehlt"),
+    ("iphone 13", "iPhone 13 Hülle Silikon schwarz", "zubehoer"),
+    ("sony wh-1000xm5", "Sony WH-1000XM5 Hardcase schwarz", "zubehoer"),
+    ("sony wh-1000xm5", "Cuffie replica delle Sony WH-1000XM5.", "nachbau"),
+    ("sony wh-1000xm5", "Sony WH - 1000XM 5 Ohrpolster in Schwarz", "zubehoer"),
+    ("iphone 13 128gb", "iPhone 13 128GB, Hülle, Ladekabel, OVP", True),
 ]
 DEFEKT = [
     ("iPhone 13 128GB defekt", "", True),
@@ -44,6 +50,8 @@ DEFEKT = [
     ("iPhone 13 128GB", "Voll funktionsfähig, kein Defekt, keine Kratzer", False),
     ("iPhone 13 128GB iCloud gesperrt", "", True),
     ("iPhone 13 128GB Top Zustand", "Das Display hat nur leichte Kratzer", False),
+    ("iPhone 13, 128 GB, beschädigter Bildschirm", "", True),
+    ("iPhone 13 128GB , Batteria 100%, Da riparare", "", True),
 ]
 
 fehler = 0

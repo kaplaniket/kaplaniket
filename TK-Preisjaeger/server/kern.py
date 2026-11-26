@@ -13,16 +13,26 @@ ZUBEHOER = {"hülle", "huelle", "hülle", "case", "cover", "schutzhülle", "hand
             "ersatzdisplay", "lcd", "display", "bildschirm", "skin", "sticker", "aufkleber", "bumper", "etui", "dockingstation", "dock",
             "fernbedienung", "ständer", "standfuß", "tastatur", "pencil", "stift", "ohrpolster", "aufsatz", "attrappe", "dummy",
             "anleitung", "handbuch", "poster", "simkartenhalter", "kameraglas", "linse", "objektivdeckel", "gehäuse", "rahmen", "lüfter"}
+# eindeutiges Zubehör: zählt auch direkt hinter dem Produktnamen („iPhone 13 Hülle“)
+STARK = {"hülle", "huelle", "case", "cover", "covers", "schutzhülle", "handyhülle", "panzerglas", "schutzglas", "schutzfolie", "folie",
+         "displayschutz", "halterung", "armband", "tasche", "ersatzakku", "ersatzteil", "ersatzteile", "backcover", "akkudeckel",
+         "ersatzdisplay", "skin", "sticker", "aufkleber", "bumper", "etui", "ohrpolster", "polster", "earpads", "pads", "cups",
+         "attrappe", "dummy", "anleitung", "poster", "kameraglas", "hardcase", "aufbewahrung", "aufbewahrungsbox", "attachments"}
+ZUBEHOER |= STARK
+BEIGABE = {"ovp", "rechnung", "zubehör", "garantie", "originalverpackung", "restgarantie", "karton"}
+NACHBAU = {"replica", "replika", "replik", "nachbau", "fake", "fälschung", "kopie", "imitat", "clone", "klon"}
 MITGELIEFERT = {"inkl", "inklusive", "mit", "samt", "plus", "und", "incl", "zzgl", "dazu", "sowie", "gratis"}
 PASSEND = {"für", "fuer", "for", "passend", "kompatibel", "geeignet", "compatible"}
 GESUCH = {"suche", "gesuch", "gesucht", "ankauf", "kaufe", "tausch", "tausche", "miete", "mieten", "verleih", "vermiete",
           "reparatur", "reparieren", "wanted"}
 DEFEKT_WORT = {"defekt", "defekter", "defektes", "defekte", "kaputt", "bastler", "bastlergerät", "displaybruch", "displayschaden",
                "wasserschaden", "ersatzteilspender", "teilespender", "gesprungen", "gebrochen", "gesperrt", "icloudsperre",
-               "funktionslos", "glasbruch", "sturzschaden"}
+               "funktionslos", "glasbruch", "sturzschaden", "beschädigt", "beschädigter", "beschädigtes", "displayriss", "broken",
+               "rotto", "riparare", "cassé", "casse", "fissure", "fissuré", "hs", "roto", "stuk", "uszkodzony"}
 DEFEKT_SATZ = ["für bastler", "an bastler", "nicht funktionsfähig", "ohne funktion", "icloud lock", "icloud gesperrt", "icloud sperre",
                "geht nicht mehr an", "lässt sich nicht einschalten", "display kaputt", "display defekt", "display gebrochen",
-               "als ersatzteil", "nur ersatzteile", "nicht mehr funktionsfähig", "als defekt"]
+               "als ersatzteil", "nur ersatzteile", "nicht mehr funktionsfähig", "als defekt", "sprung im display", "riss im display",
+               "for parts", "not working", "pour pièces", "per ricambi", "da riparare", "voor onderdelen"]
 VERNEINUNG = {"kein", "keine", "keinen", "keinerlei", "nicht", "ohne", "nie", "weder", "frei"}
 LEER = ["nur ovp", "nur verpackung", "nur karton", "leerkarton", "leere ovp", "leere verpackung", "ohne gerät", "nur die ovp",
         "leerverpackung", "nur box", "leere box", "nur originalverpackung"]
@@ -104,15 +114,24 @@ def pruefe(anfrage, titel, text="", streng=True):
         return False, "fehlt"
     aw = set(flach(ag))
     stellen = []
-    for g in ag:
+    for n, g in enumerate(ag):
         i = _finde(g, tt)
         if i < 0:
             return False, "fehlt"
+        if n and g[0].isdigit() and not re.match(r"\d+[a-zäöü]+$", ag[n - 1][-1]):
+            # Modellnummer: muss unmittelbar auf das vorige Suchwort folgen („iphone 13“, nicht „iphone 12 … 13“)
+            i = _finde(ag[n - 1] + g, tt)
+            if i < 0:
+                return False, "fehlt"
+            i += len(ag[n - 1])
         stellen.append((i, i + len(g)))
     erste = min(s[0] for s in stellen)
     tl = titel.lower()
     if any(s in tl for s in LEER):
         return False, "leer"
+    if set(tt) & (NACHBAU - aw):
+        return False, "nachbau"
+    letzte = max(s[1] for s in stellen)
     if set(tt[:6]) & (GESUCH - aw) or re.search(r"\b(suche|ankauf|tausche?)\b", tl[:40]) and not (GESUCH & aw):
         return False, "gesuch"
     # Zubehör: „Hülle für iPhone 13“ – Zubehörwort vor dem Produkt oder „für/passend“ davor; „inkl. Hülle“ ist in Ordnung
@@ -127,6 +146,10 @@ def pruefe(anfrage, titel, text="", streng=True):
                 return False, "zubehoer"
             if i > erste and not (davor & MITGELIEFERT) and (set(tt[max(0, i - 3):i]) & PASSEND):
                 return False, "zubehoer"
+            if w in STARK and letzte <= i <= letzte + 1 and not (davor & MITGELIEFERT):
+                # „iPhone 13 Hülle schwarz“ ist Zubehör; „iPhone 13, Hülle, Ladekabel, OVP“ ist das Gerät mit Beigaben
+                if not any(x in ZUBEHOER or x in BEIGABE for x in tt[i + 1:]):
+                    return False, "zubehoer"
     if streng:
         # andere Ausführung: direkt hinter (oder vor) dem gesuchten Namen steht z. B. „Pro“, „Mini“, „Max“
         belegt = set()
@@ -158,7 +181,7 @@ def ausfuehrung_name(grund):
     return grund.split(":", 1)[1] if ":" in grund else ""
 
 
-def bewerten(anfrage, angebote, streng=True):
+def bewerten(anfrage, angebote, streng=True, ueblich=None):
     """Teilt Rohangebote ein. Rückgabe: dict mit treffer, auffaellig, defekt, aussortiert (Zähler) und hinweise."""
     treffer, defekt, zaehler, andere = [], [], {}, {}
     gesehen = set()
@@ -177,7 +200,7 @@ def bewerten(anfrage, angebote, streng=True):
                 andere[n] = andere.get(n, 0) + 1
                 name = "andere Ausführung"
             else:
-                name = {"fehlt": "anderes Produkt", "zubehoer": "Zubehör/Ersatzteil", "gesuch": "Gesuch/Ankauf/Tausch", "leer": "nur Verpackung"}[grund]
+                name = {"fehlt": "anderes Produkt", "zubehoer": "Zubehör/Ersatzteil", "gesuch": "Gesuch/Ankauf/Tausch", "leer": "nur Verpackung", "nachbau": "Nachbau/Fälschung"}[grund]
             zaehler[name] = zaehler.get(name, 0) + 1
             continue
         a["zustand"] = zustand(a["titel"], a.get("text", ""), a.get("zustand", "gebraucht"))
@@ -188,13 +211,13 @@ def bewerten(anfrage, angebote, streng=True):
             treffer.append(a)
     # Ausreißer: weit unter dem üblichen Preis = meist Zubehör, Lockangebot oder Betrug -> getrennt zeigen
     auffaellig, mitte = [], None
-    if len(treffer) >= 5:
-        mitte = statistics.median(a["preis"] for a in treffer)
+    if ueblich or len(treffer) >= 5:
+        mitte = ueblich or statistics.median(a["preis"] for a in treffer)
+        if not ueblich:      # Zubehör zieht die Mitte nach unten: einmal ohne die Ausreißer neu bestimmen
+            mitte = statistics.median([a["preis"] for a in treffer if a["preis"] >= mitte * 0.38] or [mitte])
         grenze = mitte * 0.38
         auffaellig = [a for a in treffer if a["preis"] < grenze]
         treffer = [a for a in treffer if a["preis"] >= grenze]
-        if treffer:
-            mitte = statistics.median(a["preis"] for a in treffer)
     for l in (treffer, auffaellig, defekt):
         l.sort(key=lambda a: (a["preis"] + (a.get("versand") or 0), a["preis"]))
     return {"treffer": treffer, "auffaellig": auffaellig, "defekt": defekt, "aussortiert": zaehler,

@@ -60,7 +60,7 @@ def suche(anfrage, streng=True):
     if e["ueblich"]:
         ab = max(1, int(e["ueblich"] * 0.4))
         sammeln([(n, f, anfrage, ab, s) for n, f, _, zwei in quellen.QUELLEN if zwei for s in (1, 2) if not (n == "Vinted" and s == 2)])
-        e = kern.bewerten(anfrage, [dict(a) for a in roh], streng)
+        e = kern.bewerten(anfrage, [dict(a) for a in roh], streng, e["ueblich"])
     for a in e["treffer"]:
         status[a["quelle"]]["passend"] += 1
     arten = {n: art for n, _, art, _ in quellen.QUELLEN}

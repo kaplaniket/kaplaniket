@@ -141,10 +141,10 @@ def vinted(anfrage, ab=None, seite=1):
         bild = b.select_one('[data-testid="%s--image--img"]' % kennung)
         mit_schutz = float(preise[1]) if len(preise) > 1 else None
         z = (zu.group(1) if zu else "").lower()
-        aus.append({"quelle": "Vinted", "titel": titel, "preis": float(preise[0]), "url": "https://www.vinted.de" + a.get("href", "").split("?")[0],
+        aus.append({"quelle": "Vinted", "titel": titel, "preis": mit_schutz or float(preise[0]), "url": "https://www.vinted.de" + a.get("href", "").split("?")[0],
                     "bild": bild.get("src", "") if bild else "", "ort": "", "text": "",
                     "zustand": "neu" if z.startswith("neu") else "gebraucht",
-                    "hinweis": " · ".join(x for x in [zu.group(1) if zu else "", ("%.2f € mit Käuferschutz" % mit_schutz).replace(".", ",") if mit_schutz else "", "zzgl. Versand"] if x)})
+                    "hinweis": " · ".join(x for x in [zu.group(1) if zu else "", "inkl. Käuferschutz" if mit_schutz else "", "zzgl. Versand"] if x)})
     return aus
 
 
