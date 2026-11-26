@@ -27,7 +27,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "3.3"
+FASSUNG = "3.4"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -211,20 +211,23 @@ _radar = {"zeit": 0, "daten": None, "laeuft": False}
 
 
 def radar(neu=False):
-    """Durchsucht die Radar-Produkte und die Merkliste nach Schnäppchen (Ergebnis wird 30 Minuten gehalten)."""
-    if _radar["daten"] and not neu and time.time() - _radar["zeit"] < 1800:
-        return _radar["daten"]
-    if _radar["laeuft"]:
-        return dict(_radar["daten"] or {"liste": [], "produkte": []}, laeuft=True)
-    _radar["laeuft"] = True
+    """Schnäppchen über die Radar-Produkte und die Merkliste. Läuft im Hintergrund (dauert Minuten); geliefert wird der letzte fertige
+    Stand, mit laeuft=True, solange ein Durchgang arbeitet. Ergebnis gilt 30 Minuten."""
+    alt = _radar["daten"]
+    if (neu or not alt or time.time() - _radar["zeit"] > 1800) and not _radar["laeuft"]:
+        _radar["laeuft"] = True
+        threading.Thread(target=_radar_lauf, daemon=True).start()
+    return dict(alt or {"liste": [], "produkte": [], "zeit": ""}, laeuft=_radar["laeuft"])
+
+
+def _radar_lauf(melde=False):
     try:
         namen = list(dict.fromkeys(RADAR + [m["anfrage"] for m in _merk_lesen()[:10] if not _AB.search(m["anfrage"])]))
 
         def eins(n):
             try:
                 e = suche(n)
-                s = e.get("schnaeppchen") or {}
-                return n, s, len(e["treffer"])
+                return n, e.get("schnaeppchen") or {}, len(e["treffer"])
             except Exception:
                 return n, {}, 0
 
@@ -236,7 +239,14 @@ def radar(neu=False):
                 liste += [dict(a, produkt=n) for a in s.get("liste", [])[:6]]
         liste.sort(key=lambda a: ({"niedrig": 0, "mittel": 1, "hoch": 2}[a["risiko"]], -a["gewinn"]))
         _radar.update(zeit=time.time(), daten={"liste": liste[:60], "produkte": sorted(produkte, key=lambda p: -p["bester_gewinn"]), "zeit": time.strftime("%d.%m.%Y %H:%M")})
-        return _radar["daten"]
+        if melde:      # automatischer Lauf: die besten neuen Funde melden (geringes Risiko, mindestens 120 € und 25 % Gewinn), höchstens drei
+            neu_ = [a for a in liste if a["risiko"] == "niedrig" and a["gewinn"] >= 120 and a["rendite"] >= 25 and a["url"] not in _radar.setdefault("gemeldet", set())][:3]
+            for a in neu_:
+                _radar["gemeldet"].add(a["url"])
+                melden("💰 Preisjäger-Radar: %s für %s (üblich %s) – möglicher Gewinn rund %s\n%s\n%s" % (
+                    a["produkt"], _eur(a["preis"]), _eur(a["markt"]), _eur(a["gewinn"]), a["titel"][:80], a["url"]))
+    except Exception as x:
+        print("Radar:", x, flush=True)
     finally:
         _radar["laeuft"] = False
 
@@ -469,6 +479,9 @@ def waechter():
             except Exception as x:
                 print("Preiswächter:", m.get("anfrage"), x, flush=True)
             time.sleep(20)
+        if not _radar["laeuft"]:      # alle 3 Stunden auch den Schnäppchen-Radar laufen lassen und sehr gute Funde melden
+            _radar["laeuft"] = True
+            _radar_lauf(melde=True)
         time.sleep(3 * 3600)
 
 

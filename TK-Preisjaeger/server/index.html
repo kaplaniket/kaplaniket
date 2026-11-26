@@ -135,6 +135,7 @@ dialog::backdrop{background:rgba(8,12,16,.55)}
 .vkfeld{width:100%;font:inherit;border:1.5px solid var(--linie);border-radius:10px;padding:9px 12px;background:var(--karte2);color:var(--text);outline:none}
 .vkfeld:focus{border-color:var(--akzent)}
 .skel{height:112px;border-radius:14px;margin-bottom:8px;background:linear-gradient(90deg,var(--karte) 25%,var(--karte2) 50%,var(--karte) 75%);background-size:200% 100%;animation:sk 1.2s linear infinite;border:1px solid var(--linie)}
+@keyframes d{to{transform:rotate(360deg)}}
 @keyframes sk{to{background-position:-200% 0}}
 @media (max-width:820px){.zahlen{grid-template-columns:1fr 1fr}.zahl.best{grid-column:1/-1}.schritte{grid-template-columns:1fr}.marke span{display:none}}
 @media (max-width:560px){.a{grid-template-columns:64px 1fr auto;padding-left:10px}.a .nr{display:none}.a img,.a .ohne{width:64px;height:64px}.a .p b{font-size:19px}.kopf{padding:10px 12px}main{padding:14px 12px 60px}.haupt{padding:0 14px}.start h1{font-size:26px}}
@@ -330,13 +331,17 @@ function snapZeigen(kopf,liste,fuss){
 function snapSuche(){ const d=stand, s=d&&d.schnaeppchen;
   if(!s||!s.markt){ snapZeigen(`<div class="kasten warn">Für „${esc(d?d.anfrage:'')}“ gibt es zu wenige gebrauchte Privatangebote (${s?s.anzahl_basis:0}), um einen verlässlichen Marktpreis zu bestimmen. Genauer suchen (Marke + Modell + Größe) oder den Radar nehmen.</div>`,[],`<div class="reihe"><button id="radarstart" class="haupt" style="padding:9px 16px">Radar: beliebte Produkte durchsuchen</button></div>`); return; }
   snapZeigen(`<div class="leise" style="margin-bottom:12px">„${esc(d.anfrage)}“ · Marktpreis gebraucht <b>${eur(s.markt)}</b> (aus ${s.anzahl_basis} Privatangeboten) · realistischer Wiederverkauf <b>~${eur(s.wiederverkauf)}</b></div>`,s.liste,`<div class="reihe"><button id="radarstart">Radar: auch andere beliebte Produkte durchsuchen</button></div>`); }
+let radarUhr=null;
 async function radarLaden(neu){
-  $('#vdl').innerHTML=`<h3>💰 Schnäppchen-Radar</h3><div class="leise">Durchsuche gängige, gut weiterverkäufliche Produkte und deine Merkliste nach Angeboten weit unter Marktpreis … Das dauert beim ersten Mal 1–2 Minuten.</div><div class="skel" style="margin-top:14px"></div><div class="skel"></div>`;
-  if(!$('#vdlg').open) $('#vdlg').showModal();
+  clearTimeout(radarUhr);
+  if(!$('#vdlg').open){ $('#vdl').innerHTML='<h3>💰 Schnäppchen-Radar</h3><div class="skel" style="margin-top:14px"></div>'; $('#vdlg').showModal(); }
   let d; try{ d=await (await fetch('/api/radar'+(neu?'?neu=1':''))).json(); }catch(e){ d={fehler:'Keine Antwort vom Preisjäger ('+e+').'}; }
   if(d.fehler){ $('#vdl').innerHTML=`<h3>Schnäppchen-Radar</h3><div class="kasten warn">${esc(d.fehler)}</div><div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`; return; }
-  snapZeigen(`<div class="leise" style="margin-bottom:10px">Radar über ${d.produkte.length} Produkte · Stand ${esc(d.zeit||'')}${d.laeuft?' · ein Durchlauf läuft gerade, das ist der letzte fertige Stand':''}</div>
-   <div class="chips" style="margin-bottom:12px">${d.produkte.map(p=>`<button class="chip" data-q="${esc(p.name)}" title="${p.angebote} Angebote${p.markt?', Marktpreis '+eur(p.markt):''}">${esc(p.name)}${p.schnaeppchen?` <b style="color:var(--akzent)">+${eur(p.bester_gewinn)}</b>`:' <span class="x">–</span>'}</button>`).join('')}</div>`,d.liste,`<div class="reihe"><button id="radarneu">Radar jetzt neu durchsuchen</button></div>`);
+  const lauf=d.laeuft?`<div class="kasten"><span class="kreis" style="display:inline-block;width:14px;height:14px;border:2.5px solid var(--linie);border-top-color:var(--akzent);border-radius:50%;animation:d .8s linear infinite;vertical-align:-2px;margin-right:8px"></span>Der Radar durchsucht gerade ${d.produkte.length||'rund 15'} gängige Produkte nach Angeboten weit unter Marktpreis – das dauert 2 bis 3 Minuten. Die Liste erscheint von selbst.</div>`:'';
+  if(!d.liste.length&&d.laeuft){ $('#vdl').innerHTML=`<h3>💰 Schnäppchen-Radar</h3>${lauf}<div class="skel"></div><div class="skel"></div><div class="reihe" style="justify-content:flex-end"><button data-vzu="1">Schließen</button></div>`; }
+  else snapZeigen(`${lauf}<div class="leise" style="margin-bottom:10px">Radar über ${d.produkte.length} Produkte · Stand ${esc(d.zeit||'')} · läuft alle 3 Stunden von selbst und meldet sehr gute Funde per Telegram</div>
+   <div class="chips" style="margin-bottom:12px">${d.produkte.map(p=>`<button class="chip" data-q="${esc(p.name)}" title="${p.angebote} Angebote${p.markt?', Marktpreis '+eur(p.markt):''}">${esc(p.name)}${p.schnaeppchen?` <b style="color:var(--akzent)">+${eur(p.bester_gewinn)}</b>`:' <span class="x">–</span>'}</button>`).join('')}</div>`,d.liste,`<div class="reihe"><button id="radarneu" ${d.laeuft?'disabled':''}>Radar jetzt neu durchsuchen</button></div>`);
+  if(d.laeuft) radarUhr=setTimeout(()=>{ if($('#vdlg').open&&$('#vdl h3')&&/Radar|Schnäppchen/.test($('#vdl h3').innerText)) radarLaden(false); },6000);
 }
 document.addEventListener('click',e=>{ const z=e.target;
   if(z.id==='snap'){ if(stand) snapSuche(); else radarLaden(false); return; }

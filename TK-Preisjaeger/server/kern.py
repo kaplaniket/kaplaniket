@@ -461,10 +461,21 @@ def schnaeppchen(e, heute=None):
     Marktpreis = Mitte der gebrauchten Privatangebote (mindestens 8). Wiederverkauf vorsichtig mit 93 % davon angesetzt.
     Rückgabe: {markt, wiederverkauf, anzahl_basis, liste[…]} – liste nach erwartetem Gewinn sortiert; leer, wenn die Basis zu dünn ist."""
     import datetime
-    basis = sorted(a["preis"] for a in e.get("treffer", []) if a.get("art") == "privat" and a.get("zustand") == "gebraucht")
+    def speicher(a):      # größte Speicherangabe im Titel (ab 64 GB bzw. TB) – 256 GB und 512 GB sind verschiedene Märkte
+        gr = [(int(w[:-2]) * (1000 if w.endswith("tb") else 1)) for w in flach(zerlegen(a["titel"])) if re.match(r"\d+(gb|tb)$", w)]
+        gr = [g for g in gr if g >= 64]
+        return max(gr) if gr else None
+
+    privat = [a for a in e.get("treffer", []) if a.get("art") == "privat" and a.get("zustand") == "gebraucht"]
+    basis = sorted(a["preis"] for a in privat)
     if len(basis) < 8:
         return {"markt": None, "anzahl_basis": len(basis), "liste": []}
-    markt = statistics.median(basis)
+    markt_alle = statistics.median(basis)
+    je = {}
+    for a in privat:
+        je.setdefault(speicher(a), []).append(a["preis"])
+    gemischt = len([k for k, v in je.items() if k and len(v) >= 3]) >= 2      # mehrere Speichergrößen im Ergebnis
+    markt = markt_alle
     wieder = round(markt * 0.93)
     heute = heute or datetime.date.today()
     aus = []
@@ -472,11 +483,19 @@ def schnaeppchen(e, heute=None):
         if a.get("zustand") == "defekt":
             continue
         versand = 0 if "nur Abholung" in (a.get("hinweis") or "") else (a.get("versand") or 0) or (6 if a.get("art") == "privat" else 0)
+        gruende, stufe = [], 0
+        markt, k = markt_alle, speicher(a)
+        if gemischt:      # mit der eigenen Speichergröße vergleichen, nicht mit dem Schnitt aller Ausstattungen
+            if k and len(je.get(k, [])) >= 5:
+                markt = statistics.median(je[k])
+            else:
+                stufe = 1
+                gruende.append("Speichergröße %s – Marktpreis ist über alle Ausstattungen gemittelt, bitte selbst vergleichen" % ("im Titel nicht genannt" if not k else "selten"))
+        wieder = round(markt * 0.93)
         gewinn = wieder - a["preis"] - versand
         if gewinn < 25 or gewinn < a["preis"] * 0.12:
             continue
-        gruende, stufe = [], 0
-        if auff:
+        if auff or a["preis"] < markt * 0.5:
             stufe = 2
             gruende.append("unter der Hälfte des Marktpreises – oft Lockpreis, Zubehör oder Betrug")
         if a.get("warn"):
@@ -497,11 +516,11 @@ def schnaeppchen(e, heute=None):
         if a.get("fehlt"):
             stufe = max(stufe, 1)
             gruende.append("Titel nennt „%s“ nicht – Ausführung prüfen" % a["fehlt"])
-        if a.get("art") == "privat" and not gruende:
+        if a.get("art") == "privat" and stufe == 0 and not gruende:
             gruende.append("Privatverkauf: vor dem Kauf Zustand und Funktion prüfen")
         if a.get("art") == "händler" and a.get("zustand") in ("neu", "aufbereitet") and stufe == 0:
             gruende = ["Händler mit Rechnung und Widerrufsrecht – geringes Risiko"]
         aus.append(dict(a, markt=round(markt), wiederverkauf=wieder, ersparnis=round(markt - a["preis"]), ersparnis_pct=round((1 - a["preis"] / markt) * 100),
                         nebenkosten=versand, gewinn=round(gewinn), rendite=round(gewinn / a["preis"] * 100), risiko=("niedrig", "mittel", "hoch")[stufe], gruende=gruende))
     aus.sort(key=lambda a: ({"niedrig": 0, "mittel": 1, "hoch": 2}[a["risiko"]], -a["gewinn"]))
-    return {"markt": round(markt), "wiederverkauf": wieder, "anzahl_basis": len(basis), "liste": aus[:40]}
+    return {"markt": round(markt_alle), "wiederverkauf": round(markt_alle * 0.93), "anzahl_basis": len(basis), "gemischt": gemischt, "liste": aus[:40]}
