@@ -178,6 +178,8 @@ def hood(anfrage, ab=None, seite=1):
 # ---------- Amazon ----------
 def amazon(anfrage, ab=None, seite=1):
     b = BeautifulSoup(holen("https://www.amazon.de/s?k=" + q(anfrage)), "lxml")
+    if not b.select_one('div[data-component-type="s-search-result"]') and b.select_one('form[action*="validateCaptcha"], input#captchacharacters'):
+        raise RuntimeError("Amazon verlangt gerade eine Sicherheitsabfrage")
     aus = []
     for a in b.select('div[data-component-type="s-search-result"]'):
         text = a.get_text(" | ", strip=True)

@@ -39,6 +39,9 @@ FAELLE = [
     ("dyson v11", "Akku für Dyson V11", "zubehoer"),
     ("iphone 13 128gb", "*128GB*Apple iPhone 12 kein x xs 11 13 14 15 16 pro max plus", "fehlt"),
     ("iphone 13", "iPhone 13 Hülle Silikon schwarz", "zubehoer"),
+    ("dyson v11", "Dyson V11 absolute Zubehör", "zubehoer"),
+    ("playstation 5", "Sony Playstation 5 Portal Remote Player", "ausfuehrung"),
+    ("playstation 5", "PlayStation 5 Controller weiß", "zubehoer"),
     ("sony wh-1000xm5", "Sony WH-1000XM5 Hardcase schwarz", "zubehoer"),
     ("sony wh-1000xm5", "Cuffie replica delle Sony WH-1000XM5.", "nachbau"),
     ("sony wh-1000xm5", "Sony WH - 1000XM 5 Ohrpolster in Schwarz", "zubehoer"),
@@ -67,9 +70,9 @@ for titel, text, soll in DEFEKT:
     fehler += not gut
     print("%-6s defekt? %-60s -> %s" % ("ok" if gut else "FEHLER", (titel + " / " + text)[:60], ist))
 # Ausreißer
-liste = [{"quelle": "T", "titel": "iPhone 13 128GB", "preis": p, "url": str(i)} for i, p in enumerate([250, 260, 270, 280, 300, 20, 310])]
+liste = [{"quelle": "T", "titel": "iPhone 13 128GB", "preis": p, "url": str(i)} for i, p in enumerate([250, 260, 270, 280, 300, 20, 310, 120])]
 e = kern.bewerten("iphone 13 128gb", liste)
-gut = len(e["auffaellig"]) == 1 and e["treffer"][0]["preis"] == 250
+gut = len(e["auffaellig"]) == 2 and e["treffer"][0]["preis"] == 250
 fehler += not gut
 print("%-6s Ausreißer: bester %s, auffällig %s" % ("ok" if gut else "FEHLER", e["treffer"][0]["preis"], [a["preis"] for a in e["auffaellig"]]))
 print("\nERGEBNIS: %s" % ("alles in Ordnung" if not fehler else "%d FEHLER" % fehler))

@@ -111,7 +111,7 @@ function zeigen(){
   if(t.length){
     h+=`<div class="kopf"><h2>${t.length} passende Angebote, günstigste zuerst</h2><span class="leise">Stand ${esc(d.zeit)} · ${d.dauer} s</span></div>`+t.slice(0,150).map(zeile).join('');
   }
-  if(d.auffaellig.length) h+=`<details class="kasten warn"><summary>${d.auffaellig.length} auffällig billige Angebote (weit unter dem üblichen Preis – meist Zubehör, Lockangebot oder Betrug)</summary><div style="margin-top:10px">${d.auffaellig.map(zeile).join('')}</div></details>`;
+  if(d.auffaellig.length) h+=`<details class="kasten warn"><summary>${d.auffaellig.length} Angebote unter der Hälfte des üblichen Preises (meist Zubehör, Spiele, Lockpreis oder Betrug – genau prüfen)</summary><div style="margin-top:10px">${d.auffaellig.map(zeile).join('')}</div></details>`;
   if(d.defekt.length) h+=`<details class="kasten"><summary>${d.defekt.length} defekte Geräte / Bastlerware</summary><div style="margin-top:10px">${d.defekt.map(zeile).join('')}</div></details>`;
   const so=Object.entries(d.aussortiert||{});
   h+=`<details class="kasten"><summary>Was wurde durchsucht und aussortiert?</summary><div style="margin-top:8px">`+

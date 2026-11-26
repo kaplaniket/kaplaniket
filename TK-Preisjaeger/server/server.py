@@ -56,9 +56,9 @@ def suche(anfrage, streng=True):
     sammeln([(n, f, anfrage, None, 1) for n, f, _, _ in quellen.QUELLEN] + [("Kleinanzeigen", quellen.kleinanzeigen, anfrage, None, 2)])
     e = kern.bewerten(anfrage, [dict(a) for a in roh], streng)
     # 2. Durchgang: Der übliche Preis ist jetzt bekannt -> auf den Privatmärkten gezielt die billigsten echten Angebote holen
-    # (ab 40 % des üblichen Preises, nach Preis sortiert; darunter liegt fast nur Zubehör)
+    # (ab der Hälfte des üblichen Preises, nach Preis sortiert; darunter liegt fast nur Zubehör)
     if e["ueblich"]:
-        ab = max(1, int(e["ueblich"] * 0.4))
+        ab = max(1, int(e["ueblich"] * kern.GRENZE))
         sammeln([(n, f, anfrage, ab, s) for n, f, _, zwei in quellen.QUELLEN if zwei for s in (1, 2) if not (n == "Vinted" and s == 2)])
         e = kern.bewerten(anfrage, [dict(a) for a in roh], streng, e["ueblich"])
     for a in e["treffer"]:

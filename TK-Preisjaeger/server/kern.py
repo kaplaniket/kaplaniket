@@ -6,7 +6,8 @@ import statistics
 EINHEITEN = {"gb", "tb", "mb", "ml", "l", "kg", "g", "w", "v", "mah", "ah", "mm", "cm", "m", "zoll", "hz", "mp", "wh", "kw", "ps", "ccm", "k"}
 # Wörter, die eine andere Ausführung desselben Namens bezeichnen
 AUSFUEHRUNG = {"pro", "max", "plus", "mini", "ultra", "lite", "fe", "air", "se", "xl", "slim", "digital", "oled", "ti", "super",
-               "xt", "promax", "neo", "edge", "note", "fold", "flip", "studio", "go", "active", "classic", "elite", "premium", "junior", "kids", "s", "e", "c", "a", "x"}
+               "xt", "promax", "neo", "edge", "note", "fold", "flip", "studio", "go", "active", "classic", "elite", "premium", "junior", "kids",
+               "portal", "vr", "s", "e", "c", "a", "x"}
 ZUBEHOER = {"hülle", "huelle", "hülle", "case", "cover", "schutzhülle", "handyhülle", "panzerglas", "schutzglas", "schutzfolie", "folie",
             "displayschutz", "ladekabel", "kabel", "ladegerät", "netzteil", "adapter", "halterung", "halter", "armband", "tasche",
             "ersatzakku", "ersatzteil", "ersatzteile", "backcover", "rückseite", "akkudeckel", "platine", "mainboard", "logicboard",
@@ -17,7 +18,9 @@ ZUBEHOER = {"hülle", "huelle", "hülle", "case", "cover", "schutzhülle", "hand
 STARK = {"hülle", "huelle", "case", "cover", "covers", "schutzhülle", "handyhülle", "panzerglas", "schutzglas", "schutzfolie", "folie",
          "displayschutz", "halterung", "armband", "tasche", "ersatzakku", "ersatzteil", "ersatzteile", "backcover", "akkudeckel",
          "ersatzdisplay", "skin", "sticker", "aufkleber", "bumper", "etui", "ohrpolster", "polster", "earpads", "pads", "cups",
-         "attrappe", "dummy", "anleitung", "poster", "kameraglas", "hardcase", "aufbewahrung", "aufbewahrungsbox", "attachments"}
+         "attrappe", "dummy", "anleitung", "poster", "kameraglas", "hardcase", "aufbewahrung", "aufbewahrungsbox", "attachments",
+         "zubehör", "controller", "kontroller", "dualsense", "bürste", "bürsten", "kombibürste", "filter", "aufsätze", "ladestation",
+         "ersatzrolle", "verpackungskarton", "brosse", "filtro", "düse", "spiel", "spiele", "game", "games"}
 ZUBEHOER |= STARK
 BEIGABE = {"ovp", "rechnung", "zubehör", "garantie", "originalverpackung", "restgarantie", "karton"}
 NACHBAU = {"replica", "replika", "replik", "nachbau", "fake", "fälschung", "kopie", "imitat", "clone", "klon"}
@@ -181,6 +184,10 @@ def ausfuehrung_name(grund):
     return grund.split(":", 1)[1] if ":" in grund else ""
 
 
+# Angebote unter der Hälfte des üblichen Preises sind fast immer Zubehör, Spiele, Lockpreise oder Betrug
+GRENZE = 0.5
+
+
 def bewerten(anfrage, angebote, streng=True, ueblich=None):
     """Teilt Rohangebote ein. Rückgabe: dict mit treffer, auffaellig, defekt, aussortiert (Zähler) und hinweise."""
     treffer, defekt, zaehler, andere = [], [], {}, {}
@@ -214,14 +221,14 @@ def bewerten(anfrage, angebote, streng=True, ueblich=None):
     if ueblich or len(treffer) >= 5:
         mitte = ueblich or statistics.median(a["preis"] for a in treffer)
         if not ueblich:      # Zubehör zieht die Mitte nach unten: einmal ohne die Ausreißer neu bestimmen
-            mitte = statistics.median([a["preis"] for a in treffer if a["preis"] >= mitte * 0.38] or [mitte])
-        grenze = mitte * 0.38
+            mitte = statistics.median([a["preis"] for a in treffer if a["preis"] >= mitte * GRENZE] or [mitte])
+        grenze = mitte * GRENZE
         auffaellig = [a for a in treffer if a["preis"] < grenze]
         treffer = [a for a in treffer if a["preis"] >= grenze]
     for l in (treffer, auffaellig, defekt):
         l.sort(key=lambda a: (a["preis"] + (a.get("versand") or 0), a["preis"]))
     return {"treffer": treffer, "auffaellig": auffaellig, "defekt": defekt, "aussortiert": zaehler,
-            "andere_ausfuehrungen": dict(sorted(andere.items(), key=lambda x: -x[1])[:8]), "ueblich": mitte}
+            "andere_ausfuehrungen": dict(sorted(((k, v) for k, v in andere.items() if len(k) > 1 and v >= 3), key=lambda x: -x[1])[:6]), "ueblich": mitte}
 
 
 def groessen(anfrage, treffer):
