@@ -190,8 +190,9 @@ def pruefe(anfrage, titel, text="", streng=True):
         belegt = set()
         for a, b in stellen:
             belegt.update(range(a, b))
-        for a, b in stellen:
-            for j in ([b] if b < len(tt) else []) + [a - 1]:      # nur unmittelbar davor/dahinter
+        for nr, (a, b) in enumerate(stellen):
+            # unmittelbar dahinter; davor nur zwischen zwei Suchwörtern („MacBook Pro M2“ bei Suche „macbook m2“)
+            for j in ([b] if b < len(tt) else []) + ([a - 1] if nr else []):
                 if j < 0 or j in belegt:
                     continue
                 w = tt[j]
