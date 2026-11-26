@@ -19,7 +19,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "1.4"
+FASSUNG = "1.4.1"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -28,6 +28,52 @@ def _lauf(name, fn, anfrage, ab, seite):
         return name, fn(anfrage, ab, seite), ""
     except Exception as e:
         return name, [], "%s: %s" % (type(e).__name__, str(e)[:80])
+
+
+_seiten = {}      # url -> Seitentext (Zwischenspeicher für die Nachprüfung)
+
+
+def nachpruefen(anfrage, roh, streng):
+    """Händlerangebote derselben Marke, deren Titel nicht passt (oft nur eine Modellnummer): Steht der gesuchte Name auf der
+    Angebotsseite, gilt das Angebot. Höchstens 8 Seiten je Suche, nur Händlerquellen."""
+    gruppen = kern.zerlegen(anfrage)
+    if len(gruppen) < 2:
+        return
+    marke = gruppen[0]
+    kand, gesehen = [], set()
+    for a in roh:
+        if a.get("quelle") not in ("idealo", "MediaMarkt", "Saturn", "Hood") or not a.get("url") or a["url"] in gesehen or a.get("pruef_titel"):
+            continue
+        tt = kern.flach(kern.zerlegen(a["titel"]))
+        if kern._finde(marke, tt) < 0 or kern.pruefe(anfrage, a["titel"], "", streng)[0]:
+            continue
+        gesehen.add(a["url"])
+        kand.append(a)
+    kand = sorted(kand, key=lambda a: a["quelle"] != "idealo")[:8]
+    if not kand:
+        return
+
+    def lesen(a):
+        if a["url"] not in _seiten:
+            _seiten[a["url"]] = quellen.seitentext(a["url"], 9000)
+        return a, _seiten[a["url"]]
+
+    with ThreadPoolExecutor(max_workers=8) as topf:
+        for a, text in topf.map(lesen, kand):
+            zahl, stueck = kern.fenster(anfrage, text)
+            if not zahl:      # ein Beschreibungswort darf fehlen, dann muss der Name aber mehrfach auf der Seite stehen
+                for kuerzer, _ in kern.kuerzungen(anfrage):
+                    zahl, stueck = kern.fenster(kuerzer, text)
+                    if zahl >= 2:
+                        break
+                    zahl = 0
+            if zahl:
+                for b in roh:
+                    if b.get("url") == a["url"]:
+                        b["pruef_titel"] = stueck
+                        b["hinweis"] = " · ".join(x for x in [b.get("hinweis", ""), "Name laut Angebotsseite bestätigt"] if x)
+    if len(_seiten) > 400:
+        _seiten.clear()
 
 
 # Wie tief gelesen wird: (Kleinanzeigen-Seiten neueste, Kleinanzeigen-Seiten billigste, Vinted neueste, Vinted billigste)
@@ -74,6 +120,8 @@ def suche(anfrage, streng=True, tiefe=1):
     sammeln([(n, f, anfrage, None, 1) for n, f, _, _ in quellen.QUELLEN]
             + [("Kleinanzeigen", quellen.kleinanzeigen, anfrage, None, s) for s in range(2, ka_neu + 1)]
             + [("Vinted", quellen.vinted, anfrage, None, s) for s in range(2, vi_neu + 1)])
+    e = kern.bewerten(anfrage, [dict(a) for a in roh], streng)
+    nachpruefen(anfrage, roh, streng)
     e = kern.bewerten(anfrage, [dict(a) for a in roh], streng)
     # Kaum Treffer: Die Seiten verlangen oft alle Wörter. Dann zusätzlich mit einem Beschreibungswort weniger suchen;
     # bewertet wird weiter gegen den vollen Suchtext (fehlt nur dieses Wort im Titel, steht es unter „fast passend“).

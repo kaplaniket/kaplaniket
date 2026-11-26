@@ -323,6 +323,6 @@ def seitentext(url, laenge=2800):
             teile += [x.get_text(" ", strip=True) for x in b.select("#productOverview_feature_div, #feature-bullets, #productDescription")]
         else:
             teile.append((b.select_one("main") or b.body or b).get_text(" ", strip=True))
-        return re.sub(r"\s+", " ", " ".join(teile)).strip()[:laenge]
+        return re.sub(r"\s+", " ", " ".join(teile).replace("\u00ad", "")).strip()[:laenge]
     except Exception:
         return ""

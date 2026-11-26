@@ -248,11 +248,12 @@ def bewerten(anfrage, angebote, streng=True, ueblich=None):
         if schluessel in gesehen:
             continue
         gesehen.add(schluessel)
-        ok, grund = pruefe(anfrage, a["titel"], a.get("text", ""), streng)
+        tp = a.get("pruef_titel") or a["titel"]      # Händler mit Modellnummer im Titel: Textstück von der Angebotsseite
+        ok, grund = pruefe(anfrage, tp, a.get("text", ""), streng)
         if not ok and grund == "fehlt":
             # Fast passend: genau ein Beschreibungswort fehlt im Titel („Osmose“), sonst stimmt alles
             for kuerzer, wort in kurz:
-                if pruefe(kuerzer, a["titel"], a.get("text", ""), streng)[0]:
+                if pruefe(kuerzer, tp, a.get("text", ""), streng)[0]:
                     a["fehlt"] = wort
                     a["zustand"] = "defekt" if ist_defekt(a["titel"], a.get("text", "")) else zustand(a["titel"], a.get("text", ""), a.get("zustand", "gebraucht"))
                     if a["zustand"] != "defekt":
@@ -413,3 +414,23 @@ def betrug(text):
     """Liste der Warnzeichen im Text (leer = keines gefunden). Ein Fund ist ein Hinweis, kein Beweis."""
     t = (text or "").lower()
     return [hinweis for muster, hinweis in _BETRUG if re.search(muster, t)]
+
+
+# ---------- Nachprüfung auf der Angebotsseite: Händler führen ein Produkt oft nur unter der Modellnummer ----------
+def fenster(anfrage, text, weite=12):
+    """Sucht im Seitentext Stellen, an denen alle Suchwörter dicht beieinander stehen.
+    Rückgabe: (Anzahl solcher Stellen, Textstück der ersten Stelle) – (0, '') wenn keine."""
+    ag = zerlegen(anfrage)
+    tt = flach(zerlegen(text))
+    if not ag or not tt:
+        return 0, ""
+    erste, zahl, stueck, letzte = ag[0], 0, "", -99
+    for i in range(len(tt) - len(erste) + 1):
+        if tt[i:i + len(erste)] != erste or i < letzte + weite:
+            continue
+        aus = tt[max(0, i - 3):i + weite]
+        if all(_finde(g, aus) >= 0 or any(len(g) == 1 and len(g[0]) >= 5 and g[0] in w for w in aus) for g in ag[1:]):
+            zahl += 1
+            letzte = i
+            stueck = stueck or " ".join(tt[i:i + weite - 2])
+    return zahl, stueck

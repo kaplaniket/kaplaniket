@@ -127,5 +127,12 @@ for text, soll in [("Bitte per PayPal Freunde und Familie zahlen", True), ("Schr
     gut = bool(kern.betrug(text)) == soll
     fehler += not gut
     print("%-6s Betrug? %-58s -> %s" % ("ok" if gut else "FEHLER", text[:58], kern.betrug(text)[:1]))
+# Nachprüfung auf der Angebotsseite (Händler führt nur die Modellnummer im Titel)
+seite = "Aqmos WSDK-BLACK-PRO Günstigster Preis 789,00 € Zum Shop AQMOS DrinKing Pro Osmose-Wasserspender - still, sprudelnd, kalt & heiß 879,12 €"
+z, st = kern.fenster("aqmos drinking pro osmose", seite)
+e = kern.bewerten("aqmos drinking pro osmose", [{"quelle": "idealo", "titel": "Aqmos WSDK-BLACK-PRO", "pruef_titel": st, "preis": 789, "url": "x"}])
+gut = z == 1 and len(e["treffer"]) == 1 and kern.fenster("aqmos drinking pro osmose", "Aqmos Wasserspender DrinKing Schwarz 658 €")[0] == 0
+fehler += not gut
+print("%-6s Nachprüfung Angebotsseite: %s Stelle(n), „%s“" % ("ok" if gut else "FEHLER", z, st[:50]))
 print("\nERGEBNIS: %s" % ("alles in Ordnung" if not fehler else "%d FEHLER" % fehler))
 sys.exit(1 if fehler else 0)
