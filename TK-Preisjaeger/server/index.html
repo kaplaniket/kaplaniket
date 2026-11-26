@@ -146,6 +146,7 @@ dialog::backdrop{background:rgba(8,12,16,.55)}
 <div class="quellen" id="quellen"></div>
 <div class="reihe" id="abhol" style="margin-top:6px"></div>
 <div class="merk" id="merk"></div>
+<div id="auto"></div>
 <div id="handel"></div>
 <div id="aus"></div>
 <dialog id="dlg"><div class="dl" id="dl"></div></dialog>
@@ -387,6 +388,21 @@ async function handelsliste(l){
   try{ verhandlungen=Array.isArray(l)?l:await (await fetch('/api/verhandlungen')).json(); }catch(e){ verhandlungen=[]; }
   $('#handel').innerHTML=verhandlungen.length?`<details class="kasten" ${verhandlungen.length<4?'open':''}><summary>Meine Verhandlungen (${verhandlungen.length})</summary>${verhandlungen.map((x,i)=>`<div class="hv" data-hv="${i}"><div style="min-width:0;cursor:pointer"><b>${esc(x.titel)}</b><div class="leise klein">${esc(x.quelle)} · Verkäufer ${eur(x.preis)} → mein Preis ${eur(x.mein)} · <b>${esc(x.stand)}</b> · ${esc(x.zeit)}</div></div><div><button>Weiter</button> <button data-fort="1" title="Aus der Liste nehmen">✕</button></div></div>`).join('')}</details>`:'';
 }
+let autoDaten=[];
+async function autoliste(l){
+  try{ autoDaten=Array.isArray(l)?l:await (await fetch('/api/auto')).json(); }catch(e){ return; }
+  const offen=autoDaten.filter(x=>['wartet','gesendet','verhandelt','einig','rueckfrage'].includes(x.stand)).length;
+  $('#auto').innerHTML=autoDaten.length?`<details class="kasten" style="border-color:var(--akzent)" ${offen?'open':''}><summary>Selbstständige Verhandlungen (${offen} laufend, ${autoDaten.length} gesamt)</summary>${autoDaten.slice(0,30).map((x,i)=>`<div class="hv" style="grid-template-columns:1fr"><div><b>${esc(x.titel)}</b> <span class="m ${x.stand==='einig'?'neu':['betrug','fehler','rueckfrage'].includes(x.stand)?'fehlt':''}">${esc(x.standtext)}</span>
+    <div class="leise klein">${esc(x.verkaeufer||'Verkäufer')} · Preis ${eur(x.preis)} → mein Preis ${eur(x.mein)} · ${x.weg==='versand'?'Versand, PayPal':'Abholung, bar'} · Gegenrunden ${x.runden} · zuletzt ${esc(x.geaendert)}</div>
+    ${x.hinweis?`<div class="klein" style="color:var(--warn)">${esc(x.hinweis)}</div>`:''}
+    <details style="margin-top:6px"><summary class="klein">Verlauf (${x.verlauf.length})</summary>${x.verlauf.map(m=>`<div class="klein" style="margin:6px 0;padding:6px 10px;border-radius:10px;background:${m.von==='ich'?'var(--akzent2)':'var(--karte2)'}"><b>${m.von==='ich'?'Ich (App)':esc(x.verkaeufer||'Verkäufer')}</b> · ${esc(m.zeit)}<br>${esc(m.text)}</div>`).join('')||'<div class="klein leise">noch nichts</div>'}</details>
+    <div class="reihe"><a href="${esc(x.url)}" target="_blank" rel="noopener"><button>Anzeige öffnen ↗</button></a>${['rueckfrage','einig','verhandelt','gesendet'].includes(x.stand)?`<input class="zahlfeld" style="flex:1;min-width:200px;width:auto" id="aa${i}" placeholder="Eigene Antwort an den Verkäufer …"><button data-aantw="${i}">Senden</button>`:''}${['wartet','gesendet','verhandelt','rueckfrage'].includes(x.stand)?`<button data-astop="${i}">Stoppen</button>`:''}</div></div></div>`).join('')}</details>`:'';
+}
+document.addEventListener('click',async e=>{
+  if(e.target.dataset.astop){ autoliste(await post('/api/auto/stop',{id:autoDaten[+e.target.dataset.astop].id})); }
+  if(e.target.dataset.aantw){ const i=+e.target.dataset.aantw, t=($('#aa'+i)||{}).value||''; if(t.trim().length<2) return; const d=await post('/api/auto/antwort',{id:autoDaten[i].id,text:t}); if(!d.fehler) autoliste(d); }
+});
+setInterval(()=>{ if(autoDaten.some(x=>['wartet','gesendet','verhandelt','rueckfrage'].includes(x.stand))&&!document.querySelector('#auto input:focus')) autoliste(); },30000);
 async function entwurf(){
   const m=parseFloat($('#hp').value); if(!m){ $('#hp').focus(); return; } meinPreis=m; akt.mein=m;
   const weg=$('#hweg').value; akt.weg=weg;
@@ -405,14 +421,23 @@ function handeln(a,alt){
   <div class="reihe"><button id="hant">Antwort vorschlagen</button><span id="hlage"></span></div>
   <textarea id="hr" rows="4" style="margin-top:8px;display:none"></textarea>
   <div class="reihe" id="hrk" style="display:none"><button id="hrkop">Antwort kopieren und Angebot öffnen</button></div></div>
-  <div class="kasten klein" style="margin-top:14px"><b>Selbstständig verhandeln</b> <span id="hkonto" class="leise">– prüfe Konto …</span></div>
+  <div class="kasten" style="margin-top:14px;border-color:var(--akzent)"><b>Selbstständig verhandeln lassen</b> <span id="hkonto" class="leise klein">– prüfe Konto …</span>
+  <div class="klein leise" style="margin:6px 0">Die App sendet die Nachricht oben über dein Kleinanzeigen-Konto, liest die Antworten, bleibt bei deinem Preis (höchstens 3 Gegenrunden) und meldet sich per Telegram, sobald ihr euch einig seid, der Verkäufer etwas fragt oder etwas nach Betrug aussieht. Abholung und Bezahlung machst du.</div>
+  <button class="haupt" id="hauto" style="padding:9px 16px" disabled>Selbstständig verhandeln</button> <span id="hautoinfo" class="klein"></span></div>
   <div class="reihe" style="justify-content:flex-end"><button id="hzu">Schließen</button></div>`;
   $('#dlg').showModal(); if(!alt&&akt.mein) entwurf();
-  fetch('/api/konto').then(r=>r.json()).then(k=>{ const el=$('#hkonto'); if(el) el.textContent='– '+k.hinweis; }).catch(()=>{});
+  const istKA=(a.url||'').includes('kleinanzeigen.de/s-anzeige/');
+  if(!istKA){ $('#hkonto').textContent='– nur bei Kleinanzeigen-Angeboten möglich.'; }
+  else fetch('/api/konto').then(r=>r.json()).then(k=>{ const el=$('#hkonto'); if(el){ el.textContent='– '+k.hinweis; $('#hauto').disabled=!k.bereit; } }).catch(()=>{});
 }
 $('#dlg').addEventListener('click',async e=>{
   if(e.target.id==='hzu'||e.target===$('#dlg')){ $('#dlg').close(); return; }
   if(e.target.id==='hneu'){ entwurf(); return; }
+  if(e.target.id==='hauto'){ const text=$('#ht').value.trim(), m=parseFloat($('#hp').value)||0; if(!text||text==='Schreibe …'||!m){ $('#hautoinfo').textContent='Erst deinen Preis eintragen und die Nachricht schreiben lassen.'; return; }
+    e.target.disabled=true; $('#hautoinfo').textContent='Starte …';
+    const d=await post('/api/auto/start',{url:akt.a.url,titel:akt.a.titel,preis:akt.a.preis,mein:m,weg:$('#hweg').value,text});
+    if(d.fehler){ $('#hautoinfo').innerHTML='<span style="color:var(--rot)">'+esc(d.fehler)+'</span>'; e.target.disabled=false; } else { $('#hautoinfo').textContent='Läuft – die Nachricht wird jetzt gesendet. Stand unter „Selbstständige Verhandlungen“.'; autoliste(d); }
+    return; }
   const merk=stand=>post('/api/verhandlung',{url:akt.a.url,titel:akt.a.titel,quelle:akt.a.quelle,preis:akt.a.preis,mein:akt.mein||parseFloat($('#hp').value)||0,stand,text:$('#ht').value}).then(handelsliste);
   if(e.target.id==='hkop'){ if(!$('#ht').value.trim()||$('#ht').value==='Schreibe …') return; kopieren($('#ht').value); merk('Nachricht kopiert – wartet auf Antwort'); window.open(akt.a.url,'_blank'); e.target.textContent='Kopiert ✓ – Angebot geöffnet'; return; }
   if(e.target.id==='hant'){ const t=$('#ha').value.trim(); if(!t) return; $('#hlage').textContent='Lese …';
@@ -422,7 +447,7 @@ $('#dlg').addEventListener('click',async e=>{
     $('#hlage').innerHTML=`<b>${L[d.lage]||L.unklar}</b>`; $('#hr').style.display='block'; $('#hrk').style.display='flex'; $('#hr').value=d.antwort||''; merk(d.lage==='einig'?'EINIG – Abschluss durch dich':(L[d.lage]||'Antwort erhalten')); return; }
   if(e.target.id==='hrkop'){ kopieren($('#hr').value); window.open(akt.a.url,'_blank'); e.target.textContent='Kopiert ✓'; }
 });
-zeigen(); merkliste(); handelsliste(); abholzeile();
+zeigen(); merkliste(); handelsliste(); abholzeile(); autoliste();
 const vor=new URLSearchParams(location.search).get('q'); if(vor) suchen(vor);
 </script>
 </body>

@@ -18,6 +18,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import kern
 import quellen
 import sprache
+import verhandler
 
 ORT = os.path.dirname(os.path.abspath(__file__))
 DATEN = os.path.join(ORT, "daten")
@@ -25,7 +26,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "2.3"
+FASSUNG = "3.0"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -470,8 +471,9 @@ class Antwort(BaseHTTPRequestHandler):
         elif u.path == "/api/merkliste":
             self._json(_merk_lesen())
         elif u.path == "/api/konto":
-            import verhandler
             self._json(verhandler.konto())
+        elif u.path == "/api/auto":
+            self._json(verhandler.liste())
         elif u.path == "/api/verhandlungen":
             self._json(_lesen(HANDEL))
         elif u.path == "/api/stand":
@@ -486,6 +488,17 @@ class Antwort(BaseHTTPRequestHandler):
         except Exception:
             d = {}
         a = " ".join(str(d.get("anfrage", "")).split())[:120]
+        if u.path.startswith("/api/auto/"):
+            try:
+                if u.path == "/api/auto/start":
+                    verhandler.starten(d)
+                elif u.path == "/api/auto/stop":
+                    verhandler.stoppen(str(d.get("id", "")))
+                elif u.path == "/api/auto/antwort":
+                    verhandler.eigene_antwort(str(d.get("id", "")), d.get("text", ""))
+                return self._json(verhandler.liste())
+            except Exception as e:
+                return self._json({"fehler": str(e)}, 400)
         if u.path == "/api/fehler":
             print("OBERFLÄCHE-FEHLER:", str(d.get("text", ""))[:300], "|", (self.headers.get("User-Agent") or "")[-40:], flush=True)
             return self._json({})
@@ -658,4 +671,6 @@ Antwort._handel = _handel
 if __name__ == "__main__":
     print("TK Preisjäger %s auf Port %d" % (FASSUNG, PORT), flush=True)
     threading.Thread(target=waechter, daemon=True).start()
+    verhandler.melden = melden
+    threading.Thread(target=verhandler.waechter, daemon=True).start()
     ThreadingHTTPServer(("0.0.0.0", PORT), Antwort).serve_forever()
