@@ -6,7 +6,7 @@ set -e
 STAND="${1:-claude/keen-cannon-t6kf0h}"
 B="https://raw.githubusercontent.com/kaplaniket/kaplaniket/$STAND/TK-Preisjaeger/server"
 Z="$HOME/preisjaeger"; T="$(mktemp -d)"
-for f in server.py kern.py quellen.py sprache.py browser.py verhandler.py verkauf.py anfragen.py pruefung.py index.html symbol-180.png symbol-512.png; do
+for f in server.py kern.py quellen.py sprache.py browser.py verhandler.py verkauf.py anfragen.py pflege.py pruefung.py index.html symbol-180.png symbol-512.png; do
   curl -sfL -o "$T/$f" "$B/$f" || { echo "FEHLT: $f – nichts geändert"; exit 1; }
 done
 (cd "$T" && python3 pruefung.py | tail -1 | grep -q "alles in Ordnung") || { echo "Prüfung FEHLGESCHLAGEN – nichts geändert"; exit 1; }

@@ -21,6 +21,7 @@ import sprache
 import verhandler
 import verkauf
 import anfragen
+import pflege
 
 ORT = os.path.dirname(os.path.abspath(__file__))
 DATEN = os.path.join(ORT, "daten")
@@ -28,8 +29,8 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "4.5"
-NEUES = "Schnäppchen neu gerechnet: Marktpreis berichtigt, extreme Ausreißer (über 50 % unter Markt) werden jetzt gelesen und oben gezeigt"      # kurzer Text zum letzten Stand
+FASSUNG = "4.6"
+NEUES = "Anzeigenpflege: eigene Kleinanzeigen prüfen lassen – bessere Titel und Texte, Preisempfehlung, Übernahme je Anzeige"      # kurzer Text zum letzten Stand
 
 
 def _bau():
@@ -713,6 +714,8 @@ class Antwort(BaseHTTPRequestHandler):
             self._json(verhandler.konto())
         elif u.path == "/api/schnaeppchen":
             self._json(_sjobs.get((p.get("job") or [""])[0]) or {"fehler": "Suche nicht gefunden"})
+        elif u.path == "/api/pflege":
+            self._json(pflege.stand())
         elif u.path == "/api/anfragen":
             self._json(anfragen.stand())
         elif u.path == "/api/radar":
@@ -758,6 +761,15 @@ class Antwort(BaseHTTPRequestHandler):
                 return self._json({"fehler": str(e)}, 400)
         if u.path == "/api/radar/eigene":
             return self._json({"eigene": eigene_radar(neu=str(d.get("neu") or "") or None, weg=str(d.get("weg") or "") or None)})
+        if u.path.startswith("/api/pflege/"):
+            try:
+                if u.path == "/api/pflege/start":
+                    return self._json(pflege.start(anfragen.stand()["anzeigen"], suche))
+                if u.path == "/api/pflege/uebernehmen":
+                    return self._json(pflege.uebernehmen(str(d.get("adid", "")), d))
+                return self.send_error(404)
+            except Exception as e:
+                return self._json({"fehler": str(e)}, 400)
         if u.path.startswith("/api/anfragen/"):
             try:
                 if u.path == "/api/anfragen/einstellen":

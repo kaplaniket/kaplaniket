@@ -39,6 +39,8 @@ return [...document.querySelectorAll('li[data-testid=ad-card][data-adid]')].map(
   const text = li.innerText.replace(/\\s+/g, ' ');
   const p = text.match(/(\\d[\\d.]*)\\s*€(\\s*VB)?/);
   return {adid: li.dataset.adid, titel: a.t || '', url: a.h || '', preis: p ? parseFloat(p[1].replace(/\\./g, '')) : 0, vb: !!(p && p[2]),
+          besucher: (text.match(/(\\d+) Besucher/) || [])[1] || '', gemerkt: (text.match(/(\\d+) mal gemerkt/) || [])[1] || '0',
+          endet: (text.match(/Endet am ([\\d.]+)/) || [])[1] || '', bild: (li.querySelector('img') || {}).src || '',
           pausiert: /pausiert|deaktiviert|gelöscht|abgelaufen/i.test(text), reserviert: /reserviert/i.test(text)};
 }).filter(x => x.titel);"""
 
