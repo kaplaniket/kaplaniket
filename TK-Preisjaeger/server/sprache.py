@@ -21,7 +21,8 @@ VERSTEHEN = ('Du zerlegst einen Kaufwunsch für eine Preissuche. Antworte NUR mi
              'Kleinanzeigen eintippt (Marke, Modell, Gattung, Größe; keine Füllwörter, keine Ausstattung; Produktnamen unverändert lassen), '
              '"wuensche": [Ausstattungsmerkmale, je ein einzelnes Stichwort in Grundform], "ohne": [was nicht gewünscht ist, Stichwörter], '
              '"max": Preis in Euro, den der Käufer höchstens zahlen will, als Zahl oder null, "min": Mindestpreis oder null, '
-             '"zustand": [] oder Auswahl aus "neu","gebraucht","aufbereitet"}')
+             '"zustand": [] oder Auswahl aus "neu","gebraucht","aufbereitet", "plz": fünfstellige Postleitzahl, falls der Käufer abholen will und eine nennt, '
+             'sonst null, "umkreis": Umkreis in km als Zahl, falls genannt, sonst null}')
 
 
 def ki(system, text, max_tokens=300, temperatur=0.2, warten=9):
@@ -49,7 +50,8 @@ def verstehen(text):
         liste = lambda x: [str(w).lower().strip()[:30] for w in (x if isinstance(x, list) else []) if str(w).strip()][:6]
         zahl = lambda x: float(x) if isinstance(x, (int, float)) and x > 0 else None
         return {"produkt": produkt, "wuensche": liste(d.get("wuensche")), "ohne": liste(d.get("ohne")), "max": zahl(d.get("max")),
-                "min": zahl(d.get("min")), "zustand": [z for z in liste(d.get("zustand")) if z in ("neu", "gebraucht", "aufbereitet")], "weg": "ki"}
+                "min": zahl(d.get("min")), "zustand": [z for z in liste(d.get("zustand")) if z in ("neu", "gebraucht", "aufbereitet")], "weg": "ki",
+                "plz": str(d.get("plz"))[:5] if re.fullmatch(r"\d{5}", str(d.get("plz") or "")) else None, "umkreis": zahl(d.get("umkreis"))}
     except Exception:
         return regel
 

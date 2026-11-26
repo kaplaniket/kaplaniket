@@ -16,9 +16,9 @@ UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTM
 PREIS = re.compile(r"(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?\s*€")
 
 
-def holen(url, timeout=12):
-    r = urllib.request.Request(url, headers={"User-Agent": UA, "Accept-Language": "de-DE,de;q=0.9",
-                                             "Accept": "text/html,application/xhtml+xml", "Accept-Encoding": "gzip, deflate"})
+def holen(url, timeout=12, kopf=None):
+    r = urllib.request.Request(url, headers=dict({"User-Agent": UA, "Accept-Language": "de-DE,de;q=0.9",
+                                                  "Accept": "text/html,application/xhtml+xml", "Accept-Encoding": "gzip, deflate"}, **(kopf or {})))
     with urllib.request.urlopen(r, timeout=timeout) as a:
         d = a.read()
         k = (a.headers.get("Content-Encoding") or "").lower()
@@ -117,14 +117,33 @@ def _ka_seite(html):
 GESAMT = {}      # Quelle -> Gesamtzahl der Anzeigen zur letzten Suche (soweit die Seite sie nennt)
 
 
-def kleinanzeigen(anfrage, ab=None, seite=1):
+_orte = {}
+
+
+def ka_ort(plz):
+    """Ortskennung von Kleinanzeigen zu einer Postleitzahl (für die Umkreissuche); None, wenn unbekannt."""
+    plz = re.sub(r"\D", "", str(plz))[:5]
+    if len(plz) != 5:
+        return None
+    if plz not in _orte:
+        try:
+            d = json.loads(holen("https://www.kleinanzeigen.de/s-ort-empfehlungen.json?query=" + plz, 8,
+                                 {"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"}))
+            _orte[plz] = next((k.strip("_") for k, v in d.items() if k.strip("_").isdigit() and k != "_0" and str(v).startswith(plz)), None)
+        except Exception:
+            return None
+    return _orte[plz]
+
+
+def kleinanzeigen(anfrage, ab=None, seite=1, ort=None):
+    """ort = (Ortskennung, Umkreis in km) schränkt auf Anzeigen im Umkreis ein."""
     slug = re.sub(r"[^a-z0-9äöüß]+", "-", anfrage.lower()).strip("-")
     teile = ["anzeige:angebote"]
     if ab:
         teile += ["preis:%d:" % ab, "sortierung:preis"]
     if seite > 1:
         teile.append("seite:%d" % seite)
-    html = holen("https://www.kleinanzeigen.de/s-%s/%s/k0" % ("/".join(teile), urllib.parse.quote(slug)))
+    html = holen("https://www.kleinanzeigen.de/s-%s/%s/k0%s" % ("/".join(teile), urllib.parse.quote(slug), ("l%sr%d" % ort) if ort else ""))
     if not ab and seite == 1:      # „1 - 25 von 8.667“: wie viele Anzeigen es insgesamt gibt
         m = re.search(r"\d+\s*-\s*\d+\s*von\s*([\d.]+)", html)
         if m:
@@ -286,6 +305,7 @@ QUELLEN = [
     ("MediaMarkt", mediamarkt, "händler", False),
     ("Saturn", saturn, "händler", False),
 ]
+# „Web“ (offene Websuche nach weiteren Händlern) wird am Dateiende angehängt, weil die Funktion erst dort steht.
 
 # Seiten, die automatische Abrufe sperren: nur fertige Suchlinks zum Selbst-Öffnen
 LINKS = [
@@ -326,3 +346,153 @@ def seitentext(url, laenge=2800):
         return re.sub(r"\s+", " ", " ".join(teile).replace("\u00ad", "")).strip()[:laenge]
     except Exception:
         return ""
+
+
+# ---------- Einzelne Händlerangebote einer idealo-Produktseite (idealo listet nur geprüfte Shops) ----------
+def idealo_angebote(url):
+    """[{shop, titel, preis, url, hinweis}] – alle Händler, die idealo zu diesem Produkt führt."""
+    b = BeautifulSoup(holen(url, 10), "lxml")
+    aus = []
+    for li in b.select(".productOffers-listItem"):
+        try:
+            m = json.loads(li.get("data-mtrx-click") or "{}")
+            shop, preis = m.get("shop_name"), float(m["products"][0]["price"])
+        except Exception:
+            continue
+        a = li.select_one('a[class*="productOffers-listItemTitle"]')
+        text = re.sub(r"\s+", " ", li.get_text(" ", strip=True).replace("­", ""))
+        gesamt = re.search(r"([\d.]+,\d\d) € inkl\. Versand", text)
+        note = re.search(r"(\d,\d) (\d+) Shop-Details", text)
+        hinweis = ["über idealo"]
+        if gesamt:
+            hinweis.append("inkl. Versand " + gesamt.group(1) + " €")
+        if note:
+            hinweis.append("Shop-Bewertung %s (%s)" % (note.group(1), note.group(2)))
+        aus.append({"shop": shop, "titel": a.get_text(" ", strip=True).replace("­", "")[:160] if a else "", "preis": preis,
+                    "url": "https://www.idealo.de" + a.get("href") if a and a.get("href", "").startswith("/") else url,
+                    "versand": (euro(gesamt.group(1) + " €") - preis) if gesamt else None, "hinweis": " · ".join(hinweis)})
+    return aus
+
+
+# ---------- Offene Websuche: weitere Händler finden und den Preis direkt von der Shop-Seite lesen ----------
+# Bekannte, seit Jahren etablierte Händler in Deutschland (Auswahl). Alles andere gilt als „unbekannt“ und wird getrennt behandelt.
+VERTRAUT = {
+    "otto.de", "alternate.de", "notebooksbilliger.de", "cyberport.de", "galaxus.de", "conrad.de", "proshop.de", "computeruniverse.net",
+    "mindfactory.de", "coolblue.de", "expert.de", "euronics.de", "lidl.de", "kaufland.de", "aldi-onlineshop.de", "obi.de", "hornbach.de",
+    "bauhaus.info", "toom.de", "hagebau.de", "globus-baumarkt.de", "thomann.de", "musicstore.de", "ikea.com", "tchibo.de", "zalando.de",
+    "aboutyou.de", "douglas.de", "dm.de", "rossmann.de", "baur.de", "quelle.de", "neckermann.de", "apple.com", "samsung.com", "dyson.de",
+    "bosch-home.com", "philips.de", "sony.de", "lg.com", "medion.com", "reichelt.de", "voelkner.de", "pollin.de", "caseking.de", "jacob.de",
+    "office-partner.de", "pearl.de", "elv.com", "boettcher.de", "bueroshop24.de", "decathlon.de", "sportscheck.com", "bergfreunde.de",
+    "fahrrad-xxl.de", "bike-discount.de", "rosebikes.de", "fahrrad.de", "bike24.de", "tink.de", "smyths-toys.com", "mytoys.de", "babymarkt.de",
+    "thalia.de", "hugendubel.de", "buecher.de", "weltbild.de", "medimops.de", "momox-shop.de", "backmarket.de", "refurbed.de", "asgoodasnew.de",
+    "clevertronic.de", "swappie.com", "afbshop.de", "gravis.de", "o2online.de", "telekom.de", "vodafone.de", "1und1.de", "mediamarkt.de",
+    "saturn.de", "amazon.de", "ebay.de", "kleinanzeigen.de", "idealo.de", "xxxlutz.de", "hoeffner.de", "moebel.de", "home24.de", "wayfair.de",
+    "westwing.de", "manufactum.de", "globetrotter.de", "karstadt.de", "galeria.de", "breuninger.com", "christ.de", "fielmann.de",
+    "shop-apotheke.com", "docmorris.de", "zooplus.de", "fressnapf.de", "atu.de", "kfzteile24.de", "reifendirekt.de", "tedi.com", "action.com",
+    "norma24.de", "netto-online.de", "penny.de", "rewe.de", "edeka.de", "real.de", "ao.de", "tecedo.de", "technikdirekt.de", "elektroshopwagner.de",
+    "berlet.de", "electronic4you.de", "euronics.de", "ep.de", "medimax.de", "hifiklubben.de", "teufel.de", "nubert.de", "foto-erhardt.de",
+    "calumetphoto.de", "fotokoch.de", "contorion.de", "svh24.de", "toolineo.de", "wuerth.de", "hilti.de", "makita.de", "kaercher.com", "gardena.com",
+}
+# schon über eigene Quellen abgedeckt oder keine Shops
+_KEIN_SHOP = ("amazon.", "idealo.", "kleinanzeigen.", "ebay.", "vinted.", "shpock.", "hood.", "rebuy.", "mediamarkt.", "saturn.", "youtube.",
+              "wikipedia.", "mydealz.", "dealsieger.", "pinterest.", "facebook.", "instagram.", "tiktok.", "reddit.", "chip.de", "computerbild.",
+              "testberichte.", "geizhals.", "billiger.de", "guenstiger.de", "check24.", "preisvergleich.", "google.", "bing.", "duckduckgo.",
+              "trustpilot.", "x.com", "twitter.", "heise.de", "gutefrage.", "stiftung-warentest", "test.de", "ciao.", "ladenzeile.", "shopping.com")
+
+
+def domain(url):
+    h = (urllib.parse.urlparse(url).hostname or "").lower()
+    return h[4:] if h.startswith("www.") else h
+
+
+def _kern_domain(d):
+    t = d.split(".")
+    return ".".join(t[-2:]) if len(t) >= 2 else d
+
+
+def _ld_produkt(html):
+    """Erstes Produkt mit Preis aus schema.org-Daten der Seite: (name, preis, bild, verfügbar) oder None."""
+    b = BeautifulSoup(html, "lxml")
+    funde = []
+
+    def lauf(d):
+        if isinstance(d, list):
+            for x in d:
+                lauf(x)
+        elif isinstance(d, dict):
+            t = d.get("@type")
+            if "Product" in (t if isinstance(t, list) else [t]):
+                funde.append(d)
+            for k in ("@graph", "mainEntity", "mainEntityOfPage"):
+                if k in d:
+                    lauf(d[k])
+
+    for s in b.select('script[type="application/ld+json"]'):
+        try:
+            lauf(json.loads(s.string or ""))
+        except Exception:
+            pass
+
+    def zahl(x):
+        try:
+            x = str(x).replace("\xa0", "").replace("€", "").strip()
+            if "," in x:
+                x = x.replace(".", "").replace(",", ".")
+            return float(x)
+        except Exception:
+            return None
+
+    for p in funde:
+        o = p.get("offers") or {}
+        if isinstance(o, list):
+            o = o[0] if o else {}
+        if (o.get("priceCurrency") or "EUR") != "EUR":
+            continue
+        preis = zahl(o.get("price") if o.get("price") is not None else o.get("lowPrice"))
+        if preis and preis > 0:
+            bild = p.get("image")
+            bild = bild[0] if isinstance(bild, list) and bild else bild
+            bild = bild.get("url") if isinstance(bild, dict) else bild
+            return re.sub(r"\s+", " ", str(p.get("name") or "")).strip()[:160], preis, bild or "", "OutOfStock" not in str(o.get("availability"))
+    m = b.select_one('meta[property="product:price:amount"], meta[property="og:price:amount"]')
+    t = b.select_one('meta[property="og:title"]')
+    if m and t and zahl(m.get("content")):
+        return t.get("content", "")[:160], zahl(m.get("content")), "", True
+    return None
+
+
+def websuche(anfrage, ab=None, seite=1):
+    """Sucht im offenen Netz nach Shops, die das Produkt führen, und liest Name und Preis von der Shop-Seite.
+    Vertrauen: 'bekannt' (Liste VERTRAUT) oder 'unbekannt' – die Einstufung 'idealo'/'hersteller' und das Aussieben macht der Server."""
+    if ab or seite > 1:
+        return []
+    from concurrent.futures import ThreadPoolExecutor
+    b = BeautifulSoup(holen("https://html.duckduckgo.com/html/?q=" + q(anfrage + " kaufen") + "&kl=de-de", 10), "lxml")
+    ziele, gesehen = [], set()
+    for a in b.select("a.result__a"):
+        u = a.get("href", "")
+        d = domain(u)
+        if not u.startswith("https://") or not d or d in gesehen or any(k in d for k in _KEIN_SHOP) or u.lower().endswith(".pdf"):
+            continue
+        gesehen.add(d)
+        ziele.append(u)
+
+    def lesen(u):
+        try:
+            html = holen(u, 8)
+        except Exception:
+            return None
+        p = _ld_produkt(html)
+        if not p or not p[3]:
+            return None
+        d = domain(u)
+        return {"quelle": "Web", "shop": d, "titel": p[0], "preis": p[1], "url": u, "bild": p[2] if str(p[2]).startswith("http") else "", "ort": "", "text": "",
+                "zustand": "neu", "vertrauen": "bekannt" if (d in VERTRAUT or _kern_domain(d) in VERTRAUT) else "unbekannt",
+                "merkmale": {"impressum": bool(re.search(r"(?i)impressum", html)), "siegel": bool(re.search(r"(?i)trusted\s*shops|ehi\s*gepr|t[üu]v\s*s[üu]d\s*safer", html))},
+                "hinweis": "Shop: " + d}
+
+    with ThreadPoolExecutor(max_workers=8) as topf:
+        return [x for x in topf.map(lesen, ziele[:10]) if x]
+
+
+QUELLEN.append(("Web", websuche, "händler", False))

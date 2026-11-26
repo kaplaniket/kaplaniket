@@ -5,7 +5,11 @@ import json
 import os
 import threading
 import time
+import functools
+import math
+import subprocess
 import urllib.parse
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor, wait
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -19,7 +23,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "1.5.1"
+FASSUNG = "2.0"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -81,15 +85,128 @@ def nachpruefen(anfrage, roh, streng):
         _seiten.clear()
 
 
+# ---------- Entfernung zwischen Postleitzahlen (Tabelle wird einmal geladen und in daten/ abgelegt) ----------
+PLZ_QUELLE = "https://raw.githubusercontent.com/WZBSocialScienceCenter/plz_geocoord/master/plz_geocoord.csv"
+_plz = {}
+
+
+def _plz_laden():
+    if _plz:
+        return
+    pfad = os.path.join(DATEN, "plz.csv")
+    try:
+        if not os.path.exists(pfad):
+            os.makedirs(DATEN, exist_ok=True)
+            urllib.request.urlretrieve(PLZ_QUELLE, pfad)
+        with open(pfad, encoding="utf-8") as f:
+            for z in f:
+                t = z.strip().split(",")
+                if len(t) == 3 and len(t[0]) == 5 and t[0].isdigit():
+                    _plz[t[0]] = (float(t[1]), float(t[2]))
+    except Exception:
+        _plz["-"] = (0, 0)      # nicht verfügbar: Entfernungen bleiben leer
+
+
+def entfernung(plz_a, plz_b):
+    """Luftlinie in km zwischen zwei Postleitzahlen, None wenn unbekannt."""
+    _plz_laden()
+    a, b = _plz.get(str(plz_a)[:5]), _plz.get(str(plz_b)[:5])
+    if not a or not b:
+        return None
+    p, q = math.radians(a[0]), math.radians(b[0])
+    h = math.sin((q - p) / 2) ** 2 + math.cos(p) * math.cos(q) * math.sin(math.radians(b[1] - a[1]) / 2) ** 2
+    return round(12742 * math.asin(math.sqrt(h)))
+
+
+_ABGEDECKT = ("amazon", "ebay", "mediamarkt", "media markt", "saturn")
+
+
+def idealo_ausbauen(roh, e):
+    """Zu passenden idealo-Produkten die einzelnen Händlerangebote holen (idealo führt nur geprüfte Shops).
+    Rückgabe: Namen der dort geführten Shops (für die Vertrauenseinstufung der Websuche)."""
+    eltern, gesehen = [], set()
+    for a in e["treffer"]:
+        if a["quelle"] == "idealo" and not a.get("shop") and a["url"] not in gesehen:
+            gesehen.add(a["url"])
+            eltern.append(a)
+    shops = set()
+    if not eltern:
+        return shops
+
+    def lesen(a):
+        try:
+            return a, quellen.idealo_angebote(a["url"])
+        except Exception:
+            return a, []
+
+    with ThreadPoolExecutor(max_workers=4) as topf:
+        for a, angebote in topf.map(lesen, eltern[:4]):
+            neu = []
+            for o in angebote:
+                shops.add(str(o["shop"]).lower())
+                if str(o["shop"]).lower().startswith(_ABGEDECKT):
+                    continue
+                neu.append({"quelle": "idealo", "shop": o["shop"], "titel": o["titel"] or a["titel"], "pruef_titel": a.get("pruef_titel") or a["titel"],
+                            "preis": o["preis"], "url": o["url"], "bild": a.get("bild", ""), "ort": "", "text": "", "zustand": "neu",
+                            "versand": o["versand"], "hinweis": o["hinweis"], "vertrauen": "idealo"})
+            if neu:
+                for r in roh:
+                    if r.get("quelle") == "idealo" and r.get("url") == a["url"] and not r.get("shop"):
+                        r["ersetzt"] = True      # die Sammelzeile „günstigster von N Händlern“ weicht den Einzelangeboten
+                roh.extend(neu)
+    return shops
+
+
+def vertrauen_einstufen(roh, anfrage, idealo_shops):
+    """Shops aus der Websuche einstufen: bekannt / bei idealo gelistet / Herstellershop / unbekannt."""
+    marke = (kern.flach(kern.zerlegen(anfrage)) or [""])[0]
+    idealo_preise = {(str(r.get("shop")).lower(), round(r["preis"])) for r in roh if r.get("quelle") == "idealo" and r.get("shop")}
+    for r in roh:
+        if r.get("quelle") != "Web":
+            continue
+        d = str(r.get("shop", "")).lower()
+        if r.get("vertrauen") == "unbekannt":
+            if any(d and (d in s or s in d) for s in idealo_shops):
+                r["vertrauen"] = "idealo"
+            elif len(marke) >= 4 and marke in d.split(".")[-2 if d.count(".") else 0]:
+                r["vertrauen"] = "hersteller"
+        if any(d and (d in s or s in d) and p == round(r["preis"]) for s, p in idealo_preise):
+            r["ersetzt"] = True      # derselbe Shop mit demselben Preis steht schon über idealo in der Liste
+
+
+def unbekannte_trennen(e):
+    """Unbekannte Shops kommen nie in die Hauptliste: mit Warnzeichen fliegen sie raus, sonst stehen sie getrennt („nicht geprüft“)."""
+    sicher = [a["preis"] for a in e["treffer"] if a.get("art") == "händler" and a.get("vertrauen") != "unbekannt" and a.get("zustand") == "neu"]
+    ref = min(sicher) if sicher else None
+    unbekannt = []
+    for k in ("treffer", "aehnlich"):
+        rest = []
+        for a in e[k]:
+            if a.get("vertrauen") != "unbekannt":
+                rest.append(a)
+                continue
+            m = a.get("merkmale") or {}
+            zu_billig = (ref and a["preis"] < ref * 0.7) or (not ref and e.get("ueblich") and a["preis"] < e["ueblich"] * 0.5)
+            if not m.get("impressum") or zu_billig:
+                n = "unbekannter Shop mit Warnzeichen (kein Impressum oder auffällig billig)"
+                e["aussortiert"][n] = e["aussortiert"].get(n, 0) + 1
+            elif k == "treffer":
+                unbekannt.append(a)
+        e[k] = rest
+    e["unbekannt"] = sorted(unbekannt, key=lambda a: a["preis"])[:20]
+
+
 # Wie tief gelesen wird: (Kleinanzeigen-Seiten neueste, Kleinanzeigen-Seiten billigste, Vinted neueste, Vinted billigste)
 TIEFE = {1: (4, 12, 2, 3), 2: (8, 40, 4, 8)}
 
 
-def suche(anfrage, streng=True, tiefe=1):
+def suche(anfrage, streng=True, tiefe=1, plz=None, km=None, nur_abholung=False):
     anfrage = " ".join(anfrage.split())[:120]
     tiefe = 2 if tiefe == 2 else 1
     ka_neu, ka_billig, vi_neu, vi_billig = TIEFE[tiefe]
-    schluessel = (anfrage.lower(), streng, tiefe)
+    plz = plz if plz and len(str(plz)) == 5 and str(plz).isdigit() else None
+    km = int(km) if km and plz else None
+    schluessel = (anfrage.lower(), streng, tiefe, plz, km, bool(nur_abholung))
     try:      # Suchtexte mitschreiben – nur zur Fehlersuche, bleibt auf dem eigenen Rechner
         os.makedirs(DATEN, exist_ok=True)
         with open(os.path.join(DATEN, "suchen.log"), "a", encoding="utf-8") as f:
@@ -103,6 +220,14 @@ def suche(anfrage, streng=True, tiefe=1):
     start = time.time()
     voll, v = anfrage, sprache.verstehen(anfrage)      # Freitext: Produkt, Ausstattung, Preisgrenze, Zustand
     anfrage = v["produkt"]
+    if not plz and v.get("plz"):      # „… zum Abholen in 44137, 20 km“ im Freitext
+        plz, km, nur_abholung = v["plz"], int(v.get("umkreis") or 30), True
+    ort = None
+    if plz:
+        kennung = quellen.ka_ort(plz)
+        ort = (kennung, km or 30) if kennung else None
+    ka = functools.partial(quellen.kleinanzeigen, ort=ort) if ort else quellen.kleinanzeigen
+    aktiv = lambda: [dict(a) for a in roh if not a.get("ersetzt")]
     roh, status = [], {n: {"name": n, "gefunden": 0, "passend": 0, "fehler": ""} for n, _, _, _ in quellen.QUELLEN}
 
     def sammeln(auftraege):
@@ -122,35 +247,57 @@ def suche(anfrage, streng=True, tiefe=1):
 
     # 1. Durchgang: jede Quelle mit dem Suchtext (Kleinanzeigen und Vinted mehrere Seiten)
     quellen.GESAMT.pop("Kleinanzeigen", None)
-    sammeln([(n, f, anfrage, None, 1) for n, f, _, _ in quellen.QUELLEN]
-            + [("Kleinanzeigen", quellen.kleinanzeigen, anfrage, None, s) for s in range(2, ka_neu + 1)]
+    sammeln([(n, ka if n == "Kleinanzeigen" else f, anfrage, None, 1) for n, f, _, _ in quellen.QUELLEN]
+            + [("Kleinanzeigen", ka, anfrage, None, s) for s in range(2, ka_neu + 1)]
             + [("Vinted", quellen.vinted, anfrage, None, s) for s in range(2, vi_neu + 1)])
-    e = kern.bewerten(anfrage, [dict(a) for a in roh], streng)
+    e = kern.bewerten(anfrage, aktiv(), streng)
     nachpruefen(anfrage, roh, streng)
-    e = kern.bewerten(anfrage, [dict(a) for a in roh], streng)
+    e = kern.bewerten(anfrage, aktiv(), streng)
+    # Händler hinter idealo einzeln holen und die Shops aus der Websuche einstufen
+    idealo_shops = idealo_ausbauen(roh, e)
+    vertrauen_einstufen(roh, anfrage, idealo_shops)
+    e = kern.bewerten(anfrage, aktiv(), streng)
     # Kaum Treffer: Die Seiten verlangen oft alle Wörter. Dann zusätzlich mit einem Beschreibungswort weniger suchen;
     # bewertet wird weiter gegen den vollen Suchtext (fehlt nur dieses Wort im Titel, steht es unter „fast passend“).
     if len(e["treffer"]) < 3:
         for kuerzer, _ in kern.kuerzungen(anfrage)[:2]:
-            sammeln([(n, f, kuerzer, None, 1) for n, f, _, _ in quellen.QUELLEN])
-        e = kern.bewerten(anfrage, [dict(a) for a in roh], streng)
+            sammeln([(n, ka if n == "Kleinanzeigen" else f, kuerzer, None, 1) for n, f, _, _ in quellen.QUELLEN if n != "Web"])
+        vertrauen_einstufen(roh, anfrage, idealo_shops)
+        e = kern.bewerten(anfrage, aktiv(), streng)
     # 2. Durchgang: Der übliche Preis ist jetzt bekannt -> auf den Privatmärkten gezielt die billigsten echten Angebote holen
     # (ab der Hälfte des üblichen Preises, nach Preis sortiert; darunter liegt fast nur Zubehör)
     if e["ueblich"]:
         ab = max(1, int(e["ueblich"] * kern.GRENZE))
-        sammeln([("Kleinanzeigen", quellen.kleinanzeigen, anfrage, ab, s) for s in range(1, ka_billig + 1)]
+        sammeln([("Kleinanzeigen", ka, anfrage, ab, s) for s in range(1, ka_billig + 1)]
                 + [("Vinted", quellen.vinted, anfrage, ab, s) for s in range(1, vi_billig + 1)])
-        e = kern.bewerten(anfrage, [dict(a) for a in roh], streng, e["ueblich"])
+        e = kern.bewerten(anfrage, aktiv(), streng, e["ueblich"])
     arten = {n: art for n, _, art, _ in quellen.QUELLEN}
     for l in (e["treffer"], e["auffaellig"], e["defekt"], e["aehnlich"]):
         for a in l:
             a["art"] = arten.get(a["quelle"], "")
     e = kern.wuensche_anwenden(e, v)
+    unbekannte_trennen(e)
+    # Abholung: Entfernung je Angebot (Luftlinie zwischen den Postleitzahlen); bei „nur Abholung“ bleibt nur, was im Umkreis liegt
+    if plz:
+        for k in ("treffer", "aehnlich", "auffaellig", "defekt"):
+            for a in e[k]:
+                m = kern.re.match(r"(\d{5})", a.get("ort") or "")
+                if m:
+                    a["km"] = entfernung(plz, m.group(1))
+            if nur_abholung:
+                bleibt = [a for a in e[k] if a["quelle"] == "Kleinanzeigen" and a.get("ort") and (a.get("km") is None or a["km"] <= (km or 30) * 1.25)]
+                weg = len(e[k]) - len(bleibt)
+                if weg and k == "treffer":
+                    e["aussortiert"]["nicht im Umkreis oder nur Versand"] = weg
+                e[k] = bleibt
+        e["unbekannt"] = [] if nur_abholung else e["unbekannt"]
+    e["abholung"] = {"plz": plz, "km": km or 30, "nur": bool(nur_abholung), "ort_bekannt": bool(ort)} if plz else None
     for a in e["treffer"]:
         status[a["quelle"]]["passend"] += 1
-    for l in (e["treffer"], e["auffaellig"], e["defekt"], e["aehnlich"]):
+    for l in (e["treffer"], e["auffaellig"], e["defekt"], e["aehnlich"], e["unbekannt"]):
         for a in l:
             a.pop("text", None)
+            a.pop("merkmale", None)
     if "Kleinanzeigen" in quellen.GESAMT:
         status["Kleinanzeigen"]["gesamt"] = quellen.GESAMT["Kleinanzeigen"]
     e["tiefe"], e["gelesen"] = tiefe, len({(a.get("quelle"), a.get("url")) for a in roh})
@@ -161,7 +308,8 @@ def suche(anfrage, streng=True, tiefe=1):
         _speicher[schluessel] = (time.time(), e)
         for k in [k for k, v in _speicher.items() if time.time() - v[0] > 3600]:
             _speicher.pop(k, None)
-    _merk_stand(e)
+    if not plz:
+        _merk_stand(e)
     return e
 
 
@@ -181,19 +329,65 @@ def _merk_schreiben(liste):
     os.replace(MERK + ".neu", MERK)
 
 
-def _merk_stand(e):
-    """Nach jeder Suche: steht der Suchtext auf der Merkliste, den besten Preis festhalten."""
+MELDEN = os.path.expanduser(os.environ.get("PREISJAEGER_MELDEN", "~/.hermes/scripts/notify.sh"))      # Skript: melden "Text" (Telegram)
+
+
+def melden(text):
+    try:
+        if os.path.exists(MELDEN):
+            subprocess.run([MELDEN, text[:900]], timeout=25)
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _merk_stand(e, alarm=False):
+    """Nach jeder Suche: steht der Suchtext auf der Merkliste, besten Preis und Verlauf festhalten.
+    alarm=True (Preiswächter): melden, wenn der Zielpreis erreicht ist oder der Preis um mindestens 5 % gefallen ist."""
+    meldungen = []
     with _sperre:
         liste, da = _merk_lesen(), False
         for m in liste:
             if m["anfrage"].lower() == e["anfrage"].lower() and e["treffer"]:
                 b = e["treffer"][0]
-                m["vorher"] = m.get("preis")
-                m.update(preis=b["preis"], quelle=b["quelle"], url=b["url"], zeit=e["zeit"])
+                alt = m.get("preis")
+                m["vorher"] = alt
+                m.update(preis=b["preis"], quelle=b.get("shop") or b["quelle"], url=b["url"], zeit=e["zeit"])
                 m["tiefst"] = min(b["preis"], m.get("tiefst") or b["preis"])
+                v = m.setdefault("verlauf", [])
+                if not v or v[-1][1] != b["preis"] or v[-1][0][:10] != e["zeit"][:10]:
+                    v.append([e["zeit"], b["preis"]])
+                    del v[:-120]
+                if alarm:
+                    ziel = m.get("ziel")
+                    if ziel and b["preis"] <= ziel and m.get("gemeldet") != b["preis"]:
+                        meldungen.append("🎯 Preisjäger: „%s“ für %s (dein Ziel: %s) bei %s\n%s\n%s" % (m["anfrage"], _eur(b["preis"]), _eur(ziel), m["quelle"], b["titel"][:80], b["url"]))
+                        m["gemeldet"] = b["preis"]
+                    elif alt and b["preis"] <= alt * 0.95 and m.get("gemeldet") != b["preis"]:
+                        meldungen.append("📉 Preisjäger: „%s“ jetzt %s (vorher %s) bei %s\n%s\n%s" % (m["anfrage"], _eur(b["preis"]), _eur(alt), m["quelle"], b["titel"][:80], b["url"]))
+                        m["gemeldet"] = b["preis"]
                 da = True
         if da:
             _merk_schreiben(liste)
+    for t in meldungen:
+        melden(t)
+
+
+def waechter():
+    """Preiswächter: alle 3 Stunden jede gemerkte Suche neu laufen lassen (höchstens 20) und bei Zielpreis/Preissturz melden."""
+    time.sleep(120)
+    while True:
+        for m in _merk_lesen()[:20]:
+            try:
+                with _sperre:
+                    for k in [k for k in _speicher if k[0] == m["anfrage"].lower()]:
+                        _speicher.pop(k, None)
+                _merk_stand(suche(m["anfrage"]), alarm=True)
+            except Exception as x:
+                print("Preiswächter:", m.get("anfrage"), x, flush=True)
+            time.sleep(20)
+        time.sleep(3 * 3600)
 
 
 class Antwort(BaseHTTPRequestHandler):
@@ -228,7 +422,8 @@ class Antwort(BaseHTTPRequestHandler):
             if len(a) < 2:
                 return self._json({"fehler": "Bitte ein Produkt eingeben."}, 400)
             try:
-                self._json(suche(a, (p.get("streng") or ["1"])[0] != "0", 2 if (p.get("tief") or ["0"])[0] == "1" else 1))
+                self._json(suche(a, (p.get("streng") or ["1"])[0] != "0", 2 if (p.get("tief") or ["0"])[0] == "1" else 1,
+                                 (p.get("plz") or [""])[0].strip() or None, (p.get("km") or ["30"])[0], (p.get("abholung") or ["0"])[0] == "1"))
             except Exception as e:
                 self._json({"fehler": "Suche fehlgeschlagen: %s" % e}, 500)
         elif u.path == "/api/merkliste":
@@ -278,9 +473,17 @@ class Antwort(BaseHTTPRequestHandler):
                 liste = _merk_lesen()
                 if not any(m["anfrage"].lower() == a.lower() for m in liste):
                     liste.insert(0, {"anfrage": a, "seit": time.strftime("%d.%m.%Y")})
-                    _merk_schreiben(liste)
+                try:
+                    ziel = float(d.get("ziel") or 0)
+                except Exception:
+                    ziel = 0
+                for m in liste:
+                    if m["anfrage"].lower() == a.lower() and ziel > 0:
+                        m["ziel"] = ziel
+                        m.pop("gemeldet", None)
+                _merk_schreiben(liste)
             with _sperre:
-                alt = _speicher.get((a.lower(), True))
+                alt = next((w for k, w in _speicher.items() if k[0] == a.lower() and not k[3]), None)
             if alt:
                 _merk_stand(alt[1])
             self._json(_merk_lesen())
@@ -412,4 +615,5 @@ Antwort._handel = _handel
 
 if __name__ == "__main__":
     print("TK Preisjäger %s auf Port %d" % (FASSUNG, PORT), flush=True)
+    threading.Thread(target=waechter, daemon=True).start()
     ThreadingHTTPServer(("0.0.0.0", PORT), Antwort).serve_forever()
