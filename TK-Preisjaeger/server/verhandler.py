@@ -322,6 +322,7 @@ def _weiter(b, a):
 
 
 _laeuft = threading.Lock()
+zusatz = []      # Funktionen fn(browser), die bei jedem Durchgang mitlaufen
 
 
 def lauf():
@@ -336,7 +337,7 @@ def lauf():
                 return False
         offen = [a for a in _lesen() if a["stand"] in OFFEN or a["stand"] == "einig" or a.get("zu_senden")
                  or (a["stand"] in ("abgelehnt", "festgefahren") and frisch(a))]
-        if not offen:
+        if not offen and not zusatz:
             return
 
         def arbeit(b):
@@ -349,6 +350,11 @@ def lauf():
                 except Exception as e:
                     _merk(a, hinweis="Fehler beim letzten Lauf: %s" % str(e)[:120])
                 time.sleep(6)
+            for fn in zusatz:      # weitere Aufgaben im selben Fenster (Anfragen zu eigenen Anzeigen)
+                try:
+                    fn(b)
+                except Exception as e:
+                    print("Verhandler-Zusatz:", e, flush=True)
 
         browser.mit_browser(arbeit)
     except Exception as e:

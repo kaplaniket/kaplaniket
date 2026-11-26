@@ -307,7 +307,14 @@ document.addEventListener('click',e=>{
   if(e.target.id==='merken'&&stand){ const z=parseFloat(($('#meinpreis')||{}).value)||meinPreis||0; senden('/api/merken',stand.anfrage,z); e.target.textContent=z?'🔔 Alarm ab '+eur(z):'★ Gemerkt – Preis wird beobachtet'; }
 });
 // ---------- Schnäppchen: weit unter Marktpreis kaufen, mit Gewinn weiterverkaufen ----------
-let snapListe=[];
+let snapListe=[], snapLetzte='', snapUhr=null;
+async function snapEigen(job){
+  clearTimeout(snapUhr); let d; try{ d=await (await fetch('/api/schnaeppchen?job='+job)).json(); }catch(e){ d={fehler:String(e)}; }
+  if(d.fehler){ snapZeigen(`<div class="kasten warn">${esc(d.fehler)}</div>`,[]); return; }
+  if(d.laeuft){ snapZeigen(`<div class="kasten"><span style="display:inline-block;width:14px;height:14px;border:2.5px solid var(--linie);border-top-color:var(--akzent);border-radius:50%;animation:d .8s linear infinite;vertical-align:-2px;margin-right:8px"></span>${esc(d.schritt||'Suche …')} Das dauert bis zu zwei Minuten.</div>`,[]); snapUhr=setTimeout(()=>{ if($('#vdlg').open) snapEigen(job); },4000); return; }
+  snapZeigen(`<div class="leise" style="margin-bottom:10px">Eigene Suche „${esc(snapLetzte)}“ · Stand ${esc(d.zeit||'')}${d.umkreis?' · nur im Umkreis von '+d.umkreis.km+' km um '+esc(d.umkreis.plz):''}</div>
+   <div class="chips" style="margin-bottom:12px">${d.produkte.map(p=>`<button class="chip" data-q="${esc(p.name)}" title="${p.angebote} Angebote${p.markt?', Marktpreis '+eur(p.markt):', zu wenige Privatangebote für einen Marktpreis ('+p.basis+')'}">${esc(p.name)}${p.schnaeppchen?` <b style="color:var(--akzent)">+${eur(p.bester_gewinn)}</b>`:' <span class="x">–</span>'}</button>`).join('')}</div>`,d.liste);
+}
 const RISIKO={niedrig:['neu','geringes Risiko'],mittel:['fehlt','mittleres Risiko'],hoch:['defekt','hohes Risiko']};
 function snapKarte(a,i){
   return `<div class="vp" style="margin-bottom:10px"><div style="display:grid;grid-template-columns:${a.bild?'84px ':''}1fr auto;gap:14px;align-items:start">${a.bild?`<img src="${esc(a.bild)}" referrerpolicy="no-referrer" style="width:84px;height:84px;object-fit:cover;border-radius:10px" onerror="this.remove()">`:''}
@@ -321,7 +328,13 @@ function snapKarte(a,i){
 }
 function snapZeigen(kopf,liste,fuss){
   snapListe=liste; const gut=liste.filter(a=>a.risiko!=='hoch'), heikel=liste.filter(a=>a.risiko==='hoch');
-  $('#vdl').innerHTML=`<h3>💰 Schnäppchen</h3>${kopf}
+  const ort=/^\d{5}$/.test(abhol.plz);
+  const eigen=`<div class="kasten" style="margin-bottom:12px"><b>Eigene Schnäppchen-Suche</b>
+    <div class="reihe"><input class="vkfeld" id="snq" style="flex:1;min-width:220px;width:auto" placeholder="Produkt, z. B. Mac mini M4 oder Bosch GSR 18V" value="${esc(snapLetzte||'')}"><button class="haupt" id="snstart" style="padding:9px 16px">Schnäppchen suchen</button></div>
+    <div class="reihe klein"><label><input type="checkbox" id="snweit" checked> Suche ausweiten (Nachbarmodelle, andere Größen)</label>
+    <label title="${ort?'':'Oben unter „Abholung“ zuerst die Postleitzahl eintragen'}"><input type="checkbox" id="snort" ${ort&&abhol.an?'checked':''} ${ort?'':'disabled'}> nur im Umkreis${ort?' von '+abhol.km+' km um '+esc(abhol.plz):' (PLZ fehlt)'}</label>
+    <label><input type="checkbox" id="snmerk"> dauerhaft in den Radar aufnehmen</label></div></div>`;
+  $('#vdl').innerHTML=`<h3>💰 Schnäppchen</h3>${eigen}${kopf}
    ${gut.length?gut.map(a=>snapKarte(a,liste.indexOf(a))).join(''):'<div class="kasten">Gerade kein Angebot, das sich nach Abzug der Nebenkosten mit mindestens 25 € und 12 % Gewinn weiterverkaufen ließe.</div>'}
    ${heikel.length?`<details class="kasten warn"><summary>${heikel.length} extrem billige Angebote mit hohem Risiko – nur ansehen, wenn du genau prüfst</summary><div style="margin-top:10px">${heikel.map(a=>snapKarte(a,liste.indexOf(a))).join('')}</div></details>`:''}
    <div class="kasten klein leise">So wird gerechnet: Marktpreis = Mitte der gebrauchten Privatangebote. Wiederverkauf vorsichtig mit 93 % davon. Gewinn = Wiederverkauf − Kaufpreis − Versand (privat pauschal 6 €). Es ist eine Schätzung: Der tatsächliche Verkaufspreis hängt von Zustand, Zubehör und Geduld ab. Wer regelmäßig einkauft, um mit Gewinn zu verkaufen, handelt gewerblich (Gewerbeanmeldung, Steuern, Gewährleistung) – das bitte mit dem Steuerberater klären.</div>
@@ -347,6 +360,8 @@ document.addEventListener('click',e=>{ const z=e.target;
   if(z.id==='snap'){ if(stand) snapSuche(); else radarLaden(false); return; }
   if(z.id==='snap2'){ snapSuche(); return; }
   if(z.id==='radarstart'){ radarLaden(false); return; }
+  if(z.id==='snstart'){ const q=$('#snq').value.trim(); if(q.length<2){ $('#snq').focus(); return; } snapLetzte=q; clearTimeout(radarUhr);
+    const ort=$('#snort').checked; post('/api/schnaeppchen/start',{q,ausweiten:$('#snweit').checked,umkreis:ort,plz:/^\d{5}$/.test(abhol.plz)?abhol.plz:'',km:abhol.km,merken:$('#snmerk').checked}).then(d=>{ if(d.fehler) snapZeigen(`<div class="kasten warn">${esc(d.fehler)}</div>`,[]); else snapEigen(d.job); }); return; }
   if(z.id==='radarneu'){ radarLaden(true); return; }
   if(z.dataset.snapdet){ const a=snapListe[+z.dataset.snapdet]; reg.includes(a)||reg.push(a); details(a,false); return; }
   if(z.dataset.snaphan){ const a=snapListe[+z.dataset.snaphan]; $('#vdlg').close(); reg.includes(a)||reg.push(a); handeln(a); return; }
@@ -368,7 +383,8 @@ function vkSeite(){
     ${vkFotos.length?`<div class="fotos">${vkFotos.map((f,i)=>`<div style="position:relative"><img src="${f}"><button data-vkfotoweg="${i}" style="position:absolute;top:2px;right:2px;padding:0 6px;border-radius:99px">✕</button></div>`).join('')}</div>
     <div class="reihe"><input class="vkfeld" id="vkhinweis" style="flex:1;min-width:260px" placeholder="Optional: Was soll die App wissen? z. B. „2 Jahre alt, mit Rechnung, Akku neu“"><button class="haupt" id="vkstart" style="padding:10px 18px">Artikel erkennen und Anzeige erstellen</button></div>`:''}
     <div class="klein" id="vkinfo" style="margin-top:8px;color:var(--warn)"></div>`;
-    if(vkArtikel.length) h+=`<div class="leiste"><h2>Meine Artikel</h2></div>`+vkArtikel.map(x=>`<div class="a" style="grid-template-columns:92px 1fr auto;cursor:pointer;padding-left:10px" data-vkauf="${x.id}"><img src="/verkauf/bild/${x.id}/0"><div style="min-width:0"><div class="t">${esc(x.titel||x.produkt||'Noch nicht ausgewertet')}</div><div class="z"><span class="m ${/veröffentlicht$/.test(x.stand)||x.stand==='veröffentlicht'?'neu':''}">${esc(x.stand)}</span>${x.zustand?`<span class="m">${esc(x.zustand)}</span>`:''}</div><div class="i">${x.bilder} Foto${x.bilder>1?'s':''} · ${esc(x.geaendert)}</div></div><div class="p"><b>${x.preis?eur(x.preis)+(x.vb?' VB':''):'–'}</b></div></div>`).join('');
+    h+=`<div id="anfr"></div>`;
+    if(vkArtikel.length) h+=`<div class="leiste"><h2>Meine Artikel (neu einstellen)</h2></div>`+vkArtikel.map(x=>`<div class="a" style="grid-template-columns:92px 1fr auto;cursor:pointer;padding-left:10px" data-vkauf="${x.id}"><img src="/verkauf/bild/${x.id}/0"><div style="min-width:0"><div class="t">${esc(x.titel||x.produkt||'Noch nicht ausgewertet')}</div><div class="z"><span class="m ${/veröffentlicht$/.test(x.stand)||x.stand==='veröffentlicht'?'neu':''}">${esc(x.stand)}</span>${x.zustand?`<span class="m">${esc(x.zustand)}</span>`:''}</div><div class="i">${x.bilder} Foto${x.bilder>1?'s':''} · ${esc(x.geaendert)}</div></div><div class="p"><b>${x.preis?eur(x.preis)+(x.vb?' VB':''):'–'}</b></div></div>`).join('');
   } else {
     const m=a.markt, ka=(a.portale||{}).kleinanzeigen;
     h+=`<div class="reihe"><button data-vkauf="">← Alle Artikel</button><span class="m">${esc(a.stand)}</span>${a.produkt?`<span class="leise">Erkannt: <b>${esc(a.produkt)}</b>${a.sicher===false?' (nicht sicher – bitte prüfen)':''}</span>`:''}</div>
@@ -391,8 +407,31 @@ function vkSeite(){
     <div class="reihe" style="justify-content:flex-end"><button data-vkweg="${a.id}">Artikel aus der Liste nehmen</button></div>`;
   }
   $('#aus').innerHTML=h;
+  if(!a) anfrLaden();
   if(a) fetch('/api/konto').then(r=>r.json()).then(k=>{ const e=$('#vkkonto'); if(e){ e.textContent='– '+(k.bereit?'Konto ist verbunden.':k.hinweis); $('#vkentwurf').disabled=$('#vkpub').disabled=!k.bereit; } }).catch(()=>{});
 }
+let anfrDaten=null;
+async function anfrLaden(d){
+  try{ anfrDaten=d&&d.anzeigen?d:await (await fetch('/api/anfragen')).json(); }catch(e){ return; }
+  const el=$('#anfr'); if(!el) return; const x=anfrDaten;
+  el.innerHTML=`<div class="leiste"><h2>Meine laufenden Anzeigen bei Kleinanzeigen</h2><div class="wahlen"><label class="q" style="cursor:pointer;--f:var(--akzent)"><input type="checkbox" id="anfaktiv" ${x.aktiv?'checked':''} style="margin:0 4px 0 0">Anfragen automatisch beantworten</label><button id="anfjetzt">Postfach jetzt prüfen</button></div></div>
+   <div class="kasten klein leise">Die App liest alle 4 Minuten dein Postfach. Neue Anfragen zu deinen Anzeigen beantwortet sie aus dem Anzeigentext, verhandelt nie unter deinen Mindestpreis, nennt keine Adresse und sagt keinen Termin zu. Bei Einigung, offenen Fragen oder Betrugsverdacht bekommst du eine Telegram-Meldung und übernimmst. Nachrichten, die vor dem Einschalten schon da waren, bleiben unberührt.</div>
+   ${x.anzeigen.length?x.anzeigen.map(a=>`<div class="hv"><div style="min-width:0"><b>${esc(a.titel)}</b> ${a.reserviert?'<span class="m fehlt">reserviert</span>':''}${a.pausiert?'<span class="m fehlt">nicht aktiv</span>':''}<div class="leise klein">${eur(a.preis)}${a.vb?' VB':' Festpreis'}${a.text?'':' · Anzeigentext nicht lesbar'}</div></div>
+     <div style="white-space:nowrap"><label class="klein leise">Mindestpreis <input class="zahlfeld" type="number" min="0" step="1" value="${a.mindest}" data-anfmin="${a.adid}" style="width:84px;padding:5px 8px"> €</label> <label class="klein"><input type="checkbox" data-anfauto="${a.adid}" ${a.auto?'checked':''}> automatisch</label></div></div>`).join(''):`<div class="kasten">Noch keine Anzeigen gelesen${x.anzeigen_stand?'':' – das passiert beim nächsten Postfach-Lauf (in wenigen Minuten) oder über „Postfach jetzt prüfen“'}.</div>`}
+   ${x.gespraeche.length?`<div class="leiste"><h2>Anfragen (${x.gespraeche.length})</h2></div>`+x.gespraeche.map((g,i)=>`<div class="kasten" style="margin-top:8px"><b>${esc(g.partner)}</b> zu „${esc(g.titel)}“ <span class="m ${/einig/.test(g.stand)?'neu':/betrug|wartet/.test(g.stand)?'fehlt':''}">${esc(g.stand)}</span> <span class="leise klein">${esc(g.geaendert||'')}</span>
+     ${g.hinweis?`<div class="klein" style="color:var(--warn)">${esc(g.hinweis)}</div>`:''}
+     <details style="margin-top:6px" ${i<2?'open':''}><summary class="klein">Verlauf (${g.verlauf.length})</summary>${g.verlauf.map(m=>`<div class="klein" style="margin:6px 0;padding:6px 10px;border-radius:10px;background:${m.von==='ich'?'var(--akzent2)':'var(--karte2)'}"><b>${m.von==='ich'?'Ich':esc(g.partner)}</b> · ${esc(m.zeit)}<br>${esc(m.text)}</div>`).join('')}</details>
+     <div class="reihe"><input class="zahlfeld" style="flex:1;min-width:200px;width:auto" id="anfa${i}" placeholder="Eigene Antwort an ${esc(g.partner)} …"><button data-anfantw="${i}">Senden</button></div></div>`).join(''):''}`;
+}
+document.addEventListener('change',async e=>{ const z=e.target;
+  if(z.id==='anfaktiv'){ anfrLaden(await post('/api/anfragen/einstellen',{aktiv:z.checked})); }
+  else if(z.dataset.anfauto){ anfrLaden(await post('/api/anfragen/einstellen',{adid:z.dataset.anfauto,auto:z.checked})); }
+  else if(z.dataset.anfmin){ await post('/api/anfragen/einstellen',{adid:z.dataset.anfmin,mindest:z.value}); }
+});
+document.addEventListener('click',async e=>{ const z=e.target;
+  if(z.id==='anfjetzt'){ z.textContent='Prüfe … (Liste erscheint in etwa einer Minute)'; await post('/api/anfragen/jetzt',{}); setTimeout(()=>anfrLaden(),50000); }
+  if(z.dataset.anfantw){ const i=+z.dataset.anfantw, t=($('#anfa'+i)||{}).value||''; if(t.trim().length<2) return; const d=await post('/api/anfragen/antwort',{schluessel:anfrDaten.gespraeche[i].schluessel,text:t}); if(!d.fehler){ z.textContent='Wird gesendet ✓'; } }
+});
 function vkFelder(){ return {id:vkOffen,titel:$('#vktitel').value,beschreibung:$('#vktext').value,preis:parseFloat($('#vkpreis').value)||0,vb:$('#vkvb').checked}; }
 async function vkAuswerten(id){ $('#aus').innerHTML=`<div class="leise" style="margin:18px 2px 12px">Sehe mir die Fotos an, schreibe die Anzeige und suche vergleichbare Angebote für den Preis … (etwa 20–40 Sekunden)</div><div class="skel"></div><div class="skel"></div>`;
   const d=await post('/api/verkauf/erkennen',{id}); await vkLaden(); vkOffen=id; vkSeite(); if(d.fehler){ const e=document.createElement('div'); e.className='kasten warn'; e.textContent=d.fehler; $('#aus').prepend(e); } }
@@ -486,6 +525,7 @@ async function details(a,ausVergleich){
   <div class="leise klein" style="margin-top:10px">${d.belegt?'Grundlage: Angaben von der Angebotsseite, ergänzt durch KI-Wissen über das Modell.':'Die Angebotsseite war nicht lesbar – Angaben stammen nur aus KI-Wissen über das Modell.'} Angaben können falsch sein; vor dem Kauf die Anzeige prüfen.</div>
   <div class="reihe" style="justify-content:flex-end"><a href="${esc(a.url)}" target="_blank" rel="noopener"><button>Angebot öffnen ↗</button></a>${a.art==='privat'&&a.zustand!=='defekt'&&i>=0?`<button data-dh="${i}">Verhandeln</button>`:''}${i>=0?`<button data-dv="${i}">+ Vergleich</button>`:''}${zurueck}<button data-vzu="1">Schließen</button></div>`;
 }
+document.addEventListener('keydown',e=>{ if(e.target.id==='snq'&&e.key==='Enter'){ e.preventDefault(); $('#snstart').click(); } });
 document.addEventListener('keydown',e=>{ if(e.target.id==='korbneu'&&e.key==='Enter'){ e.preventDefault(); if(korbeingabe()){ korbzeigen(); $('#korbneu').focus(); } else if(korb.length) vergleichen(); } });
 document.addEventListener('click',e=>{
   const v=e.target.closest('[data-vgl]'); if(v){ e.preventDefault(); e.stopPropagation(); const a=reg[+v.dataset.vgl], i=korb.findIndex(k=>k.url===a.url);

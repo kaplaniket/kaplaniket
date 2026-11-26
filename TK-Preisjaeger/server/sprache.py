@@ -198,3 +198,32 @@ def details(name, angaben="", preis=None, quelle=""):
                 "zu_diesem_angebot": liste(d.get("zu_diesem_angebot"), 6), "unsicher": liste(d.get("unsicher"), 5)}
     except Exception:
         return None
+
+
+# ---------- Verkäufer-Seite: Anfragen zu Tekins eigenen Anzeigen beantworten ----------
+VERKAUF = ('Du beantwortest für einen privaten Verkäufer Nachrichten von Kaufinteressenten auf Kleinanzeigen. Halte dich streng an diese Regeln: '
+           '(1) Beantworte Fragen nur mit dem, was in der Anzeige steht. Steht es nicht dort, erfinde nichts: schreibe, dass du es klärst und dich '
+           'meldest, und setze lage auf "unklar". (2) Preis: Unter dem Mindestpreis verkaufst du nie. Bietet der Interessent mindestens den '
+           'Mindestpreis, sag zu (lage "einig"). Bietet er weniger, nenne freundlich den Mindestpreis als letzten Preis (lage "verhandlung"). '
+           'Fragt er nur „was ist letzter Preis“, nenne den Anzeigenpreis und dass ein wenig Spielraum bei Abholung besteht, ohne eine Zahl unter '
+           'dem Mindestpreis. (3) Nenne nie Adresse, Telefonnummer oder E-Mail und sage keinen Termin fest zu: Schreibe, dass du dich wegen Termin '
+           'und Übergabe gleich persönlich meldest (lage "termin", wenn er abholen/kaufen will). (4) Ist der Artikel laut Anzeige reserviert, sag das. '
+           '(5) Verdacht auf Betrug (Kurier, Zahlungslink, Bitte um Mail/Telefonnummer, Dritter zahlt, Ausland, freiwillig mehr Geld): lage '
+           '"betrugsverdacht", keine Antwort nötig. Antworte NUR mit JSON: {"lage": eines von "frage", "verhandlung", "einig", "termin", "unklar", '
+           '"betrugsverdacht", "gebot": vom Interessenten gebotener Preis als Zahl oder null, "warnung": ein Satz bei Betrugsverdacht, sonst "", '
+           '"antwort": freundliche Antwort per Du, höchstens 60 Wörter, ohne Floskeln}. Schluss der Antwort: „%s“.')
+
+
+def verkaufsantwort(anzeige, verlauf, neu, name=""):
+    gruss = "Viele Grüße" + (", " + name if name else "")
+    text = "ANZEIGE\nTitel: %s\nPreis: %s%s\nMindestpreis (geheim, nie nennen außer als letzter Preis): %s\nStatus: %s\nText der Anzeige: %s\n\nBISHERIGER VERLAUF\n%s\n\nNEUE NACHRICHT DES INTERESSENTEN\n%s" % (
+        anzeige.get("titel", ""), _eur(anzeige.get("preis") or 0), " VB" if anzeige.get("vb") else " (Festpreis)", _eur(anzeige.get("mindest") or anzeige.get("preis") or 0),
+        "reserviert" if anzeige.get("reserviert") else "verfügbar", (anzeige.get("text") or "kein Text lesbar")[:2500],
+        "\n".join(("Ich: " if m["von"] == "ich" else "Interessent: ") + m["text"][:300] for m in verlauf[:-1]) or "(noch nichts)", neu[:1200])
+    roh = ki(VERKAUF % gruss, text, 350, 0.3, 20)
+    try:
+        d = json.loads(re.search(r"\{.*\}", roh, re.S).group(0))
+        return {"lage": str(d.get("lage") or "unklar"), "gebot": d.get("gebot") if isinstance(d.get("gebot"), (int, float)) else None,
+                "warnung": str(d.get("warnung") or "")[:200], "antwort": " ".join(str(d.get("antwort") or "").split())}
+    except Exception:
+        return {"lage": "unklar", "gebot": None, "warnung": "", "antwort": "Danke für deine Nachricht – ich melde mich gleich bei dir. %s" % gruss}

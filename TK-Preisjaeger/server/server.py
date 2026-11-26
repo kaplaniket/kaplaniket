@@ -20,6 +20,7 @@ import quellen
 import sprache
 import verhandler
 import verkauf
+import anfragen
 
 ORT = os.path.dirname(os.path.abspath(__file__))
 DATEN = os.path.join(ORT, "daten")
@@ -27,7 +28,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "3.4"
+FASSUNG = "4.0"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -210,6 +211,77 @@ RADAR = ["iphone 13 128gb", "iphone 14 128gb", "iphone 15 128gb", "macbook air m
 _radar = {"zeit": 0, "daten": None, "laeuft": False}
 
 
+EIGENE = os.path.join(DATEN, "radar.json")      # von Tekin ergänzte Radar-Produkte
+_sjobs = {}
+
+
+def eigene_radar(neu=None, weg=None):
+    try:
+        with open(EIGENE, encoding="utf-8") as f:
+            l = json.load(f)
+    except Exception:
+        l = []
+    if neu or weg:
+        if neu and neu.lower() not in [x.lower() for x in l + RADAR]:
+            l.insert(0, " ".join(neu.split())[:80])
+        l = [x for x in l if x != weg][:25]
+        os.makedirs(DATEN, exist_ok=True)
+        with open(EIGENE, "w", encoding="utf-8") as f:
+            json.dump(l, f, ensure_ascii=False)
+    return l
+
+
+def schnaeppchen_start(d):
+    """Eigene Schnäppchen-Suche (läuft im Hintergrund): gründlich suchen, auf Wunsch auf verwandte Produkte ausweiten und auf den Umkreis begrenzen."""
+    q = " ".join(str(d.get("q", "")).split())[:120]
+    if len(q) < 2:
+        raise ValueError("Bitte ein Produkt eingeben")
+    plz = str(d.get("plz") or "") if re.fullmatch(r"\d{5}", str(d.get("plz") or "")) else None
+    km = int(float(d.get("km") or 30))
+    job = "%d" % (time.time() * 1000)
+    _sjobs[job] = {"laeuft": True, "schritt": "Suche „%s“ gründlich …" % q, "liste": [], "produkte": []}
+    if d.get("merken"):
+        eigene_radar(neu=q)
+
+    def lauf():
+        try:
+            liste, produkte = [], []
+
+            def eins(name, tiefe):
+                e = suche(name, True, tiefe, plz, km, False)
+                s = e.get("schnaeppchen") or {}
+                l = [dict(a, produkt=name) for a in s.get("liste", [])]
+                if plz and d.get("umkreis"):      # nur, was sich im Umkreis abholen lässt
+                    l = [a for a in l if a.get("km") is not None and a["km"] <= km * 1.25]
+                gut = [a for a in l if a["risiko"] != "hoch"]
+                produkte.append({"name": name, "markt": s.get("markt"), "angebote": len(e["treffer"]), "schnaeppchen": len(gut), "bester_gewinn": gut[0]["gewinn"] if gut else 0,
+                                 "basis": s.get("anzahl_basis", 0)})
+                return l
+
+            liste += eins(q, 2)
+            if d.get("ausweiten"):
+                _sjobs[job]["schritt"] = "Weite die Suche auf verwandte Produkte aus …"
+                _, namen = sprache.alternativen(q, "Der Käufer sucht günstige Angebote zum Weiterverkauf. Nenne direkt verwandte Produkte: Nachbarmodelle, "
+                                                    "Vorgänger/Nachfolger und andere Größen desselben Geräts.", None)
+                for n in namen[:3]:
+                    _sjobs[job]["schritt"] = "Suche auch „%s“ …" % n
+                    try:
+                        liste += eins(n, 1)[:12]
+                    except Exception:
+                        pass
+            liste.sort(key=lambda a: ({"niedrig": 0, "mittel": 1, "hoch": 2}[a["risiko"]], -a["gewinn"]))
+            _sjobs[job].update(liste=liste[:80], produkte=produkte, zeit=time.strftime("%d.%m.%Y %H:%M"), umkreis={"plz": plz, "km": km} if plz and d.get("umkreis") else None)
+        except Exception as x:
+            _sjobs[job]["fehler"] = str(x)
+        finally:
+            _sjobs[job]["laeuft"] = False
+            for k in sorted(_sjobs)[:-6]:
+                _sjobs.pop(k, None)
+
+    threading.Thread(target=lauf, daemon=True).start()
+    return {"job": job}
+
+
 def radar(neu=False):
     """Schnäppchen über die Radar-Produkte und die Merkliste. Läuft im Hintergrund (dauert Minuten); geliefert wird der letzte fertige
     Stand, mit laeuft=True, solange ein Durchgang arbeitet. Ergebnis gilt 30 Minuten."""
@@ -217,12 +289,12 @@ def radar(neu=False):
     if (neu or not alt or time.time() - _radar["zeit"] > 1800) and not _radar["laeuft"]:
         _radar["laeuft"] = True
         threading.Thread(target=_radar_lauf, daemon=True).start()
-    return dict(alt or {"liste": [], "produkte": [], "zeit": ""}, laeuft=_radar["laeuft"])
+    return dict(alt or {"liste": [], "produkte": [], "zeit": ""}, laeuft=_radar["laeuft"], eigene=eigene_radar())
 
 
 def _radar_lauf(melde=False):
     try:
-        namen = list(dict.fromkeys(RADAR + [m["anfrage"] for m in _merk_lesen()[:10] if not _AB.search(m["anfrage"])]))
+        namen = list(dict.fromkeys(eigene_radar() + RADAR + [m["anfrage"] for m in _merk_lesen()[:10] if not _AB.search(m["anfrage"])]))
 
         def eins(n):
             try:
@@ -525,6 +597,10 @@ class Antwort(BaseHTTPRequestHandler):
             self._json(_merk_lesen())
         elif u.path == "/api/konto":
             self._json(verhandler.konto())
+        elif u.path == "/api/schnaeppchen":
+            self._json(_sjobs.get((p.get("job") or [""])[0]) or {"fehler": "Suche nicht gefunden"})
+        elif u.path == "/api/anfragen":
+            self._json(anfragen.stand())
         elif u.path == "/api/radar":
             try:
                 self._json(radar((p.get("neu") or ["0"])[0] == "1"))
@@ -561,6 +637,25 @@ class Antwort(BaseHTTPRequestHandler):
         except Exception:
             d = {}
         a = " ".join(str(d.get("anfrage", "")).split())[:120]
+        if u.path == "/api/schnaeppchen/start":
+            try:
+                return self._json(schnaeppchen_start(d))
+            except Exception as e:
+                return self._json({"fehler": str(e)}, 400)
+        if u.path == "/api/radar/eigene":
+            return self._json({"eigene": eigene_radar(neu=str(d.get("neu") or "") or None, weg=str(d.get("weg") or "") or None)})
+        if u.path.startswith("/api/anfragen/"):
+            try:
+                if u.path == "/api/anfragen/einstellen":
+                    return self._json(anfragen.einstellen(d))
+                if u.path == "/api/anfragen/antwort":
+                    return self._json(anfragen.eigene_antwort(str(d.get("schluessel", "")), d.get("text", "")))
+                if u.path == "/api/anfragen/jetzt":
+                    threading.Thread(target=verhandler.lauf, daemon=True).start()
+                    return self._json(anfragen.stand())
+                return self.send_error(404)
+            except Exception as e:
+                return self._json({"fehler": str(e)}, 400)
         if u.path.startswith("/api/verkauf/"):
             try:
                 k = str(d.get("id", ""))
@@ -764,5 +859,7 @@ if __name__ == "__main__":
     print("TK Preisjäger %s auf Port %d" % (FASSUNG, PORT), flush=True)
     threading.Thread(target=waechter, daemon=True).start()
     verhandler.melden = melden
+    anfragen.melden = melden
+    verhandler.zusatz.append(anfragen.lauf)
     threading.Thread(target=verhandler.waechter, daemon=True).start()
     ThreadingHTTPServer(("0.0.0.0", PORT), Antwort).serve_forever()
