@@ -19,7 +19,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "1.4.2"
+FASSUNG = "1.4.3"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -308,7 +308,7 @@ def vergleichen(d):
         if gesucht:      # eigene Suche: Preise je Zustand und eine Händlerseite mit den technischen Angaben
             try:
                 e = suche(gesucht)
-                alle = e["treffer"] or e.get("aehnlich", [])
+                alle = e["treffer"]      # nur genaue Treffer – „fast passend“ kann ein anderes Gerät sein
                 if not p.get("preis"):
                     je = {}
                     for a in alle:
@@ -339,9 +339,11 @@ def vergleichen(d):
         with ThreadPoolExecutor(max_workers=4) as topf:
             vorschlaege = list(topf.map(aufbereiten, [{"name": n, "vorschlag": True} for n in namen]))
         for v in vorschlaege:
-            # ohne gefundenen Preis oder in ganz anderer Preisklasse: kein ernsthafter Vergleich (Zubehör, anderes Gerät)
-            if not v["bester"] or (erstes["bester"] and not (0.3 <= v["bester"] / erstes["bester"] <= 3.0)):
+            # ganz andere Preisklasse = kein ernsthafter Vergleich (Zubehör, anderes Gerät); dieselbe Angebotsseite = dasselbe Gerät doppelt
+            if v["bester"] and erstes["bester"] and not (0.3 <= v["bester"] / erstes["bester"] <= 3.0):
                 verworfen.append(v["name"])
+            elif v["url"] and v["url"] in [x["url"] for x in produkte]:
+                continue
             else:
                 produkte.append(v)
         produkte = produkte[:4]

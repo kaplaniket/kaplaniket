@@ -298,7 +298,7 @@ async function vergleichen(){
   <div class="empf"><div class="klein" style="font-weight:650;color:var(--akzent)">EMPFEHLUNG</div><div style="font-size:19px;font-weight:750;margin:2px 0 6px">${esc(sieger)}</div><div>${esc(d.empfehlung.grund)}</div>${d.empfehlung.wann_anders?`<div class="leise" style="margin-top:6px">${esc(d.empfehlung.wann_anders)}</div>`:''}</div>
   <div class="vg" style="grid-template-columns:repeat(${d.produkte.length},1fr)">${d.produkte.map(p=>`<div class="vp${p.name===sieger?' sieger':''}">
     <h4>${esc(p.name)}</h4>${p.vorschlag?'<span class="m">vorgeschlagene Alternative</span> ':''}${p.name===sieger?'<span class="m neu">Empfehlung</span>':''}
-    <div style="font-size:22px;font-weight:750;margin-top:6px">${p.bester?'ab '+eur(p.bester):'kein Preis gefunden'}</div><div class="leise klein">${esc(p.preise||'')}</div>
+    <div style="font-size:22px;font-weight:750;margin-top:6px">${p.bester?'ab '+eur(p.bester):'kein genau passendes Angebot gefunden'}</div><div class="leise klein">${esc(p.preise||'')}</div>
     <div style="margin-top:6px">${esc(p.kurz)}</div>
     <h5>Kann / hat</h5>${li(p.kann,'ja')}<h5>Kann nicht / fehlt</h5>${li(p.kann_nicht,'nein')}<h5>Vorteile</h5>${li(p.plus,'pl')}<h5>Nachteile</h5>${li(p.minus,'mi')}
     <h5>Für wen</h5><div style="font-size:14px">${esc(p.fuer_wen)}</div>${p.unsicher.length?`<h5>Nicht sicher</h5>${li(p.unsicher,'un')}`:''}
