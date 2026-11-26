@@ -496,3 +496,39 @@ def websuche(anfrage, ab=None, seite=1):
 
 
 QUELLEN.append(("Web", websuche, "händler", False))
+
+
+# ---------- Originaltext des Anbieters von der Angebotsseite (für das Details-Fenster) ----------
+def anbietertext(url):
+    """(Beschreibungstext des Anbieters, Angaben zum Verkäufer) – beides '' wenn nicht lesbar."""
+    try:
+        host = urllib.parse.urlparse(url).hostname or ""
+        if not url.startswith("https://") or not any(host == h or host.endswith("." + h) for h in LESBAR):
+            return "", ""
+        b = BeautifulSoup(holen(url, 10), "lxml")
+        text, verk = "", ""
+        el = b.select_one("#viewad-description-text") or b.select_one('[itemprop="description"]') or b.select_one("#feature-bullets") or b.select_one("#productDescription")
+        if el is not None:
+            for br in el.select("br"):
+                br.replace_with("\n")
+            text = el.get_text("\n" if el.name in ("ul", "div") and el.get("id") == "feature-bullets" else "", strip=False)
+        if not text.strip():      # schema.org-Beschreibung oder Kurzbeschreibung der Seite
+            for s in b.select('script[type="application/ld+json"]'):
+                try:
+                    d = json.loads(s.string or "")
+                except Exception:
+                    continue
+                for x in (d if isinstance(d, list) else [d]):
+                    if isinstance(x, dict) and x.get("description") and len(str(x["description"])) > len(text):
+                        text = str(x["description"])
+            if not text.strip():
+                m = b.select_one('meta[property="og:description"], meta[name="description"]')
+                text = m.get("content", "") if m else ""
+        v = b.select_one("#viewad-contact")
+        if v is not None:
+            verk = re.sub(r"\s+", " ", v.get_text(" ", strip=True))
+            verk = re.split(r"Nachricht schreiben|Anbieter folgen|Folgen", verk)[0].strip()[:220]
+        text = re.sub(r"[ \t]+", " ", text.replace("­", "")).strip()
+        return re.sub(r"\n\s*\n\s*\n+", "\n\n", text)[:4000], verk
+    except Exception:
+        return "", ""

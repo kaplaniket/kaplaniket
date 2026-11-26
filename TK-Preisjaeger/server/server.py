@@ -23,7 +23,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "2.1"
+FASSUNG = "2.2"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -463,7 +463,8 @@ class Antwort(BaseHTTPRequestHandler):
                 e = sprache.details(str(d.get("titel", ""))[:160], angaben, float(d.get("preis") or 0) or None, str(d.get("quelle", ""))[:20])
                 if not e:
                     raise ValueError("die KI hat nicht geantwortet – bitte noch einmal versuchen")
-                return self._json(dict(e, belegt=bool(angaben), warn=kern.betrug(angaben)))
+                original, verkaeufer = quellen.anbietertext(url) if url else ("", "")
+                return self._json(dict(e, belegt=bool(angaben), warn=kern.betrug(angaben + " " + original), anbietertext=original, verkaeufer=verkaeufer))
             except Exception as e:
                 return self._json({"fehler": "Details nicht möglich: %s" % e}, 400)
         if u.path == "/api/vergleich":
