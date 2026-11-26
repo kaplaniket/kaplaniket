@@ -429,6 +429,10 @@ def fenster(anfrage, text, weite=12):
         if tt[i:i + len(erste)] != erste or i < letzte + weite:
             continue
         aus = tt[max(0, i - 3):i + weite]
+        # „Name ab 1.181,50 €“ ist ein Verweis auf ein anderes Produkt (Kasten „ähnliche Produkte“), kein Angebot dieser Seite
+        ende = max([_finde(g, tt, i) + len(g) for g in ag if _finde(g, tt, i) >= 0 and _finde(g, tt, i) < i + weite] or [i + len(erste)])
+        if "ab" in tt[ende:ende + 2] and any(w.isdigit() for w in tt[ende:ende + 4]):
+            continue
         if all(_finde(g, aus) >= 0 or any(len(g) == 1 and len(g[0]) >= 5 and g[0] in w for w in aus) for g in ag[1:]):
             zahl += 1
             letzte = i

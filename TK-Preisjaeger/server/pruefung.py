@@ -134,5 +134,8 @@ e = kern.bewerten("aqmos drinking pro osmose", [{"quelle": "idealo", "titel": "A
 gut = z == 1 and len(e["treffer"]) == 1 and kern.fenster("aqmos drinking pro osmose", "Aqmos Wasserspender DrinKing Schwarz 658 €")[0] == 0
 fehler += not gut
 print("%-6s Nachprüfung Angebotsseite: %s Stelle(n), „%s“" % ("ok" if gut else "FEHLER", z, st[:50]))
+gut = kern.fenster("osmofresh fusion pro", "Osmofresh Quella Pro Black 379,00 € Zum Shop … Osmofresh Fusion Pro ab 1.181,50 € 5 Angebote Jimmy Wasserfilter ab 99 €")[0] == 0
+fehler += not gut
+print("%-6s Verweis „Name ab … €“ zählt nicht als Bestätigung" % ("ok" if gut else "FEHLER"))
 print("\nERGEBNIS: %s" % ("alles in Ordnung" if not fehler else "%d FEHLER" % fehler))
 sys.exit(1 if fehler else 0)

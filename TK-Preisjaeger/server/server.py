@@ -19,7 +19,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "1.4.3"
+FASSUNG = "1.4.4"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -60,6 +60,11 @@ def nachpruefen(anfrage, roh, streng):
 
     with ThreadPoolExecutor(max_workers=8) as topf:
         for a, text in topf.map(lesen, kand):
+            # nur der Teil mit den Angeboten dieser Seite – nicht die Verweise auf andere Produkte darunter
+            for marke_ende in ("Ähnliche Produkte", "Weitere Stichworte", "Passende Produkte", "Kunden interessierten sich auch", "Das könnte dich auch interessieren", "Alternative Produkte", "Weitere Produkte"):
+                j = text.find(marke_ende)
+                if j > 200:
+                    text = text[:j]
             zahl, stueck = kern.fenster(anfrage, text)
             if not zahl:      # ein Beschreibungswort darf fehlen, dann muss der Name aber mehrfach auf der Seite stehen
                 for kuerzer, _ in kern.kuerzungen(anfrage):
