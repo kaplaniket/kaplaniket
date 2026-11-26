@@ -121,6 +121,11 @@ def pruefe(anfrage, titel, text="", streng=True):
     if not ag or not tt:
         return False, "fehlt"
     aw = set(flach(ag))
+    # Zusammengesetzte Wörter: Suchwort „osmose“ steckt in „Umkehrosmose“/„Osmoseanlage“, „wasserspender“ in „Tischwasserspender“
+    lang = [g[0] for g in ag if len(g) == 1 and len(g[0]) >= 5 and g[0].isalpha()]
+    if lang:
+        endung = ("hülle", "kabel", "folie", "glas", "halterung", "tasche", "case", "cover", "filter", "teil", "teile")
+        tt = [next((q for q in lang if q in w and w != q and not w.endswith(endung) and w not in ZUBEHOER and not w.startswith("ersatz")), w) for w in tt]
     stellen = []
     for n, g in enumerate(ag):
         i = _finde(g, tt)
@@ -152,7 +157,7 @@ def pruefe(anfrage, titel, text="", streng=True):
     # Produktname erst weit hinten, davor etwas anderes: „Crucial 2TB SSD für PS5 PlayStation 5“
     erste_kern = next(i for i, w in enumerate(tt) if w in aw)
     davor_fremd = [w for w in tt[:erste_kern] if w not in FUELL and w not in aw and not w.isdigit()]
-    if len(davor_fremd) >= 3:
+    if len(davor_fremd) >= 5:
         return False, "fehlt"
     tl = titel.lower()
     if any(s in tl for s in LEER):
