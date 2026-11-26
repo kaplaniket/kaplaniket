@@ -764,7 +764,7 @@ class Antwort(BaseHTTPRequestHandler):
         if u.path.startswith("/api/pflege/"):
             try:
                 if u.path == "/api/pflege/start":
-                    return self._json(pflege.start(anfragen.stand()["anzeigen"], suche))
+                    return self._json(pflege.start(anfragen.stand()["anzeigen"], suche, bool(d.get("nur_fehlende"))))
                 if u.path == "/api/pflege/uebernehmen":
                     return self._json(pflege.uebernehmen(str(d.get("adid", "")), d))
                 return self.send_error(404)

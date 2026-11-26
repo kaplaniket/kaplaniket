@@ -100,7 +100,7 @@ def _preis(a, k, suche):
                 markt["suche"], _eur(markt["ueblich"]), markt["angebote"], interesse), markt
         return preis, "Dein Preis passt zum Markt: Andere verlangen für „%s“ meist %s (%d Angebote). %s." % (markt["suche"], _eur(markt["ueblich"]), markt["angebote"], interesse), markt
     # kein belastbarer Marktvergleich (z. B. Kleidung ohne Modell): nur aus dem Interesse schließen
-    hinweis = "Kein Marktvergleich möglich (kein eindeutiges Modell) – Einschätzung nur aus dem Interesse: %s. " % interesse
+    hinweis = "Kein belastbarer Marktvergleich (kein eindeutiges Modell oder zu wenige vergleichbare Angebote) – Einschätzung nur aus dem Interesse: %s. " % interesse
     if tage is not None and tage >= 14 and gem == 0 and bes < 25 and preis >= 10:
         return max(5, int(round(preis * 0.8 / 5.0)) * 5 if preis >= 25 else int(round(preis * 0.8))), hinweis + "Wenig Aufrufe und niemand hat sie sich gemerkt: besserer Titel und rund 20 % weniger.", None
     if tage is not None and tage >= 21 and gem >= 2 and preis >= 10:
@@ -130,22 +130,26 @@ def _eine(a, suche):
             "produkt": k["produkt"], "sicher": k["sicher"], "preis_grund": grund, "markt": markt, "schwaechen": k["schwaechen"], "fragen": k["fragen"]}
 
 
-def start(anzeigen, suche):
-    """Alle laufenden Anzeigen im Hintergrund durchgehen."""
+def start(anzeigen, suche, nur_fehlende=False):
+    """Alle laufenden Anzeigen im Hintergrund durchgehen (nur_fehlende: nur die, für die es noch keinen Vorschlag gibt)."""
     if _lauf["laeuft"]:
         return stand()
-    anzeigen = [a for a in anzeigen if a.get("titel") and not a.get("pausiert")]
+    da = _lesen()
+    anzeigen = [a for a in anzeigen if a.get("titel") and not a.get("pausiert") and not (nur_fehlende and a["adid"] in da)]
     _lauf.update(laeuft=True, fertig=0, gesamt=len(anzeigen), schritt="Gehe %d Anzeigen durch …" % len(anzeigen))
 
     def lauf():
         try:
             for a in anzeigen:
                 _lauf["schritt"] = "Prüfe „%s“ …" % a["titel"][:50]
-                try:
-                    v = _eine(a, suche)
-                except Exception as e:
-                    v = None
-                    print("Pflege:", a.get("titel"), e, flush=True)
+                v = None
+                for versuch in (1, 2):      # die KI antwortet nicht immer verwertbar: ein zweiter Versuch
+                    try:
+                        v = _eine(a, suche)
+                    except Exception as e:
+                        print("Pflege:", a.get("titel"), e, flush=True)
+                    if v:
+                        break
                 if v:
                     with _sperre:
                         d = _lesen()
