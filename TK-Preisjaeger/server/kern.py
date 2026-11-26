@@ -380,6 +380,7 @@ def wuensche_anwenden(e, v):
                 raus("anderer Zustand als gewünscht"); continue
             if any(_hat(o, voll) for o in v["ohne"]):
                 raus("enthält, was du nicht willst"); continue
+            a["warn"] = betrug(a["titel"] + " " + (a.get("text") or ""))
             a["wunsch_da"] = [w for w in v["wuensche"] if _hat(w, voll)]
             a["wunsch_offen"] = [w for w in v["wuensche"] if w not in a["wunsch_da"]]
             aus.append(a)
@@ -392,3 +393,23 @@ def wuensche_anwenden(e, v):
     e["treffer"] = [a for a in e["treffer"] if not a["wunsch_offen"]]
     e["aehnlich"] = sorted(e["aehnlich"] + offen, key=lambda a: (len(a.get("wunsch_offen", [])), a["preis"]))[:80]
     return e
+
+
+# ---------- Betrug und Abzocke: typische Warnzeichen in Anzeigen und in Antworten von Verkäufern ----------
+_BETRUG = [
+    (r"freunde\s*(und|&|\+|u\.)\s*familie|friends\s*(and|&)\s*family|paypal\s*f\s*&\s*f|\b(pp|paypal)\s*freunde", "PayPal „Freunde und Familie“ verlangt – dabei gibt es keinen Käuferschutz"),
+    (r"vorkasse|vorab\s*(überweis|bezahl|zahl)|überweisung\s*vorab|anzahlung|vorauszahlung|im\s*voraus\s*(bezahl|überweis|zahl)|erst\s*(das\s*)?geld", "Vorkasse oder Anzahlung verlangt"),
+    (r"western\s*union|moneygram|gutschein(karte|code)|paysafe|amazon.?gutschein|steam.?(karte|guthaben)|bitcoin|krypto|crypto|usdt", "ungewöhnlicher Zahlungsweg (Gutschein, Krypto, Bargeldtransfer)"),
+    (r"whats\s*app|telegram|\bsignal\b|schreib\w*\s*(sie\s*)?(mir|mich)\s*(bitte\s*)?(per|auf|an|über)\s*(e-?mail|mail|sms)|@(gmail|outlook|hotmail|yahoo|gmx|web)\.|(\+|00)\d[\d\s/-]{9,}|\b01[5-7]\d[\d\s/-]{6,}", "will außerhalb der Plattform schreiben (WhatsApp, Mail, Telefonnummer)"),
+    (r"klick\w*\s*(sie\s*)?(bitte\s*)?(auf\s*)?(den|diesen|folgenden)\s*link|link\s*(zum|zur|für)\s*(bezahl|zahlung|empfang|versand)|bestätigungs?code|sms.?code|\btan\b|kreditkartendaten|kartendaten|https?://", "Link oder Code geschickt/verlangt – typische Phishing-Masche"),
+    (r"kurier|abholdienst|spedition\s*(holt|kommt)|dhl\s*(kurier|holt)|versandunternehmen\s*(holt|kommt)", "Kurier/Abholdienst soll das Geschäft abwickeln"),
+    (r"im\s*ausland|aus\s*dem\s*ausland|nicht\s*in\s*deutschland|versand\s*aus\s*(england|uk|spanien|polen|china|frankreich|italien)|beruflich\s*(im|in)\s*\w+\s*(unterwegs)?", "Verkäufer angeblich im Ausland"),
+    (r"sofort\s*(überweis|bezahl)|heute\s*noch\s*(überweis|bezahl)|nur\s*heute|viele\s*(andere\s*)?interessenten.*(sofort|schnell)", "Zeitdruck beim Bezahlen"),
+    (r"abholung\s*(ist\s*)?(leider\s*)?nicht\s*möglich|keine\s*abholung|nur\s*(per\s*)?versand", "keine Abholung möglich – nur Versand"),
+]
+
+
+def betrug(text):
+    """Liste der Warnzeichen im Text (leer = keines gefunden). Ein Fund ist ein Hinweis, kein Beweis."""
+    t = (text or "").lower()
+    return [hinweis for muster, hinweis in _BETRUG if re.search(muster, t)]

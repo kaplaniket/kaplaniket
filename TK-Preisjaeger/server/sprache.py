@@ -79,15 +79,26 @@ def gegenantwort(titel, preis, mein, antwort, name=""):
     gruss = "Viele Grüße" + (", " + name if name else "")
     t = ki("Du hilfst einem privaten Käufer beim Verhandeln auf einem Kleinanzeigenmarkt. Er will höchstens seinen Wunschpreis zahlen. "
            "Lies die Antwort des Verkäufers und antworte NUR mit JSON: {\"lage\": eines von \"einig\" (Verkäufer nimmt den Wunschpreis oder "
-           "weniger an), \"gegenangebot\" (Verkäufer nennt einen höheren Preis), \"abgelehnt\", \"rueckfrage\", \"unklar\", "
+           "weniger an), \"gegenangebot\" (Verkäufer nennt einen höheren Preis), \"abgelehnt\", \"rueckfrage\", \"unklar\", \"betrugsverdacht\" (Verkäufer will Vorkasse, PayPal Freunde, Gutscheine, "
+           "schickt Links/Codes, will auf WhatsApp/Mail wechseln, Kurier-Geschichte, ist angeblich im Ausland – dann zusätzlich \"warnung\": ein Satz, "
+           "und als Antwort: nur Abholung mit Barzahlung oder „Sicher bezahlen“ in der App), "
            "\"preis_verkaeufer\": genannter Preis als Zahl oder null, \"antwort\": kurze freundliche Antwort per Du, höchstens 50 Wörter. "
            "Bei \"einig\": bedanken und nach Abholung/Bezahlung und Termin fragen, nichts fest zusagen außer dem Preis. Bei \"gegenangebot\": "
            "höflich beim Wunschpreis bleiben und einmal begründen (zeitnahe Abholung, sofortige Bezahlung). Bei \"abgelehnt\": freundlich "
            "bedanken und anbieten, dass das Angebot bestehen bleibt. Erfinde nichts. Schluss: „%s“.}" % gruss,
            "Artikel: %s\nPreis des Verkäufers laut Anzeige: %s\nMein Wunschpreis: %s\nAntwort des Verkäufers: %s" % (titel[:120], _eur(preis), _eur(mein), antwort[:800]),
            300, 0.4, 12)
+    warn = kern.betrug(antwort)
+    if warn:      # Warnzeichen gehen vor: nicht weiterverhandeln, sondern auf sicherem Weg bestehen
+        return {"lage": "betrugsverdacht", "preis_verkaeufer": None, "warn": warn,
+                "antwort": "Danke für die Rückmeldung. Ich kaufe nur bei persönlicher Abholung mit Barzahlung oder über „Sicher bezahlen“ "
+                           "direkt hier in der App – keine Vorkasse, keine Links, kein Wechsel zu anderen Kanälen. Wenn das für dich passt, "
+                           "können wir gern einen Termin ausmachen. %s" % gruss}
     try:
         d = json.loads(re.search(r"\{.*\}", t, re.S).group(0))
+        if str(d.get("lage")) == "betrugsverdacht":
+            return {"lage": "betrugsverdacht", "preis_verkaeufer": None, "warn": [str(d.get("warnung") or "Die Antwort wirkt wie eine bekannte Betrugsmasche")[:200]],
+                    "antwort": " ".join(str(d.get("antwort") or "").split())}
         return {"lage": str(d.get("lage") or "unklar"), "preis_verkaeufer": d.get("preis_verkaeufer") if isinstance(d.get("preis_verkaeufer"), (int, float)) else None,
                 "antwort": " ".join(str(d.get("antwort") or "").split())}
     except Exception:

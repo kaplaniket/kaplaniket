@@ -182,7 +182,7 @@ class Antwort(BaseHTTPRequestHandler):
                 e = sprache.details(str(d.get("titel", ""))[:160], angaben, float(d.get("preis") or 0) or None, str(d.get("quelle", ""))[:20])
                 if not e:
                     raise ValueError("die KI hat nicht geantwortet – bitte noch einmal versuchen")
-                return self._json(dict(e, belegt=bool(angaben)))
+                return self._json(dict(e, belegt=bool(angaben), warn=kern.betrug(angaben)))
             except Exception as e:
                 return self._json({"fehler": "Details nicht möglich: %s" % e}, 400)
         if u.path == "/api/vergleich":

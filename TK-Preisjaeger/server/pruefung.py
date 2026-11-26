@@ -121,5 +121,11 @@ e = kern.wuensche_anwenden(kern.bewerten("wasserspender", [
 gut = [a["url"] for a in e["treffer"]] == ["a"] and [a["url"] for a in e["aehnlich"]] == ["b"]
 fehler += not gut
 print("%-6s Wünsche anwenden: Treffer %s, fast %s" % ("ok" if gut else "FEHLER", [a["url"] for a in e["treffer"]], [(a["url"], a["wunsch_offen"]) for a in e["aehnlich"]]))
+# Betrug
+for text, soll in [("Bitte per PayPal Freunde und Familie zahlen", True), ("Schreib mir auf WhatsApp 0176 12345678", True), ("Ich bin im Ausland, ein Kurier holt das Geld", True),
+                   ("Klicken Sie auf den Link zur Zahlung", True), ("Ok 250 passt, wann kannst du kommen? Barzahlung bei Abholung", False), ("iPhone 13 128GB top Zustand, Abholung in Dortmund", False)]:
+    gut = bool(kern.betrug(text)) == soll
+    fehler += not gut
+    print("%-6s Betrug? %-58s -> %s" % ("ok" if gut else "FEHLER", text[:58], kern.betrug(text)[:1]))
 print("\nERGEBNIS: %s" % ("alles in Ordnung" if not fehler else "%d FEHLER" % fehler))
 sys.exit(1 if fehler else 0)
