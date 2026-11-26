@@ -16,7 +16,7 @@ ORT = os.path.dirname(os.path.abspath(__file__))
 DATEN = os.path.join(ORT, "daten")
 MERK = os.path.join(DATEN, "merkliste.json")
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "1.0"
+FASSUNG = "1.1"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -35,6 +35,8 @@ def suche(anfrage, streng=True):
         if alt and time.time() - alt[0] < 600:
             return dict(alt[1], aus_speicher=True)
     start = time.time()
+    voll, v = anfrage, kern.verstehen(anfrage)      # Freitext: Produkt, Ausstattung, Preisgrenze, Zustand
+    anfrage = v["produkt"]
     roh, status = [], {n: {"name": n, "gefunden": 0, "passend": 0, "fehler": ""} for n, _, _, _ in quellen.QUELLEN}
 
     def sammeln(auftraege):
@@ -67,6 +69,7 @@ def suche(anfrage, streng=True):
         ab = max(1, int(e["ueblich"] * kern.GRENZE))
         sammeln([(n, f, anfrage, ab, s) for n, f, _, zwei in quellen.QUELLEN if zwei for s in (1, 2) if not (n == "Vinted" and s == 2)])
         e = kern.bewerten(anfrage, [dict(a) for a in roh], streng, e["ueblich"])
+    e = kern.wuensche_anwenden(e, v)
     for a in e["treffer"]:
         status[a["quelle"]]["passend"] += 1
     arten = {n: art for n, _, art, _ in quellen.QUELLEN}
@@ -74,7 +77,7 @@ def suche(anfrage, streng=True):
         for a in l:
             a["art"] = arten.get(a["quelle"], "")
             a.pop("text", None)
-    e.update(anfrage=anfrage, streng=streng, quellen=list(status.values()), links=quellen.links(anfrage),
+    e.update(anfrage=voll, produkt=anfrage, verstanden=v if voll.lower() != anfrage.lower() else None, streng=streng, quellen=list(status.values()), links=quellen.links(anfrage),
              groessen=kern.groessen(anfrage, e["treffer"]), dauer=round(time.time() - start, 1), zeit=time.strftime("%d.%m.%Y %H:%M"))
     e["defekt"], e["auffaellig"] = e["defekt"][:40], e["auffaellig"][:40]
     with _sperre:

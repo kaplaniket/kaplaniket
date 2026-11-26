@@ -96,5 +96,26 @@ print("%-6s fast passend: %s" % ("ok" if gut else "FEHLER", [(a["preis"], a.get(
 gut = kern.kuerzungen("iphone 13 128gb") == [] and kern.kuerzungen("sony wh-1000xm5") == []
 fehler += not gut
 print("%-6s keine Kürzung bei Modellnummern" % ("ok" if gut else "FEHLER"))
+# Freitext
+v = kern.verstehen("Ich suche einen Osmose Wasserspender mit Sprudel und Heißwasser bis 900 €, gebraucht, ohne Festanschluss")
+gut = v["produkt"] == "osmose wasserspender" and v["wuensche"] == ["sprudel", "heißwasser"] and v["max"] == 900 and v["zustand"] == ["gebraucht"] and v["ohne"] == ["festanschluss"]
+fehler += not gut
+print("%-6s Freitext: %s" % ("ok" if gut else "FEHLER", v))
+v = kern.verstehen("iPhone 13 128GB")
+gut = v["produkt"] == "iPhone 13 128GB" and not v["wuensche"] and v["max"] is None
+fehler += not gut
+print("%-6s Produktname bleibt unverändert: %s" % ("ok" if gut else "FEHLER", v["produkt"]))
+v = kern.verstehen("Dyson V11 unter 200 euro")
+gut = v["produkt"] == "dyson v11" and v["max"] == 200
+fehler += not gut
+print("%-6s Preisgrenze: %s" % ("ok" if gut else "FEHLER", v))
+e = kern.wuensche_anwenden(kern.bewerten("wasserspender", [
+    {"quelle": "T", "titel": "Wasserspender still, sprudelnd, kalt & heiß", "preis": 700, "url": "a"},
+    {"quelle": "T", "titel": "Wasserspender Edelstahl", "preis": 300, "url": "b"},
+    {"quelle": "T", "titel": "Wasserspender mit Sprudel und Heißwasser", "preis": 950, "url": "c"}]),
+    {"produkt": "wasserspender", "wuensche": ["sprudel", "heißwasser"], "ohne": [], "max": 900, "min": None, "zustand": []})
+gut = [a["url"] for a in e["treffer"]] == ["a"] and [a["url"] for a in e["aehnlich"]] == ["b"]
+fehler += not gut
+print("%-6s Wünsche anwenden: Treffer %s, fast %s" % ("ok" if gut else "FEHLER", [a["url"] for a in e["treffer"]], [(a["url"], a["wunsch_offen"]) for a in e["aehnlich"]]))
 print("\nERGEBNIS: %s" % ("alles in Ordnung" if not fehler else "%d FEHLER" % fehler))
 sys.exit(1 if fehler else 0)

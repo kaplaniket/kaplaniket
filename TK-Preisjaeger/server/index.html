@@ -6,151 +6,221 @@
 <meta name="author" content="Tekin Kaplan">
 <title>TK Preisjäger</title>
 <style>
-:root{--bg:#f4f6f5;--karte:#fff;--text:#16211d;--leise:#5d6b66;--linie:#dfe5e2;--gruen:#0b7a53;--gruen2:#e3f4ec;--warn:#a65b00;--warn2:#fff3df;--rot:#b3261e;--blau:#1f5fae}
-@media (prefers-color-scheme:dark){:root{--bg:#101614;--karte:#19211e;--text:#e8efec;--leise:#9aa9a3;--linie:#2a3531;--gruen:#4fd1a1;--gruen2:#143027;--warn:#ffb95c;--warn2:#33270f;--rot:#ff8a80;--blau:#8ab8ff}}
+:root{--bg:#f3f5f7;--karte:#fff;--karte2:#f8fafb;--text:#101a23;--leise:#5b6875;--linie:#e1e6eb;--akzent:#0a7d55;--akzent-t:#fff;--akzent2:#e4f5ee;--warn:#9a5a00;--warn2:#fff4e0;--rot:#b3261e;--schatten:0 1px 2px rgba(16,26,35,.06),0 4px 14px rgba(16,26,35,.05);
+--Kleinanzeigen:#2f8f2f;--Vinted:#007782;--Shpock:#2bb673;--Hood:#d2452f;--rebuy:#1d6fd8;--Amazon:#e47911;--idealo:#0a3761;--MediaMarkt:#df0000;--Saturn:#e8590c}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1216;--karte:#161d23;--karte2:#1b242b;--text:#e9eef2;--leise:#96a3af;--linie:#27323b;--akzent:#3fcf9b;--akzent-t:#04241a;--akzent2:#12302a;--warn:#ffb95c;--warn2:#2f2410;--rot:#ff8a80;--schatten:0 1px 2px rgba(0,0,0,.4);
+--Kleinanzeigen:#6fd06f;--Vinted:#35c4cf;--Shpock:#5fdc9f;--Hood:#ff8f7c;--rebuy:#7fb2ff;--Amazon:#ffa94d;--idealo:#8fb8e8;--MediaMarkt:#ff7b7b;--Saturn:#ff9a5c}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-main{max-width:980px;margin:0 auto;padding:22px 16px 60px}
-h1{font-size:22px;margin:0 0 2px}
-.unter{color:var(--leise);margin:0 0 16px}
-form{display:flex;gap:8px}
-input[type=search]{flex:1;min-width:0;font-size:18px;padding:13px 15px;border:1.5px solid var(--linie);border-radius:12px;background:var(--karte);color:var(--text);outline:none}
-input[type=search]:focus{border-color:var(--gruen)}
-button{font:inherit;cursor:pointer;border-radius:12px;border:1.5px solid var(--linie);background:var(--karte);color:var(--text);padding:8px 13px}
-button.haupt{background:var(--gruen);border-color:var(--gruen);color:#fff;font-weight:600;font-size:17px;padding:0 22px}
-@media (prefers-color-scheme:dark){button.haupt{color:#06281c}}
-.wahl{display:flex;flex-wrap:wrap;gap:6px 16px;margin:12px 2px 0;color:var(--leise)}
-.wahl label{display:flex;gap:6px;align-items:center;cursor:pointer}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.chip{border-radius:99px;padding:5px 12px;font-size:14px}
-.chip b{font-weight:600}
-.chip .x{margin-left:6px;color:var(--leise)}
-#lauf{margin:26px 0;color:var(--leise);display:none}
-.kreis{display:inline-block;width:16px;height:16px;border:2.5px solid var(--linie);border-top-color:var(--gruen);border-radius:50%;animation:d .8s linear infinite;vertical-align:-3px;margin-right:8px}
-@keyframes d{to{transform:rotate(360deg)}}
-.bester{background:var(--gruen2);border:1.5px solid var(--gruen);border-radius:16px;padding:16px;margin:22px 0 10px;display:flex;gap:16px;align-items:center}
-.bester img{width:110px;height:110px;object-fit:cover;border-radius:10px;background:var(--karte)}
-.bester .p{font-size:34px;font-weight:700;color:var(--gruen);line-height:1.1}
-.bester .t{font-weight:600;margin:4px 0}
-.kopf{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin:22px 2px 8px}
-.kopf h2{font-size:16px;margin:0}
-.leise{color:var(--leise);font-size:13.5px}
-.zeile{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center;background:var(--karte);border:1px solid var(--linie);border-radius:12px;padding:9px 12px;margin-bottom:6px;text-decoration:none;color:inherit}
-.zeile:hover{border-color:var(--gruen)}
-.zeile img,.zeile .ohne{width:64px;height:64px;object-fit:cover;border-radius:8px;background:var(--bg)}
-.zeile .t{font-weight:550;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.zeile .p{font-size:19px;font-weight:700;white-space:nowrap;text-align:right}
-.m{display:inline-block;font-size:12px;border-radius:6px;padding:1px 7px;margin-right:5px;background:var(--bg);border:1px solid var(--linie);color:var(--leise)}
-.m.q{color:var(--blau);font-weight:600}
-.m.neu{color:var(--gruen);border-color:var(--gruen)}
-.m.defekt{color:var(--rot);border-color:var(--rot)}
-.kasten{background:var(--karte);border:1px solid var(--linie);border-radius:12px;padding:12px 14px;margin-top:10px}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid var(--linie)}
+.kopf{max-width:1120px;margin:0 auto;padding:12px 20px;display:flex;gap:14px;align-items:center}
+.marke{display:flex;gap:10px;align-items:center;font-weight:700;font-size:17px;letter-spacing:-.01em;white-space:nowrap}
+.zeichen{width:32px;height:32px;border-radius:9px;background:var(--akzent);color:var(--akzent-t);display:grid;place-items:center;font-weight:800;font-size:18px}
+form{flex:1;display:flex;gap:8px;min-width:0}
+.feld{flex:1;position:relative;min-width:0}
+.feld svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;stroke:var(--leise)}
+input[type=search]{width:100%;font:inherit;font-size:16px;padding:11px 14px 11px 42px;border:1.5px solid var(--linie);border-radius:12px;background:var(--karte);color:var(--text);outline:none;box-shadow:var(--schatten)}
+input[type=search]:focus{border-color:var(--akzent)}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--linie);background:var(--karte);color:var(--text);padding:7px 12px}
+button:hover{border-color:var(--akzent)}
+.haupt{background:var(--akzent);border-color:var(--akzent);color:var(--akzent-t);font-weight:650;padding:0 22px;border-radius:12px;font-size:15.5px}
+main{max-width:1120px;margin:0 auto;padding:18px 20px 70px}
+.leise{color:var(--leise)}
+.klein{font-size:13px}
+/* Quellenleiste */
+.quellen{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:2px 0 4px}
+.q{display:inline-flex;align-items:center;gap:7px;padding:6px 12px 6px 10px;border-radius:99px;background:var(--karte);border:1px solid var(--linie);font-size:13.5px;font-weight:600;box-shadow:var(--schatten)}
+.q i{width:9px;height:9px;border-radius:50%;background:var(--f);flex:none}
+.q .n{font-weight:500;color:var(--leise)}
+.q.aus{opacity:.45}
+.q.wahl{border-color:var(--f);box-shadow:0 0 0 1.5px var(--f)}
+.q.lauf i{animation:puls 1s ease-in-out infinite}
+.q.fehl .n{color:var(--rot)}
+@keyframes puls{50%{opacity:.25;transform:scale(.7)}}
+/* Start */
+.start{text-align:center;padding:56px 10px 20px}
+.start h1{font-size:34px;letter-spacing:-.02em;margin:0 0 8px}
+.start p{max-width:620px;margin:0 auto 22px;color:var(--leise);font-size:16.5px}
+.bsp{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.schritte{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:38px auto 0;max-width:900px;text-align:left}
+.schritt{background:var(--karte);border:1px solid var(--linie);border-radius:14px;padding:16px;box-shadow:var(--schatten)}
+.schritt b{display:block;margin-bottom:4px}
+/* Kennzahlen */
+.zahlen{display:grid;grid-template-columns:1.5fr repeat(4,1fr);gap:12px;margin:16px 0}
+.zahl{background:var(--karte);border:1px solid var(--linie);border-radius:14px;padding:14px 16px;box-shadow:var(--schatten);min-width:0;text-decoration:none;display:block}
+.zahl .w{font-size:24px;font-weight:750;letter-spacing:-.02em;margin-top:2px;white-space:nowrap}
+.zahl.best{background:var(--akzent2);border-color:var(--akzent)}
+.zahl.best .w{font-size:34px;color:var(--akzent)}
+.zahl .u{font-size:12.5px;color:var(--leise);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+a.zahl:hover{border-color:var(--akzent)}
+/* Leiste über der Liste */
+.leiste{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;margin:18px 0 10px}
+.leiste h2{font-size:17px;margin:0}
+.wahlen{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.seg{display:inline-flex;background:var(--karte);border:1px solid var(--linie);border-radius:10px;overflow:hidden}
+.seg label{padding:6px 11px;font-size:13.5px;cursor:pointer;border-right:1px solid var(--linie);user-select:none}
+.seg label:last-child{border-right:0}
+.seg input{display:none}
+.seg label:has(input:checked){background:var(--akzent2);color:var(--akzent);font-weight:650}
+select{font:inherit;font-size:13.5px;padding:6px 8px;border-radius:10px;border:1px solid var(--linie);background:var(--karte);color:var(--text)}
+/* Angebot */
+.a{display:grid;grid-template-columns:28px 92px 1fr auto;gap:14px;align-items:center;background:var(--karte);border:1px solid var(--linie);border-radius:14px;padding:10px 16px 10px 8px;margin-bottom:8px;text-decoration:none;box-shadow:var(--schatten);transition:border-color .12s,transform .12s}
+.a:hover{border-color:var(--akzent);transform:translateY(-1px)}
+.a .nr{text-align:center;color:var(--leise);font-size:13px;font-variant-numeric:tabular-nums}
+.a img,.a .ohne{width:92px;height:92px;object-fit:cover;border-radius:10px;background:var(--karte2);display:block}
+.a .ohne{display:grid;place-items:center;color:var(--leise);font-size:22px}
+.a .t{font-weight:600;font-size:15.5px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.a .z{margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.a .i{margin-top:5px;font-size:13px;color:var(--leise)}
+.a .p{text-align:right;white-space:nowrap}
+.a .p b{font-size:23px;letter-spacing:-.02em;display:block}
+.a .p span{font-size:12.5px;color:var(--leise)}
+.a .p .spar{color:var(--akzent);font-weight:650}
+.m{display:inline-flex;align-items:center;gap:5px;font-size:12px;border-radius:6px;padding:2px 8px;background:var(--karte2);border:1px solid var(--linie);color:var(--leise);font-weight:550}
+.m.qq{color:var(--f);border-color:color-mix(in srgb,var(--f) 45%,transparent)}
+.m.qq i{width:7px;height:7px;border-radius:50%;background:var(--f)}
+.m.neu{color:var(--akzent);border-color:var(--akzent)}
+.m.defekt,.m.fehlt{color:var(--warn);border-color:var(--warn)}
+.kasten{background:var(--karte);border:1px solid var(--linie);border-radius:14px;padding:14px 16px;margin-top:12px;box-shadow:var(--schatten)}
 .kasten.warn{background:var(--warn2);border-color:var(--warn)}
-details summary{cursor:pointer;font-weight:600}
-.links a{display:inline-block;margin:6px 8px 0 0;padding:6px 12px;border:1px solid var(--linie);border-radius:99px;text-decoration:none;color:var(--blau);background:var(--karte)}
-.fehler{color:var(--rot)}
-footer{margin-top:34px;color:var(--leise);font-size:12.5px;text-align:center}
-@media (max-width:560px){.zeile{grid-template-columns:52px 1fr auto}.zeile img,.zeile .ohne{width:52px;height:52px}.bester{flex-direction:column;align-items:flex-start}button.haupt{padding:0 14px}}
+details summary{cursor:pointer;font-weight:650}
+details[open] summary{margin-bottom:12px}
+.chip{border-radius:99px;padding:5px 12px;font-size:13.5px;background:var(--karte)}
+.chip .x{margin-left:6px;color:var(--leise)}
+.links a{display:inline-block;margin:8px 8px 0 0;padding:7px 13px;border:1px solid var(--linie);border-radius:99px;text-decoration:none;font-weight:550;font-size:13.5px;background:var(--karte2)}
+.links a:hover{border-color:var(--akzent)}
+.merk{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center}
+.mehr{display:block;margin:10px auto 0}
+footer{margin-top:40px;color:var(--leise);font-size:12.5px;text-align:center}
+.skel{height:112px;border-radius:14px;margin-bottom:8px;background:linear-gradient(90deg,var(--karte) 25%,var(--karte2) 50%,var(--karte) 75%);background-size:200% 100%;animation:sk 1.2s linear infinite;border:1px solid var(--linie)}
+@keyframes sk{to{background-position:-200% 0}}
+@media (max-width:820px){.zahlen{grid-template-columns:1fr 1fr}.zahl.best{grid-column:1/-1}.schritte{grid-template-columns:1fr}.marke span{display:none}}
+@media (max-width:560px){.a{grid-template-columns:64px 1fr auto;padding-left:10px}.a .nr{display:none}.a img,.a .ohne{width:64px;height:64px}.a .p b{font-size:19px}.kopf{padding:10px 12px}main{padding:14px 12px 60px}.haupt{padding:0 14px}.start h1{font-size:26px}}
 </style>
 </head>
 <body>
+<header><div class="kopf">
+<div class="marke"><div class="zeichen">€</div><span>TK Preisjäger</span></div>
+<form id="f"><div class="feld"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+<input id="q" type="search" placeholder="Produkt oder Wunsch, z. B. „Wasserspender mit Sprudel bis 900 €“" autofocus autocomplete="off"></div>
+<button class="haupt">Suchen</button></form>
+</div></header>
 <main>
-<h1>TK Preisjäger</h1>
-<p class="unter">Produkt eingeben – gesucht wird genau dieses Produkt, neu und gebraucht, der günstigste Preis steht oben.</p>
-<form id="f">
-<input id="q" type="search" placeholder="z. B. iPhone 13 128GB · Sony WH-1000XM5 · Dyson V11" autofocus autocomplete="off">
-<button class="haupt">Suchen</button>
-</form>
-<div class="wahl">
-<label><input type="checkbox" id="neu" checked> Neu</label>
-<label><input type="checkbox" id="auf" checked> Geprüft/aufbereitet</label>
-<label><input type="checkbox" id="geb" checked> Gebraucht</label>
-<label title="Aus: auch Pro/Mini/Max und andere Speichergrößen zulassen"><input type="checkbox" id="streng" checked> Nur genau diese Ausführung</label>
-</div>
-<div class="chips" id="merk"></div>
-<div id="lauf"><span class="kreis"></span><span id="lauftext"></span></div>
+<div class="quellen" id="quellen"></div>
+<div class="merk" id="merk"></div>
 <div id="aus"></div>
 <footer>TK Preisjäger {{FASSUNG}} · © 2026 Tekin Kaplan</footer>
 </main>
 <script>
 const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const eur=n=>n.toLocaleString('de-DE',{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2})+' €';
-const ZU={neu:'Neu',aufbereitet:'Geprüft/aufbereitet',gebraucht:'Gebraucht',defekt:'Defekt'};
-let stand=null, uhr=null;
+const QUELLEN=['Kleinanzeigen','Vinted','Shpock','Hood','rebuy','Amazon','idealo','MediaMarkt','Saturn'];
+const ZU={neu:'Neu',aufbereitet:'Geprüft',gebraucht:'Gebraucht',defekt:'Defekt'};
+const BSP=['iPhone 13 128GB','Sony WH-1000XM5','Dyson V11 unter 200 €','Wasserspender mit Sprudel und Heißwasser bis 900 €','Lego 42115 neu'];
+let stand=null, nurQuelle=null, zeigeAnzahl=40, laeuft=false;
+const wahl={neu:true,aufbereitet:true,gebraucht:true}; let streng=true, sortierung='auf';
 
-function zeile(a){
-  const bild=a.bild?`<img src="${esc(a.bild)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=ohne></div>'">`:'<div class="ohne"></div>';
-  const neben=[a.fehlt?'ohne „'+a.fehlt+'“ im Titel':'',a.ort,a.hinweis].filter(Boolean).join(' · ');
-  return `<a class="zeile" href="${esc(a.url)}" target="_blank" rel="noopener">${bild}<div><div class="t">${esc(a.titel)}</div>
-  <div><span class="m q">${esc(a.quelle)}</span><span class="m ${a.zustand}">${ZU[a.zustand]||''}</span><span class="leise">${esc(neben)}</span></div></div>
-  <div class="p">${eur(a.preis)}</div></a>`;
+function quellenleiste(){
+  const z={}; if(stand) [...stand.treffer,...stand.aehnlich].forEach(a=>z[a.quelle]=(z[a.quelle]||0)+1);
+  const st={}; if(stand) stand.quellen.forEach(q=>st[q.name]=q);
+  $('#quellen').innerHTML=`<span class="leise klein" style="margin-right:2px">${laeuft?'Durchsuche':stand?'Durchsucht:':'Durchsucht werden:'}</span>`+QUELLEN.map(n=>{
+    const s=st[n]; let kl='q', zahl='';
+    if(laeuft) kl+=' lauf';
+    else if(s){ if(s.fehler){kl+=' fehl';zahl='keine Antwort'} else if(!z[n]){kl+=' aus';zahl=s.gefunden?'0 passend':'nichts'} else zahl=z[n]; }
+    if(nurQuelle===n) kl+=' wahl';
+    return `<button class="${kl}" style="--f:var(--${n})" data-quelle="${n}" title="${s&&!s.fehler?s.gefunden+' Angebote gelesen, '+(z[n]||0)+' passen genau':''}"><i></i>${n}${zahl!==''?` <span class="n">${zahl}</span>`:''}</button>`}).join('');
+}
+function karte(a,nr,ueblich){
+  const bild=a.bild?`<img src="${esc(a.bild)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=ohne>–</div>'">`:'<div class="ohne">–</div>';
+  const spar=ueblich&&a.preis<ueblich*0.93&&a.zustand!=='defekt'?`<span class="spar">${Math.round((1-a.preis/ueblich)*100)} % unter üblich</span>`:(a.art==='händler'?'<span>Händler</span>':'<span>Privat</span>');
+  return `<a class="a" href="${esc(a.url)}" target="_blank" rel="noopener"><div class="nr">${nr||''}</div>${bild}<div style="min-width:0"><div class="t">${esc(a.titel)}</div>
+  <div class="z"><span class="m qq" style="--f:var(--${esc(a.quelle)})"><i></i>${esc(a.quelle)}</span><span class="m ${a.zustand}">${ZU[a.zustand]||''}</span>${a.fehlt?`<span class="m fehlt">ohne „${esc(a.fehlt)}“ im Titel</span>`:''}</div>
+  ${(a.wunsch_da||[]).length||(a.wunsch_offen||[]).length?`<div class="z">${(a.wunsch_da||[]).map(w=>`<span class="m neu">✓ ${esc(w)}</span>`).join('')}${(a.wunsch_offen||[]).map(w=>`<span class="m fehlt">${esc(w)} nicht genannt</span>`).join('')}</div>`:''}<div class="i">${esc([a.ort,a.hinweis].filter(Boolean).join(' · '))}</div></div>
+  <div class="p"><b>${eur(a.preis)}</b>${spar}</div></a>`;
+}
+function filtern(l){ return l.filter(a=>wahl[a.zustand]!==false&&(a.zustand==='defekt'||wahl[a.zustand])&&(!nurQuelle||a.quelle===nurQuelle)); }
+function startseite(){
+  $('#aus').innerHTML=`<div class="start"><h1>Der günstigste Preis für genau dein Produkt</h1>
+  <p>Ein Suchfeld statt neun Seiten: Kleinanzeigen, Vinted, Shpock, Hood, rebuy, Amazon, idealo, MediaMarkt und Saturn werden gleichzeitig durchsucht – neu und gebraucht.</p>
+  <div class="bsp">${BSP.map(b=>`<button class="chip" data-q="${esc(b)}">${esc(b)}</button>`).join('')}</div>
+  <div class="schritte"><div class="schritt"><b>1 · Genau dieses Produkt</b><span class="leise">Andere Ausführungen (Pro, Mini, andere Größe), Zubehör, Ersatzteile, Leerkartons und Gesuche werden aussortiert.</span></div>
+  <div class="schritt"><b>2 · Üblicher Preis</b><span class="leise">Aus allen Treffern wird der Marktpreis bestimmt. Lockpreise und Defekte stehen getrennt, nicht ganz oben.</span></div>
+  <div class="schritt"><b>3 · Günstigste zuerst</b><span class="leise">Eine Liste über alle Seiten, sortiert nach Preis, mit Zustand, Ort und direktem Link zum Angebot.</span></div></div></div>`;
 }
 function zeigen(){
-  const d=stand; if(!d) return;
-  const an={neu:$('#neu').checked,aufbereitet:$('#auf').checked,gebraucht:$('#geb').checked};
-  let t=d.treffer.filter(a=>an[a.zustand]);
-  const ae=(d.aehnlich||[]).filter(a=>an[a.zustand]);
-  const nurFast=!t.length&&ae.length>0; if(nurFast) t=ae;
+  quellenleiste(); const d=stand; if(!d) return startseite();
+  let t=filtern(d.treffer); const ae=filtern(d.aehnlich||[]);
+  const nurFast=!d.treffer.length&&(d.aehnlich||[]).length>0; if(nurFast) t=ae;
+  if(sortierung==='ab') t=[...t].reverse();
+  const alle=nurFast?d.aehnlich:d.treffer, je={}; alle.forEach(a=>{ if(!je[a.zustand]||a.preis<je[a.zustand].preis) je[a.zustand]=a; });
+  const best=alle.length?alle.reduce((x,y)=>y.preis<x.preis?y:x):null;
   let h='';
-  if(nurFast) h+=`<div class="kasten warn" style="margin-top:20px"><b>Kein Titel enthält alle Suchwörter.</b> Unten stehen die Angebote, bei denen genau ein Wort fehlt (steht jeweils dabei) – bitte kurz prüfen, ob es dein Produkt ist.</div>`;
-  if(t.length){
-    const b=t[0];
-    h+=`<div class="bester">${b.bild?`<img src="${esc(b.bild)}" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<div>
-    <div class="leise">${nurFast?'Günstigstes fast passendes Angebot':'Günstigstes passendes Angebot'}</div><div class="p">${eur(b.preis)}</div><div class="t">${esc(b.titel)}</div>
-    <div><span class="m q">${esc(b.quelle)}</span><span class="m ${b.zustand}">${ZU[b.zustand]}</span><span class="leise">${esc([b.ort,b.hinweis].filter(Boolean).join(' · '))}</span></div>
-    <div style="margin-top:10px"><a href="${esc(b.url)}" target="_blank" rel="noopener"><button class="haupt" style="padding:8px 18px;font-size:15px">Angebot öffnen</button></a>
-    <button id="merken" style="margin-left:6px">Auf die Merkliste</button></div></div></div>`;
-    const je={}; t.forEach(a=>{ if(!je[a.zustand]) je[a.zustand]=a; });
-    h+=`<div class="leise" style="margin:0 2px">${Object.keys(ZU).filter(z=>je[z]).map(z=>`${ZU[z]} ab <b>${eur(je[z].preis)}</b> (${esc(je[z].quelle)})`).join(' · ')}${d.ueblich?` · üblicher Preis rund ${eur(Math.round(d.ueblich))}`:''}</div>`;
+  const v=d.verstanden; if(v) h+=`<div class="kasten" style="margin-top:14px"><b>Verstanden:</b> <span class="m qq" style="--f:var(--akzent)">Produkt: ${esc(v.produkt)}</span> ${v.wuensche.map(w=>`<span class="m neu">mit ${esc(w)}</span>`).join(' ')} ${v.ohne.map(w=>`<span class="m fehlt">ohne ${esc(w)}</span>`).join(' ')} ${v.max?`<span class="m">bis ${eur(v.max)}</span>`:''} ${v.min?`<span class="m">ab ${eur(v.min)}</span>`:''} ${v.zustand.map(z=>`<span class="m">${ZU[z]}</span>`).join(' ')}</div>`;
+  if(best){
+    const kachel=(titel,a)=>a?`<a class="zahl" href="${esc(a.url)}" target="_blank" rel="noopener"><div class="leise klein">${titel}</div><div class="w">${eur(a.preis)}</div><div class="u">${esc(a.quelle)}</div></a>`:`<div class="zahl"><div class="leise klein">${titel}</div><div class="w leise">–</div><div class="u">kein Angebot</div></div>`;
+    h+=`<div class="zahlen"><a class="zahl best" href="${esc(best.url)}" target="_blank" rel="noopener"><div class="klein" style="font-weight:650">${nurFast?'Günstigstes fast passendes Angebot':'Bester Preis'}</div><div class="w">${eur(best.preis)}</div><div class="u">${esc(best.quelle)} · ${ZU[best.zustand]} · ${esc(best.titel)}</div></a>
+    ${kachel('Gebraucht ab',je.gebraucht)}${kachel('Geprüft ab',je.aufbereitet)}${kachel('Neu ab',je.neu)}
+    <div class="zahl"><div class="leise klein">Üblicher Preis</div><div class="w">${d.ueblich?eur(Math.round(d.ueblich)):'–'}</div><div class="u">${d.ueblich?'Mitte aller Treffer':'zu wenige Treffer'}</div></div></div>`;
+    if(nurFast) h+=`<div class="kasten warn"><b>Kein Angebot nennt alles, was du eingegeben hast.</b> Gezeigt werden die nächstliegenden – was fehlt oder nicht genannt ist, steht jeweils dabei.</div>`;
   } else {
-    h+=`<div class="kasten warn"><b>Kein passendes Angebot gefunden.</b> Prüfe die Schreibweise oder nimm weniger Wörter (Marke + Modell genügt). Die Direktlinks unten suchen auf weiteren Seiten.</div>`;
+    h+=`<div class="kasten warn" style="margin-top:16px"><b>Für „${esc(d.anfrage)}“ wurde auf keiner der ${d.quellen.length} Seiten ein passendes Angebot gefunden.</b><br>Tipp: Nur Marke und Modell eingeben, ohne Beschreibung – oder „Genau diese Ausführung“ ausschalten. eBay und weitere Seiten stehen unten als Direktlink.</div>`;
   }
   const gr=Object.entries(d.groessen||{}), av=Object.entries(d.andere_ausfuehrungen||{});
-  if(gr.length||av.length){
-    h+=`<div class="kasten"><b>Genauer suchen:</b> <span class="chips" style="display:inline-flex;margin:0 0 0 6px">`+
-      gr.map(([g,n])=>`<button class="chip" data-q="${esc(d.anfrage+' '+g.replace(' ',''))}">${esc(g)} <span class="x">${n}</span></button>`).join('')+
-      av.map(([g,n])=>`<button class="chip" data-q="${esc(d.anfrage+' '+g)}">${esc(d.anfrage)} <b>${esc(g.toUpperCase())}</b> <span class="x">${n}</span></button>`).join('')+`</span></div>`;
+  if(gr.length||av.length) h+=`<div class="kasten"><b>Genauer suchen:</b> <span style="display:inline-flex;flex-wrap:wrap;gap:6px;margin-left:6px">`+
+    gr.map(([g,n])=>`<button class="chip" data-q="${esc((d.produkt||d.anfrage)+' '+g.replace(' ',''))}">${esc(g)} <span class="x">${n}</span></button>`).join('')+
+    av.map(([g,n])=>`<button class="chip" data-q="${esc((d.produkt||d.anfrage)+' '+g)}">${esc(d.produkt||d.anfrage)} <b>${esc(g.toUpperCase())}</b> <span class="x">${n}</span></button>`).join('')+`</span></div>`;
+  if(best){
+    h+=`<div class="leiste"><h2>${t.length} ${nurFast?'fast passende':'passende'} Angebote${nurQuelle?' bei '+esc(nurQuelle):''}</h2><div class="wahlen">
+    <div class="seg">${[['gebraucht','Gebraucht'],['aufbereitet','Geprüft'],['neu','Neu']].map(([k,n])=>`<label><input type="checkbox" data-zu="${k}" ${wahl[k]?'checked':''}>${n}</label>`).join('')}</div>
+    <div class="seg"><label title="Aus: auch Pro/Mini/Max und andere Größen zulassen"><input type="checkbox" id="streng" ${streng?'checked':''}>Genau diese Ausführung</label></div>
+    <select id="sort"><option value="auf"${sortierung==='auf'?' selected':''}>Preis aufsteigend</option><option value="ab"${sortierung==='ab'?' selected':''}>Preis absteigend</option></select>
+    <button id="merken">☆ Merken</button></div></div>`;
+    h+=t.slice(0,zeigeAnzahl).map((a,i)=>karte(a,i+1,d.ueblich)).join('')||`<div class="kasten leise">Mit dieser Auswahl bleibt kein Angebot übrig.</div>`;
+    if(t.length>zeigeAnzahl) h+=`<button class="mehr" id="mehr">Weitere ${Math.min(40,t.length-zeigeAnzahl)} von ${t.length-zeigeAnzahl} zeigen</button>`;
   }
-  if(t.length){
-    h+=`<div class="kopf"><h2>${t.length} ${nurFast?'fast passende':'passende'} Angebote, günstigste zuerst</h2><span class="leise">Stand ${esc(d.zeit)} · ${d.dauer} s</span></div>`+t.slice(0,150).map(zeile).join('');
-  }
-  if(!nurFast&&ae.length) h+=`<details class="kasten"><summary>${ae.length} fast passende Angebote (ein Suchwort fehlt im Titel)</summary><div style="margin-top:10px">${ae.map(zeile).join('')}</div></details>`;
-  if(d.auffaellig.length) h+=`<details class="kasten warn"><summary>${d.auffaellig.length} Angebote unter der Hälfte des üblichen Preises (meist Zubehör, Spiele, Lockpreis oder Betrug – genau prüfen)</summary><div style="margin-top:10px">${d.auffaellig.map(zeile).join('')}</div></details>`;
-  if(d.defekt.length) h+=`<details class="kasten"><summary>${d.defekt.length} defekte Geräte / Bastlerware</summary><div style="margin-top:10px">${d.defekt.map(zeile).join('')}</div></details>`;
+  if(!nurFast&&ae.length) h+=`<details class="kasten"><summary>${ae.length} fast passende Angebote – ein Wort oder eine gewünschte Ausstattung ist nicht genannt</summary>${ae.map(a=>karte(a,0,d.ueblich)).join('')}</details>`;
+  const au=filtern(d.auffaellig), de=d.defekt.filter(a=>!nurQuelle||a.quelle===nurQuelle);
+  if(au.length) h+=`<details class="kasten warn"><summary>${au.length} Angebote unter der Hälfte des üblichen Preises – meist Zubehör, Lockpreis oder Betrug</summary>${au.map(a=>karte(a,0,0)).join('')}</details>`;
+  if(de.length) h+=`<details class="kasten"><summary>${de.length} defekte Geräte / Bastlerware</summary>${de.map(a=>karte(a,0,0)).join('')}</details>`;
   const so=Object.entries(d.aussortiert||{});
-  h+=`<details class="kasten"><summary>Was wurde durchsucht und aussortiert?</summary><div style="margin-top:8px">`+
-    d.quellen.map(q=>`<div>${esc(q.name)}: ${q.fehler?`<span class="fehler">nicht erreichbar (${esc(q.fehler)})</span>`:`${q.gefunden} gefunden, ${q.passend} passend`}</div>`).join('')+
-    (so.length?`<div style="margin-top:8px">Aussortiert: ${so.map(([k,v])=>`${v} × ${esc(k)}`).join(' · ')}</div>`:'')+`</div></details>`;
-  h+=`<div class="kasten links"><b>Weitere Seiten</b> <span class="leise">(lassen keine automatische Abfrage zu – öffnen mit fertiger Suche)</span><br>${d.links.map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.name)}</a>`).join('')}</div>`;
+  h+=`<details class="kasten"><summary>Was wurde durchsucht und aussortiert?</summary><table style="border-collapse:collapse;font-size:14px">`+
+    d.quellen.map(q=>`<tr><td style="padding:2px 18px 2px 0;font-weight:600">${esc(q.name)}</td><td>${q.fehler?`<span style="color:var(--rot)">keine Antwort</span>`:`${q.gefunden} gelesen · ${q.passend} genau passend`}</td></tr>`).join('')+`</table>`+
+    (so.length?`<div class="leise" style="margin-top:8px">Aussortiert: ${so.map(([k,v])=>`${v} × ${esc(k)}`).join(' · ')}</div>`:'')+`<div class="leise klein" style="margin-top:6px">Stand ${esc(d.zeit)} · ${d.dauer} s</div></details>`;
+  h+=`<div class="kasten links"><b>Zusätzlich selbst öffnen</b> <span class="leise klein">– diese Seiten erlauben keine automatische Abfrage, die Suche ist schon eingetragen</span><br>${d.links.map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.name)} ↗</a>`).join('')}</div>`;
   $('#aus').innerHTML=h;
 }
 async function suchen(text){
-  text=(text??$('#q').value).trim(); if(text.length<2) return;
-  $('#q').value=text; $('#aus').innerHTML=''; $('#lauf').style.display='block';
-  const schritte=['Kleinanzeigen, Vinted, Shpock, Hood …','Amazon, idealo, rebuy, MediaMarkt, Saturn …','Üblichen Preis bestimmen, Zubehör und andere Ausführungen aussortieren …','Billigste echte Angebote gezielt nachladen …'];
-  let i=0; $('#lauftext').textContent=schritte[0]; clearInterval(uhr); uhr=setInterval(()=>{i=Math.min(i+1,schritte.length-1);$('#lauftext').textContent=schritte[i]},2500);
+  text=(text??$('#q').value).trim(); if(text.length<2||laeuft) return;
+  $('#q').value=text; laeuft=true; stand=null; nurQuelle=null; zeigeAnzahl=40; quellenleiste();
+  $('#aus').innerHTML=`<div class="leise" style="margin:18px 2px 12px">Suche „${esc(text)}“ auf ${QUELLEN.length} Seiten gleichzeitig, bestimme den üblichen Preis und sortiere Zubehör aus …</div>`+'<div class="skel"></div>'.repeat(5);
   try{
-    const r=await fetch('/api/suche?q='+encodeURIComponent(text)+'&streng='+($('#streng').checked?1:0)); const d=await r.json();
-    if(d.fehler) $('#aus').innerHTML=`<div class="kasten warn">${esc(d.fehler)}</div>`; else { stand=d; zeigen(); merkliste(); }
-  }catch(e){ $('#aus').innerHTML='<div class="kasten warn">Der Preisjäger ist gerade nicht erreichbar.</div>'; }
-  clearInterval(uhr); $('#lauf').style.display='none';
+    const r=await fetch('/api/suche?q='+encodeURIComponent(text)+'&streng='+(streng?1:0)); const d=await r.json(); laeuft=false;
+    if(d.fehler){ quellenleiste(); $('#aus').innerHTML=`<div class="kasten warn">${esc(d.fehler)}</div>`; } else { d.aehnlich=d.aehnlich||[]; stand=d; zeigen(); merkliste(); }
+  }catch(e){ laeuft=false; quellenleiste(); $('#aus').innerHTML='<div class="kasten warn">Der Preisjäger ist gerade nicht erreichbar.</div>'; }
 }
 async function merkliste(daten){
   try{ const l=daten||await (await fetch('/api/merkliste')).json();
-    $('#merk').innerHTML=l.map(m=>{ const pfeil=m.vorher&&m.preis<m.vorher?' ↓':m.vorher&&m.preis>m.vorher?' ↑':'';
+    $('#merk').innerHTML=(l.length?'<span class="leise klein">Merkliste:</span>':'')+l.map(m=>{ const pfeil=m.vorher&&m.preis<m.vorher?' ↓':m.vorher&&m.preis>m.vorher?' ↑':'';
       return `<button class="chip" data-q="${esc(m.anfrage)}" title="${m.zeit?'Stand '+esc(m.zeit)+(m.tiefst?' · tiefster bisher '+eur(m.tiefst):''):'noch nicht gesucht'}">${esc(m.anfrage)}${m.preis?` <b>${eur(m.preis)}${pfeil}</b>`:''}<span class="x" data-weg="${esc(m.anfrage)}">✕</span></button>`}).join('');
   }catch(e){}
 }
 async function senden(pfad,anfrage){ const r=await fetch(pfad,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({anfrage})}); merkliste(await r.json()); }
 $('#f').addEventListener('submit',e=>{e.preventDefault();suchen()});
-['#neu','#auf','#geb'].forEach(s=>$(s).addEventListener('change',zeigen));
-$('#streng').addEventListener('change',()=>{ if(stand) suchen(stand.anfrage) });
+document.addEventListener('change',e=>{
+  if(e.target.dataset.zu){ wahl[e.target.dataset.zu]=e.target.checked; zeigen(); }
+  else if(e.target.id==='streng'){ streng=e.target.checked; if(stand) suchen(stand.anfrage); }
+  else if(e.target.id==='sort'){ sortierung=e.target.value; zeigen(); }
+});
 document.addEventListener('click',e=>{
   const weg=e.target.closest('[data-weg]'); if(weg){ e.stopPropagation(); senden('/api/vergessen',weg.dataset.weg); return; }
-  const c=e.target.closest('[data-q]'); if(c){ suchen(c.dataset.q); scrollTo({top:0,behavior:'smooth'}); return; }
-  if(e.target.id==='merken'&&stand){ senden('/api/merken',stand.anfrage); e.target.textContent='Gemerkt ✓'; }
+  const c=e.target.closest('[data-q]'); if(c){ suchen(c.dataset.q); scrollTo({top:0}); return; }
+  const qu=e.target.closest('[data-quelle]'); if(qu&&stand){ nurQuelle=nurQuelle===qu.dataset.quelle?null:qu.dataset.quelle; zeigeAnzahl=40; zeigen(); return; }
+  if(e.target.id==='mehr'){ zeigeAnzahl+=40; zeigen(); return; }
+  if(e.target.id==='merken'&&stand){ senden('/api/merken',stand.anfrage); e.target.textContent='★ Gemerkt'; }
 });
-merkliste();
+zeigen(); merkliste();
 const vor=new URLSearchParams(location.search).get('q'); if(vor) suchen(vor);
 </script>
 </body>

@@ -295,3 +295,90 @@ def groessen(anfrage, treffer):
             if re.match(r"\d+(gb|tb)$", w) and (w.endswith("tb") or int(w[:-2]) >= 16):
                 z[w] = z.get(w, 0) + 1
     return {k.upper().replace("GB", " GB").replace("TB", " TB"): v for k, v in sorted(z.items(), key=lambda x: -x[1])[:6] if v >= 2}
+
+
+# ---------- Freitext verstehen: „Ich suche einen Wasserspender mit Sprudel und Heißwasser bis 900 €, gebraucht“ ----------
+_AUSLOESER = re.compile(r"\b(ich|suche|sucht|brauche|möchte|will|soll|sollte|mit|ohne|unter|bis|max|maximal|höchstens|euro|gesucht|kaufen|inkl|inklusive|kein|keine|keinen)\b|€")
+_FUELLWORT = {"ich", "suche", "suchen", "brauche", "möchte", "will", "hätte", "gerne", "gern", "bitte", "kaufen", "haben", "einen", "eine", "ein",
+              "einem", "einer", "eines", "für", "mich", "mir", "uns", "nach", "günstig", "günstige", "günstigen", "günstiges", "günstiger",
+              "billig", "billige", "billigen", "preiswert", "gut", "gute", "guten", "gutes", "guter", "am", "besten", "möglichst", "soll",
+              "sollte", "sein", "es", "der", "die", "das", "den", "dem", "und", "oder", "zum", "zur", "gesucht", "wird", "wäre", "ist", "auch",
+              "so", "wie", "was", "wo", "ausgestattet", "ausstattung", "hat", "kann", "können", "muss", "dabei", "noch", "etwa", "ca", "circa",
+              "ungefähr", "preis", "kosten", "kostet", "darf", "von", "als", "zu", "in", "im", "marke", "modell", "sowie", "viel", "integriertem",
+              "integrierter", "eingebautem", "eingebauter", "funktion", "zustand", "sehr", "top"}
+_ZUSTAND_WORT = {"neu": "neu", "neue": "neu", "neuen": "neu", "neues": "neu", "neuer": "neu", "neuware": "neu", "gebraucht": "gebraucht",
+                 "gebrauchte": "gebraucht", "gebrauchten": "gebraucht", "gebrauchtes": "gebraucht", "generalüberholt": "aufbereitet",
+                 "refurbished": "aufbereitet", "aufbereitet": "aufbereitet", "geprüft": "aufbereitet"}
+_ZAHL = r"(\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?\s*(?:€|euro\b|eur\b)"
+
+
+def verstehen(text):
+    """Zerlegt einen frei geschriebenen Wunsch. Ohne Auslösewörter bleibt der Text unverändert das Produkt."""
+    roh = " ".join((text or "").split())
+    v = {"produkt": roh, "wuensche": [], "ohne": [], "max": None, "min": None, "zustand": []}
+    t = roh.lower()
+    if not _AUSLOESER.search(t):
+        return v
+    zahl = lambda s: float(s.replace(".", ""))
+    m = re.search(r"\b(?:unter|bis zu|bis|max\.?|maximal|höchstens|nicht mehr als|für)\s*" + _ZAHL, t)
+    if m:
+        v["max"] = zahl(m.group(1)); t = t[:m.start()] + " " + t[m.end():]
+    m = re.search(r"\b(?:ab|mindestens|über|mehr als)\s*" + _ZAHL, t)
+    if m:
+        v["min"] = zahl(m.group(1)); t = t[:m.start()] + " " + t[m.end():]
+    m = re.search(_ZAHL, t)
+    if m and v["max"] is None:      # „… 800 €“ ohne „bis“: als Obergrenze nehmen
+        v["max"] = zahl(m.group(1)); t = t[:m.start()] + " " + t[m.end():]
+    for m in list(re.finditer(r"\b(?:ohne|kein|keine|keinen)\s+([a-zäöüß0-9-]{3,})", t)):
+        v["ohne"].append(m.group(1))
+    t = re.sub(r"\b(?:ohne|kein|keine|keinen)\s+[a-zäöüß0-9-]{3,}", " ", t)
+    worte = re.findall(r"[a-zäöüß0-9][a-zäöüß0-9.\-/]*", t)
+    zu = [_ZUSTAND_WORT[w] for w in worte if w in _ZUSTAND_WORT]
+    worte = [w for w in worte if w not in _ZUSTAND_WORT]
+    v["zustand"] = sorted(set(zu)) if len(set(zu)) < 3 else []
+    # alles hinter „mit / inkl.“ ist Ausstattung, davor das Produkt
+    schnitt = next((i for i, w in enumerate(worte) if w in ("mit", "inkl", "inkl.", "inklusive", "samt")), None)
+    kern_w, wunsch_w = (worte, []) if schnitt is None else (worte[:schnitt], worte[schnitt + 1:])
+    v["wuensche"] = [w for w in wunsch_w if w not in _FUELLWORT and w not in ("mit", "inkl", "inklusive", "samt") and len(w) >= 3]
+    kern_w = [w for w in kern_w if w not in _FUELLWORT]
+    if not kern_w and v["wuensche"]:      # „mit …“ ganz vorn: erstes Wunschwort ist das Produkt
+        kern_w, v["wuensche"] = v["wuensche"][:1], v["wuensche"][1:]
+    v["produkt"] = " ".join(kern_w) or roh
+    return v
+
+
+def _hat(wort, text):
+    return wort in text or (len(wort) >= 6 and wort[:-2] in text) or (len(wort) >= 8 and wort[:4] in text)
+
+
+def wuensche_anwenden(e, v):
+    """Wendet Höchst-/Mindestpreis, Zustand, „ohne …“ und Ausstattungswünsche auf ein Ergebnis von bewerten() an."""
+    z = e["aussortiert"]
+
+    def raus(name):
+        z[name] = z.get(name, 0) + 1
+
+    def sieb(liste):
+        aus = []
+        for a in liste:
+            voll = (a["titel"] + " " + (a.get("text") or "") + " " + (a.get("hinweis") or "")).lower()
+            if v["max"] and a["preis"] > v["max"]:
+                raus("über deinem Höchstpreis"); continue
+            if v["min"] and a["preis"] < v["min"]:
+                raus("unter deinem Mindestpreis"); continue
+            if v["zustand"] and a.get("zustand") not in v["zustand"] and a.get("zustand") != "defekt":
+                raus("anderer Zustand als gewünscht"); continue
+            if any(_hat(o, voll) for o in v["ohne"]):
+                raus("enthält, was du nicht willst"); continue
+            a["wunsch_da"] = [w for w in v["wuensche"] if _hat(w, voll)]
+            a["wunsch_offen"] = [w for w in v["wuensche"] if w not in a["wunsch_da"]]
+            aus.append(a)
+        return aus
+
+    for k in ("treffer", "aehnlich", "auffaellig", "defekt"):
+        e[k] = sieb(e[k])
+    # Angebote, bei denen ein Ausstattungswunsch nirgends genannt ist, zählen nur als „fast passend“
+    offen = [a for a in e["treffer"] if a["wunsch_offen"]]
+    e["treffer"] = [a for a in e["treffer"] if not a["wunsch_offen"]]
+    e["aehnlich"] = sorted(e["aehnlich"] + offen, key=lambda a: (len(a.get("wunsch_offen", [])), a["preis"]))[:80]
+    return e
