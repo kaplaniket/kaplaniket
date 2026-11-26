@@ -148,19 +148,26 @@ fehler += not gut
 print("%-6s Verweis „Name ab … €“ zählt nicht als Bestätigung" % ("ok" if gut else "FEHLER"))
 # Schnäppchen
 import datetime
-basis = [{"quelle": "K", "titel": "x", "preis": p, "url": str(i), "art": "privat", "zustand": "gebraucht", "hinweis": "Versand möglich · 25.11.2026"} for i, p in enumerate([240, 250, 250, 260, 260, 270, 280, 300, 150])]
+basis = [{"quelle": "K", "titel": "x", "preis": p, "url": str(i), "art": "privat", "zustand": "gebraucht", "hinweis": "Versand möglich · 25.11.2026", "stichprobe": i < 8} for i, p in enumerate([240, 250, 250, 260, 260, 270, 280, 300, 150])]
 sn = kern.schnaeppchen({"treffer": basis + [{"quelle": "A", "titel": "h", "preis": 180, "url": "h", "art": "händler", "zustand": "aufbereitet", "hinweis": ""}],
                         "auffaellig": [{"quelle": "K", "titel": "billig", "preis": 60, "url": "b", "art": "privat", "zustand": "gebraucht", "hinweis": "", "warn": []}]}, datetime.date(2026, 11, 26))
 namen = [(a["preis"], a["risiko"], a["gewinn"]) for a in sn["liste"]]
-gut = sn["markt"] == 260 and namen[0] == (150, "niedrig", 242 - 150 - 6) and (180, "niedrig", 62) in namen and namen[-1][:2] == (60, "hoch")
+gut = sn["markt"] == 260 and namen[0] == (150, "niedrig", 234 - 150 - 6) and (180, "niedrig", 54) in namen and namen[-1][:2] == (60, "hoch")
 fehler += not gut
 print("%-6s Schnäppchen: Markt %s, Liste %s" % ("ok" if gut else "FEHLER", sn["markt"], namen))
 # Schnäppchen je Speichergröße: ein 256-GB-Gerät wird mit 256-GB-Preisen verglichen, nicht mit dem Schnitt aller
-gem = [{"quelle": "K", "titel": "Mac mini M4 256GB", "preis": p, "url": "a%d" % i, "art": "privat", "zustand": "gebraucht", "hinweis": ""} for i, p in enumerate([520, 540, 550, 560, 580, 430])] + \
-      [{"quelle": "K", "titel": "Mac mini M4 512GB", "preis": p, "url": "b%d" % i, "art": "privat", "zustand": "gebraucht", "hinweis": ""} for i, p in enumerate([800, 820, 850, 860, 900])]
+gem = [{"quelle": "K", "titel": "Mac mini M4 256GB", "preis": p, "url": "a%d" % i, "art": "privat", "zustand": "gebraucht", "hinweis": "", "stichprobe": True} for i, p in enumerate([520, 540, 550, 560, 580, 430])] + \
+      [{"quelle": "K", "titel": "Mac mini M4 512GB", "preis": p, "url": "b%d" % i, "art": "privat", "zustand": "gebraucht", "hinweis": "", "stichprobe": True} for i, p in enumerate([800, 820, 850, 860, 900])]
 sn = kern.schnaeppchen({"treffer": gem, "auffaellig": []}, datetime.date(2026, 11, 26))
 gut = sn["gemischt"] and [(a["preis"], a["markt"]) for a in sn["liste"]] == [(430, 545)]
 fehler += not gut
 print("%-6s Schnäppchen je Speichergröße: %s" % ("ok" if gut else "FEHLER", [(a["preis"], a["markt"], a["gewinn"]) for a in sn["liste"]]))
+# Marktpreis nur aus der unsortierten Stichprobe: nachgeladene Billigangebote dürfen die Mitte nicht drücken
+mix = [{"quelle": "Kleinanzeigen", "titel": "x", "preis": p, "url": "s%d" % i, "art": "privat", "zustand": "gebraucht", "hinweis": "", "stichprobe": True} for i, p in enumerate([200, 210, 220, 220, 230, 240, 250, 260])] + \
+      [{"quelle": "Kleinanzeigen", "titel": "x", "preis": 120, "url": "b%d" % i, "art": "privat", "zustand": "gebraucht", "hinweis": ""} for i in range(30)]
+sn = kern.schnaeppchen({"treffer": mix, "auffaellig": []}, datetime.date(2026, 11, 26))
+gut = sn["markt"] == 225 and sn["anzahl_basis"] == 8 and sn["herkunft"] == "Kleinanzeigen"
+fehler += not gut
+print("%-6s Marktpreis aus der Stichprobe: %s (Basis %s)" % ("ok" if gut else "FEHLER", sn["markt"], sn["anzahl_basis"]))
 print("\nERGEBNIS: %s" % ("alles in Ordnung" if not fehler else "%d FEHLER" % fehler))
 sys.exit(1 if fehler else 0)

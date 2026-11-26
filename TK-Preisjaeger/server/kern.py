@@ -466,7 +466,14 @@ def schnaeppchen(e, heute=None):
         gr = [g for g in gr if g >= 64]
         return max(gr) if gr else None
 
-    privat = [a for a in e.get("treffer", []) if a.get("art") == "privat" and a.get("zustand") == "gebraucht"]
+    # Grundlage für den Marktpreis: nur die unsortierte Stichprobe (1. Durchgang, „stichprobe“). Der 2. Durchgang lädt gezielt die
+    # billigsten Angebote nach – die dürfen nicht in die Mitte einfließen, sonst wird der Marktpreis zu niedrig.
+    # Bevorzugt Kleinanzeigen (dort wird weiterverkauft); nur wenn das zu wenige sind, alle Privatmärkte.
+    alle_privat = [a for a in e.get("treffer", []) if a.get("art") == "privat" and a.get("zustand") == "gebraucht" and a.get("stichprobe")]
+    privat = [a for a in alle_privat if a.get("quelle") == "Kleinanzeigen"]
+    herkunft = "Kleinanzeigen"
+    if len(privat) < 8:
+        privat, herkunft = alle_privat, "Kleinanzeigen, Vinted und Shpock"
     basis = sorted(a["preis"] for a in privat)
     if len(basis) < 8:
         return {"markt": None, "anzahl_basis": len(basis), "liste": []}
@@ -476,7 +483,8 @@ def schnaeppchen(e, heute=None):
         je.setdefault(speicher(a), []).append(a["preis"])
     gemischt = len([k for k, v in je.items() if k and len(v) >= 3]) >= 2      # mehrere Speichergrößen im Ergebnis
     markt = markt_alle
-    wieder = round(markt * 0.93)
+    ABSCHLAG = 0.90      # verlangt wird mehr, als am Ende gezahlt wird: Verkaufserlös vorsichtig mit 90 % der verlangten Mitte
+    wieder = round(markt * ABSCHLAG)
     heute = heute or datetime.date.today()
     aus = []
     for a, auff in [(x, False) for x in e.get("treffer", [])] + [(x, True) for x in e.get("auffaellig", [])]:
@@ -491,7 +499,7 @@ def schnaeppchen(e, heute=None):
             else:
                 stufe = 1
                 gruende.append("Speichergröße %s – Marktpreis ist über alle Ausstattungen gemittelt, bitte selbst vergleichen" % ("im Titel nicht genannt" if not k else "selten"))
-        wieder = round(markt * 0.93)
+        wieder = round(markt * ABSCHLAG)
         gewinn = wieder - a["preis"] - versand
         if gewinn < 25 or gewinn < a["preis"] * 0.12:
             continue
@@ -523,4 +531,5 @@ def schnaeppchen(e, heute=None):
         aus.append(dict(a, markt=round(markt), wiederverkauf=wieder, ersparnis=round(markt - a["preis"]), ersparnis_pct=round((1 - a["preis"] / markt) * 100),
                         nebenkosten=versand, gewinn=round(gewinn), rendite=round(gewinn / a["preis"] * 100), risiko=("niedrig", "mittel", "hoch")[stufe], gruende=gruende))
     aus.sort(key=lambda a: ({"niedrig": 0, "mittel": 1, "hoch": 2}[a["risiko"]], -a["gewinn"]))
-    return {"markt": round(markt_alle), "wiederverkauf": round(markt_alle * 0.93), "anzahl_basis": len(basis), "gemischt": gemischt, "liste": aus[:40]}
+    return {"markt": round(markt_alle), "wiederverkauf": round(markt_alle * ABSCHLAG), "anzahl_basis": len(basis), "gemischt": gemischt, "herkunft": herkunft,
+            "von": round(basis[len(basis) // 4]), "bis": round(basis[(3 * len(basis)) // 4]), "liste": aus[:40]}

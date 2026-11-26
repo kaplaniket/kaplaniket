@@ -28,8 +28,8 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "4.2"
-NEUES = "Update-Hinweis in der App, iPhone-Fassung (Home-Bildschirm), Schnäppchen im Umkreis ohne Artikel"      # kurzer Text zum letzten Stand
+FASSUNG = "4.3"
+NEUES = "Schnäppchen: Marktpreis berichtigt (nur noch aus der unsortierten Stichprobe bei Kleinanzeigen), Herkunft der Preise wird angezeigt"      # kurzer Text zum letzten Stand
 
 
 def _bau():
@@ -292,7 +292,7 @@ def _umkreis_alles(job, plz, km, eins):
         markt = s.get("markt")
         if not markt:
             return None
-        gewinn = round(markt * 0.93) - a["preis"]
+        gewinn = round(markt * 0.90) - a["preis"]
         if gewinn < 25 or gewinn < a["preis"] * 0.12:
             return None
         warn = kern.betrug(a["titel"] + " " + a.get("text", ""))
@@ -303,7 +303,7 @@ def _umkreis_alles(job, plz, km, eins):
                   ["Produkt wurde von der KI aus dem Titel erkannt („%s“) – Modell, Ausstattung und Zustand selbst prüfen" % begriff]
         a.pop("text", None)
         return dict(a, quelle="Kleinanzeigen", art="privat", zustand="gebraucht", produkt=begriff, entdeckt=True, km=entfernung(plz, m.group(1)) if m else None,
-                    markt=round(markt), wiederverkauf=round(markt * 0.93), ersparnis=round(markt - a["preis"]), ersparnis_pct=round((1 - a["preis"] / markt) * 100),
+                    markt=round(markt), wiederverkauf=round(markt * 0.90), ersparnis=round(markt - a["preis"]), ersparnis_pct=round((1 - a["preis"] / markt) * 100),
                     nebenkosten=0, gewinn=gewinn, rendite=round(gewinn / a["preis"] * 100), risiko="hoch" if hoch else "mittel", gruende=gruende)
 
     _sjobs[job]["schritt"] = "Vergleiche %d Fundstücke aus deiner Gegend mit dem Marktpreis …" % len(wahl)
@@ -480,7 +480,8 @@ def _suche_eine(anfrage, streng=True, tiefe=1, plz=None, km=None, nur_abholung=F
     aktiv = lambda: [dict(a) for a in roh if not a.get("ersetzt")]
     roh, status = [], {n: {"name": n, "gefunden": 0, "passend": 0, "fehler": ""} for n, _, _, _ in quellen.QUELLEN}
 
-    def sammeln(auftraege):
+    def sammeln(auftraege, stichprobe=False):
+        # stichprobe=True: unsortierte Treffer (Reihenfolge der Seite) – nur sie zählen für den Marktpreis der Schnäppchen-Rechnung
         with ThreadPoolExecutor(max_workers=10) as p:
             laeufe = [p.submit(_lauf, *a) for a in auftraege]
             wait(laeufe, timeout=30 * tiefe)
@@ -490,6 +491,8 @@ def _suche_eine(anfrage, streng=True, tiefe=1, plz=None, km=None, nur_abholung=F
                 name, liste, fehler = l.result()
                 for a in liste:
                     a.setdefault("quelle", name)
+                    if stichprobe:
+                        a["stichprobe"] = True
                 roh.extend(liste)
                 status[name]["gefunden"] += len(liste)
                 if fehler and not status[name]["fehler"]:
@@ -499,7 +502,7 @@ def _suche_eine(anfrage, streng=True, tiefe=1, plz=None, km=None, nur_abholung=F
     quellen.GESAMT.pop("Kleinanzeigen", None)
     sammeln([(n, ka if n == "Kleinanzeigen" else f, anfrage, None, 1) for n, f, _, _ in quellen.QUELLEN]
             + [("Kleinanzeigen", ka, anfrage, None, s) for s in range(2, ka_neu + 1)]
-            + [("Vinted", quellen.vinted, anfrage, None, s) for s in range(2, vi_neu + 1)])
+            + [("Vinted", quellen.vinted, anfrage, None, s) for s in range(2, vi_neu + 1)], stichprobe=True)
     e = kern.bewerten(anfrage, aktiv(), streng)
     nachpruefen(anfrage, roh, streng)
     e = kern.bewerten(anfrage, aktiv(), streng)
