@@ -25,7 +25,12 @@ ZUBEHOER |= STARK
 BEIGABE = {"ovp", "rechnung", "zubehör", "garantie", "originalverpackung", "restgarantie", "karton"}
 NACHBAU = {"replica", "replika", "replik", "nachbau", "fake", "fälschung", "kopie", "imitat", "clone", "klon"}
 MITGELIEFERT = {"inkl", "inklusive", "mit", "samt", "plus", "und", "incl", "zzgl", "dazu", "sowie", "gratis"}
-PASSEND = {"für", "fuer", "for", "passend", "kompatibel", "geeignet", "compatible"}
+PASSEND = {"für", "fuer", "for", "passend", "kompatibel", "geeignet", "compatible", "per", "pour", "para", "voor", "gegen"}
+# Wörter, die vor dem Produktnamen stehen dürfen, ohne dass es ein anderes Produkt ist
+FUELL = {"verkaufe", "verkauf", "verkaufen", "biete", "mein", "meine", "meinen", "ein", "eine", "einen", "neu", "neue", "neuer", "neues",
+         "neuwertig", "neuwertige", "neuwertiges", "original", "originale", "originales", "top", "zustand", "gebraucht", "wie", "sehr",
+         "gut", "guter", "ovp", "der", "die", "das", "hier", "zum", "zu", "angebot", "super", "fast", "kaum", "unbenutzt", "versiegelt",
+         "und", "in", "mit", "nagelneu", "nagelneues", "tolles", "toller", "schönes", "schöner", "gepflegtes", "gepflegter"}
 GESUCH = {"suche", "gesuch", "gesucht", "ankauf", "kaufe", "tausch", "tausche", "miete", "mieten", "verleih", "vermiete",
           "reparatur", "reparieren", "wanted"}
 DEFEKT_WORT = {"defekt", "defekter", "defektes", "defekte", "kaputt", "bastler", "bastlergerät", "displaybruch", "displayschaden",
@@ -129,6 +134,26 @@ def pruefe(anfrage, titel, text="", streng=True):
             i += len(ag[n - 1])
         stellen.append((i, i + len(g)))
     erste = min(s[0] for s in stellen)
+    # Die Suchwörter (ohne Größenangaben wie 128gb) müssen beieinander stehen: „Dyson Zubehör für V10, V15, V8, V11“ ist kein Dyson V11
+    kern_g = [(n, g) for n, g in enumerate(ag) if not all(re.match(r"\d+[a-zäöü]+$", w) for w in g)]
+    if len(kern_g) > 1:
+        orte = [[i for i in range(len(tt) - len(g) + 1) if tt[i:i + len(g)] == g] for _, g in kern_g]
+        beste = None
+        for start in orte[0]:
+            nah = [start] + [min(o, key=lambda x: abs(x - start)) for o in orte[1:]]
+            weite = max(p + len(g) for p, (_, g) in zip(nah, kern_g)) - min(nah)
+            if beste is None or weite < beste[0]:
+                beste = (weite, nah)
+        if beste[0] > sum(len(g) for _, g in kern_g) + 2:
+            return False, "fehlt"
+        for p, (n, g) in zip(beste[1], kern_g):
+            stellen[n] = (p, p + len(g))
+        erste = min(s[0] for s in stellen)
+    # Produktname erst weit hinten, davor etwas anderes: „Crucial 2TB SSD für PS5 PlayStation 5“
+    erste_kern = next(i for i, w in enumerate(tt) if w in aw)
+    davor_fremd = [w for w in tt[:erste_kern] if w not in FUELL and w not in aw and not w.isdigit()]
+    if len(davor_fremd) >= 3:
+        return False, "fehlt"
     tl = titel.lower()
     if any(s in tl for s in LEER):
         return False, "leer"
