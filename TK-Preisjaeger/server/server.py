@@ -19,7 +19,7 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "1.3"
+FASSUNG = "1.3.1"
 _speicher, _sperre = {}, threading.Lock()
 
 
@@ -178,6 +178,9 @@ class Antwort(BaseHTTPRequestHandler):
         except Exception:
             d = {}
         a = " ".join(str(d.get("anfrage", "")).split())[:120]
+        if u.path == "/api/fehler":
+            print("OBERFLÄCHE-FEHLER:", str(d.get("text", ""))[:300], "|", (self.headers.get("User-Agent") or "")[-40:], flush=True)
+            return self._json({})
         if u.path == "/api/details":
             try:
                 url = str(d.get("url") or "")
