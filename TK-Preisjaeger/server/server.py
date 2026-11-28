@@ -30,7 +30,7 @@ HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
 FASSUNG = "4.8"
-NEUES = "Verhandeln berichtigt: keine wiederholten Nachrichten mehr, nach einem endgültigen Nein wird nicht weiter geboten"      # kurzer Text zum letzten Stand
+NEUES = "Protokoll: Der HP hält fest, wann die App vom iPhone oder Mac geöffnet wird (hilft bei Verbindungsproblemen)"      # kurzer Text zum letzten Stand
 
 
 def _bau():
@@ -678,6 +678,9 @@ class Antwort(BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         p = urllib.parse.parse_qs(u.query)
         if u.path == "/":
+            ua = self.headers.get("User-Agent") or ""
+            geraet = "iPhone" if "iPhone" in ua else "Mac" if "Macintosh" in ua else "anderes"
+            print("SEITE geöffnet:", geraet, "| über Tailscale" if self.headers.get("Tailscale-User-Login") else "| direkt", flush=True)
             with open(os.path.join(ORT, "index.html"), "rb") as f:
                 b = f.read().replace(b"{{FASSUNG}}", FASSUNG.encode()).replace(b"{{BAU}}", str(BAU["nr"]).encode())
             self.send_response(200)
