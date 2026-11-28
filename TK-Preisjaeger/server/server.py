@@ -29,8 +29,8 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "4.9"
-NEUES = "Schnäppchen-Radar bleibt nach einem Update erhalten und ist sofort da"      # kurzer Text zum letzten Stand
+FASSUNG = "4.10"
+NEUES = "Handy: in jedem Fenster oben „Anfang“ und „Schließen“, dazu ein Pfeil-Knopf zurück nach oben"      # kurzer Text zum letzten Stand
 
 
 def _bau():
