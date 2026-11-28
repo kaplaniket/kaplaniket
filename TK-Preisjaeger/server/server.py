@@ -29,8 +29,8 @@ MERK = os.path.join(DATEN, "merkliste.json")
 HANDEL = os.path.join(DATEN, "verhandlungen.json")
 NAME = os.environ.get("PREISJAEGER_NAME", "")      # Vorname für den Gruß in Nachrichten
 PORT = int(os.environ.get("PREISJAEGER_PORT", "8815"))
-FASSUNG = "4.8"
-NEUES = "Protokoll: Der HP hält fest, wann die App vom iPhone oder Mac geöffnet wird (hilft bei Verbindungsproblemen)"      # kurzer Text zum letzten Stand
+FASSUNG = "4.9"
+NEUES = "Schnäppchen-Radar bleibt nach einem Update erhalten und ist sofort da"      # kurzer Text zum letzten Stand
 
 
 def _bau():
@@ -237,6 +237,13 @@ TIEFE = {1: (4, 12, 2, 3), 2: (8, 40, 4, 8)}
 RADAR = ["iphone 13 128gb", "iphone 14 128gb", "iphone 15 128gb", "macbook air m1", "macbook air m2", "ipad 9 64gb", "playstation 5", "nintendo switch oled",
          "steam deck oled", "dyson v11", "dyson v15", "airpods pro 2", "apple watch series 9", "sony wh-1000xm5", "thermomix tm6"]
 _radar = {"zeit": 0, "daten": None, "laeuft": False}
+RADARDATEI = os.path.join(DATEN, "radar.json")
+try:      # letzter Radar-Stand übersteht Neustart und Update
+    with open(RADARDATEI, encoding="utf-8") as _f:
+        _alt = json.load(_f)
+    _radar.update(zeit=_alt.get("zeit", 0), daten=_alt.get("daten"), gemeldet=set(_alt.get("gemeldet", [])))
+except Exception:
+    pass
 
 
 EIGENE = os.path.join(DATEN, "radar.json")      # von Tekin ergänzte Radar-Produkte
@@ -413,6 +420,10 @@ def _radar_lauf(melde=False):
                 _radar["gemeldet"].add(a["url"])
                 melden("💰 Preisjäger-Radar: %s für %s (üblich %s) – möglicher Gewinn rund %s\n%s\n%s" % (
                     a["produkt"], _eur(a["preis"]), _eur(a["markt"]), _eur(a["gewinn"]), a["titel"][:80], a["url"]))
+        os.makedirs(DATEN, exist_ok=True)
+        with open(RADARDATEI + ".neu", "w", encoding="utf-8") as f:
+            json.dump({"zeit": _radar["zeit"], "daten": _radar["daten"], "gemeldet": sorted(_radar.get("gemeldet", set()))[-300:]}, f, ensure_ascii=False)
+        os.replace(RADARDATEI + ".neu", RADARDATEI)
     except Exception as x:
         print("Radar:", x, flush=True)
     finally:
